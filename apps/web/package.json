@@ -9,12 +9,17 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tanstack/react-query": "latest",
     "next": "16.3.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-hook-form": "latest",
+    "recharts": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "msw": "latest",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
