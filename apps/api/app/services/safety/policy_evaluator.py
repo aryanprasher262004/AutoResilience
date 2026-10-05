@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from app.domain.experiment import ExperimentSpec
+from app.domain.experiment import SUPPORTED_FAULT_TYPES, ExperimentSpec
 from app.domain.safety_policy import SafetyPolicy
 from app.integrations.kubernetes_adapter import WorkloadStatus
 
@@ -81,7 +81,14 @@ def evaluate_static(spec: ExperimentSpec, policy: SafetyPolicy) -> list[CheckRes
     forbidden = namespace in policy.forbidden_namespaces
     duration_ok = spec.duration_seconds <= policy.max_duration_seconds
     replicas_ok = spec.affected_replicas <= policy.max_affected_replicas
+    supported = spec.fault_type in SUPPORTED_FAULT_TYPES
     return [
+        _check(
+            "fault_type_supported",
+            supported,
+            f"Fault type '{spec.fault_type}' is "
+            + ("supported" if supported else "not supported yet"),
+        ),
         _check(
             "namespace_not_forbidden",
             not forbidden,

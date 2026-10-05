@@ -10,6 +10,10 @@ class FaultType(StrEnum):
     POD_NETWORK_LATENCY = "pod-network-latency"
 
 
+# Fault types the platform can actually inject today.
+SUPPORTED_FAULT_TYPES = frozenset({FaultType.POD_DELETE})
+
+
 class WorkloadKind(StrEnum):
     DEPLOYMENT = "Deployment"
     STATEFULSET = "StatefulSet"

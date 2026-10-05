@@ -20,6 +20,9 @@ class WorkloadStatus:
     running_pods: int
     # Running, Ready and not terminating: the pods actually serving traffic.
     ready_pods: int
+    # The workload's pod selector and its ready pods (used to scope fault injection).
+    selector: str = ""
+    ready_pod_names: tuple[str, ...] = ()
 
 
 class ClusterUnavailableError(Exception):
@@ -51,11 +54,33 @@ class KubernetesAdapter:
         except (ConfigException, HTTPError, OSError) as exc:
             raise ClusterUnavailableError(f"Kubernetes API unreachable: {exc}") from exc
 
+        ready = sorted(p.metadata.name for p in pods.items if _is_ready(p))
         return WorkloadStatus(
             desired_replicas=workload.spec.replicas or 0,
             running_pods=sum(1 for p in pods.items if _is_running(p)),
-            ready_pods=sum(1 for p in pods.items if _is_ready(p)),
+            ready_pods=len(ready),
+            selector=selector,
+            ready_pod_names=tuple(ready),
         )
+
+    def live_pod_names(self, namespace: str, names: list[str]) -> set[str]:
+        """Which of the named pods still exist and are not terminating."""
+        try:
+            pods = client.CoreV1Api(self._client()).list_namespaced_pod(
+                namespace, _request_timeout=self._timeout
+            )
+        except ApiException as exc:
+            raise ClusterUnavailableError(
+                f"Kubernetes API error {exc.status}: {exc.reason}"
+            ) from exc
+        except (ConfigException, HTTPError, OSError) as exc:
+            raise ClusterUnavailableError(f"Kubernetes API unreachable: {exc}") from exc
+        wanted = set(names)
+        return {
+            p.metadata.name
+            for p in pods.items
+            if p.metadata.name in wanted and p.metadata.deletion_timestamp is None
+        }
 
     def _read_workload(self, target: ExperimentTarget) -> Any:
         apps = client.AppsV1Api(self._client())

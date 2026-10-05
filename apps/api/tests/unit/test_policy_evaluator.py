@@ -47,6 +47,7 @@ def test_valid_spec_passes_all_static_checks() -> None:
 
     assert all(c.status is P for c in checks)
     assert [c.name for c in checks] == [
+        "fault_type_supported",
         "namespace_not_forbidden",
         "namespace_allowed",
         "duration_within_limit",
@@ -83,6 +84,18 @@ def test_allowlist_is_enforced_when_configured() -> None:
 def test_forbidden_wins_over_allowlist() -> None:
     policy = SafetyPolicy(allowed_namespaces=frozenset({"kube-system"}))
     assert failure_reasons(evaluate_static(spec(namespace="kube-system"), policy))
+
+
+def test_unsupported_fault_type_fails() -> None:
+    s = ExperimentSpec(
+        target=ExperimentTarget("shop", WorkloadKind.DEPLOYMENT, "checkout"),
+        fault_type=FaultType.POD_CPU_HOG,
+        duration_seconds=60,
+        affected_replicas=1,
+    )
+    assert failure_reasons(evaluate_static(s, DEFAULT_SAFETY_POLICY)) == [
+        "Fault type 'pod-cpu-hog' is not supported yet"
+    ]
 
 
 # --- cluster checks --------------------------------------------------------

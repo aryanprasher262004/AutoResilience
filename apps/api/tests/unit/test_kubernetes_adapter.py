@@ -24,9 +24,17 @@ def workload(replicas: int = 3, labels: dict[str, str] | None = None) -> NS:
     return NS(spec=NS(replicas=replicas, selector=selector))
 
 
-def pod(phase: str = "Running", ready: bool = True, terminating: bool = False) -> NS:
+def pod(
+    phase: str = "Running",
+    ready: bool = True,
+    terminating: bool = False,
+    name: str = "frontend-abc-12345",
+) -> NS:
     return NS(
-        metadata=NS(deletion_timestamp="2026-01-01T00:00:00Z" if terminating else None),
+        metadata=NS(
+            name=name,
+            deletion_timestamp="2026-01-01T00:00:00Z" if terminating else None,
+        ),
         status=NS(
             phase=phase,
             conditions=[NS(type="Ready", status="True" if ready else "False")],
@@ -60,17 +68,23 @@ def test_counts_running_and_ready_pods(apis: tuple[MagicMock, MagicMock]) -> Non
     apps.read_namespaced_deployment.return_value = workload(replicas=4)
     core.list_namespaced_pod.return_value = NS(
         items=[
-            pod(),
-            pod(),
-            pod(ready=False),  # running, not ready
-            pod(terminating=True),  # being deleted
-            pod(phase="Pending", ready=False),
+            pod(name="frontend-b"),
+            pod(name="frontend-a"),
+            pod(ready=False, name="frontend-c"),  # running, not ready
+            pod(terminating=True, name="frontend-d"),  # being deleted
+            pod(phase="Pending", ready=False, name="frontend-e"),
         ]
     )
 
     status = adapter().get_workload_status(DEPLOYMENT)
 
-    assert status == WorkloadStatus(desired_replicas=4, running_pods=3, ready_pods=2)
+    assert status == WorkloadStatus(
+        desired_replicas=4,
+        running_pods=3,
+        ready_pods=2,
+        selector="app=frontend",
+        ready_pod_names=("frontend-a", "frontend-b"),
+    )
     apps.read_namespaced_deployment.assert_called_once_with(
         "frontend", "shop", _request_timeout=5
     )
@@ -85,7 +99,10 @@ def test_statefulset_uses_statefulset_api(apis: tuple[MagicMock, MagicMock]) -> 
     apps.read_namespaced_stateful_set.return_value = workload(1, {"app": "cart-redis"})
     core.list_namespaced_pod.return_value = NS(items=[pod()])
 
-    assert adapter().get_workload_status(STATEFULSET) == WorkloadStatus(1, 1, 1)
+    status = adapter().get_workload_status(STATEFULSET)
+    assert status is not None
+    assert (status.desired_replicas, status.ready_pods) == (1, 1)
+    assert status.selector == "app=cart-redis"
     apps.read_namespaced_deployment.assert_not_called()
 
 
@@ -157,3 +174,28 @@ def test_label_selector_to_string() -> None:
 def test_empty_selector_is_rejected() -> None:
     with pytest.raises(ClusterUnavailableError, match="empty pod selector"):
         label_selector_to_string(NS(match_labels=None, match_expressions=None))
+
+
+def test_live_pod_names_excludes_missing_and_terminating(
+    apis: tuple[MagicMock, MagicMock],
+) -> None:
+    apps, core = apis
+    core.list_namespaced_pod.return_value = NS(
+        items=[
+            pod(name="checkout-a"),
+            pod(name="checkout-b", terminating=True),
+            pod(name="other"),
+        ]
+    )
+
+    live = adapter().live_pod_names("shop", ["checkout-a", "checkout-b", "checkout-c"])
+
+    assert live == {"checkout-a"}
+    assert_read_only(apps, core)
+
+
+def test_live_pod_names_failure_raises(apis: tuple[MagicMock, MagicMock]) -> None:
+    _, core = apis
+    core.list_namespaced_pod.side_effect = ApiException(status=500, reason="boom")
+    with pytest.raises(ClusterUnavailableError, match="500"):
+        adapter().live_pod_names("shop", ["x"])

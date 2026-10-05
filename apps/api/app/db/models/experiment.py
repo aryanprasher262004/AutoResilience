@@ -57,6 +57,8 @@ class Experiment(Base):
     validation_result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     # Last baseline capture (CAPTURED or FAILED, with per-metric-group results).
     baseline: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Fault injection record: Litmus engine identity, target pods, status, failure.
+    chaos: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow

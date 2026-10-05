@@ -59,6 +59,21 @@ class BaselineRead(BaseModel):
     failure_reasons: list[str]
 
 
+class ChaosRead(BaseModel):
+    provider: str
+    experiment: str
+    engine_name: str | None = None
+    namespace: str | None = None
+    target_pods: list[str] = []
+    duration_seconds: int | None = None
+    created_at: datetime | None = None
+    injected_at: datetime | None = None
+    status: dict[str, str | None] | None = None
+    failure_reason: str | None = None
+    stopped: bool | None = None
+    stop_error: str | None = None
+
+
 class ExperimentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,5 +87,6 @@ class ExperimentRead(BaseModel):
     affected_replicas: int
     validation_result: ValidationResultRead | None
     baseline: BaselineRead | None
+    chaos: ChaosRead | None
     created_at: datetime
     updated_at: datetime
