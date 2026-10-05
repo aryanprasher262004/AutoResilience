@@ -55,6 +55,8 @@ class Experiment(Base):
     affected_replicas: Mapped[int] = mapped_column(Integer)
     # Output of the last safety validation (checks, reasons, policy snapshot).
     validation_result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Last baseline capture (CAPTURED or FAILED, with per-metric-group results).
+    baseline: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow

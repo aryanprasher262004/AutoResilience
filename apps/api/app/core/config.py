@@ -12,6 +12,9 @@ class Settings(BaseSettings):
         "postgresql+psycopg://postgres:postgres@localhost:5432/autoresilience"
     )
     prometheus_url: str = "http://localhost:9090"
+    prometheus_timeout_seconds: float = 5.0
+    # How much steady-state history the baseline summarizes.
+    baseline_window_seconds: int = 300
     frontend_origin: str = "http://localhost:3000"
     # kubeconfig context for the target cluster; None uses the current context.
     kube_context: str | None = None

@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,13 +7,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.routes.experiments import get_kubernetes_adapter
+from app.api.routes.experiments import (
+    get_baseline_window_seconds,
+    get_kubernetes_adapter,
+    get_prometheus_client,
+)
 from app.db import models  # noqa: F401  (registers models on Base.metadata)
 from app.db.base import Base
 from app.db.session import get_db
-from app.domain.experiment import ExperimentTarget
+from app.domain.experiment import ExperimentTarget, WorkloadKind
 from app.integrations.kubernetes_adapter import ClusterUnavailableError, WorkloadStatus
+from app.integrations.prometheus_client import PrometheusError
 from app.main import app
+from app.services.orchestration.baseline import baseline_queries
 
 
 class FakeKubernetes:
@@ -28,6 +35,52 @@ class FakeKubernetes:
         if self.error is not None:
             raise ClusterUnavailableError(self.error)
         return self.status
+
+
+HEALTHY_BASELINE: dict[str, float | None] = {
+    "desired_replicas": 2,
+    "available_replicas_avg": 2,
+    "available_replicas_min": 2,
+    "availability_samples": 20,
+    "restarts_total": 1,
+    "restarts_in_window": 0,
+    "request_series": 2,
+    "request_rate_rps": 1.5,
+    "error_rate_rps": None,  # no 5xx series recorded
+}
+
+
+# The target used by API tests (see tests/api/test_experiments.py::payload).
+CHECKOUT = ExperimentTarget("shop", WorkloadKind.DEPLOYMENT, "checkout")
+WINDOW_SECONDS = 300
+
+
+class FakePrometheus:
+    """Answers the baseline queries for one target by query name; defaults are healthy.
+
+    Set a value to None for an empty result or to an exception to raise it;
+    set `error` to fail every query.
+    """
+
+    def __init__(
+        self, target: ExperimentTarget = CHECKOUT, window_seconds: int = WINDOW_SECONDS
+    ) -> None:
+        self.values: dict[str, float | None | Exception] = dict(HEALTHY_BASELINE)
+        self.error: str | None = None
+        self.queries: list[tuple[str, datetime]] = []
+        self._names = {
+            promql: name
+            for name, promql in baseline_queries(target, window_seconds).items()
+        }
+
+    def query_value(self, promql: str, at: datetime) -> float | None:
+        self.queries.append((promql, at))
+        if self.error is not None:
+            raise PrometheusError(self.error)
+        result = self.values[self._names[promql]]
+        if isinstance(result, Exception):
+            raise result
+        return result
 
 
 @pytest.fixture
@@ -49,9 +102,18 @@ def kubernetes() -> FakeKubernetes:
 
 
 @pytest.fixture
-def client(db_session: Session, kubernetes: FakeKubernetes) -> Iterator[TestClient]:
+def prometheus() -> FakePrometheus:
+    return FakePrometheus()
+
+
+@pytest.fixture
+def client(
+    db_session: Session, kubernetes: FakeKubernetes, prometheus: FakePrometheus
+) -> Iterator[TestClient]:
     app.dependency_overrides[get_db] = lambda: db_session
     app.dependency_overrides[get_kubernetes_adapter] = lambda: kubernetes
+    app.dependency_overrides[get_prometheus_client] = lambda: prometheus
+    app.dependency_overrides[get_baseline_window_seconds] = lambda: WINDOW_SECONDS
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

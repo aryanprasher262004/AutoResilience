@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated
 
@@ -12,7 +13,9 @@ from app.db.session import get_db
 from app.domain.safety_policy import DEFAULT_SAFETY_POLICY, SafetyPolicy
 from app.domain.state_machine import InvalidTransitionError
 from app.integrations.kubernetes_adapter import KubernetesAdapter
+from app.integrations.prometheus_client import PrometheusClient
 from app.schemas.experiment import ExperimentCreate, ExperimentRead
+from app.services.orchestration.baseline import run_baseline
 from app.services.orchestration.preflight import run_validation
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
@@ -30,9 +33,23 @@ def get_kubernetes_adapter() -> KubernetesAdapter:
     )
 
 
+@lru_cache
+def get_prometheus_client() -> PrometheusClient:
+    settings = get_settings()
+    return PrometheusClient(
+        settings.prometheus_url, settings.prometheus_timeout_seconds
+    )
+
+
+def get_baseline_window_seconds() -> int:
+    return get_settings().baseline_window_seconds
+
+
 DbSession = Annotated[Session, Depends(get_db)]
 Policy = Annotated[SafetyPolicy, Depends(get_safety_policy)]
 Kubernetes = Annotated[KubernetesAdapter, Depends(get_kubernetes_adapter)]
+Prometheus = Annotated[PrometheusClient, Depends(get_prometheus_client)]
+BaselineWindow = Annotated[int, Depends(get_baseline_window_seconds)]
 
 
 def _get_or_404(db: Session, experiment_id: uuid.UUID) -> Experiment:
@@ -83,6 +100,29 @@ def validate_experiment(
     experiment = _get_or_404(db, experiment_id)
     try:
         run_validation(db, experiment, policy, kubernetes)
+    except InvalidTransitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    db.refresh(experiment)
+    return experiment
+
+
+@router.post("/{experiment_id}/baseline", response_model=ExperimentRead)
+def capture_experiment_baseline(
+    experiment_id: uuid.UUID,
+    db: DbSession,
+    prometheus: Prometheus,
+    window_seconds: BaselineWindow,
+) -> Experiment:
+    """Capture a steady-state baseline from Prometheus.
+
+    Success moves BASELINING -> INJECTING; a failed capture is recorded and the
+    experiment stays in BASELINING so it can be retried. No fault is injected.
+    """
+    experiment = _get_or_404(db, experiment_id)
+    try:
+        run_baseline(db, experiment, prometheus, window_seconds, datetime.now(UTC))
     except InvalidTransitionError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)

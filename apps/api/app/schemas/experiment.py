@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.experiment import FaultType, WorkloadKind
 from app.domain.state_machine import ExperimentState
+from app.services.orchestration.baseline import BaselineStatus, MetricStatus
 from app.services.safety.policy_evaluator import CheckStatus
 
 # Kubernetes naming rules (RFC 1123), checked statically before anything is stored.
@@ -42,6 +43,22 @@ class ValidationResultRead(BaseModel):
     policy: dict[str, object]
 
 
+class MetricGroupRead(BaseModel):
+    status: MetricStatus
+    message: str
+    values: dict[str, float | int | None]
+
+
+class BaselineRead(BaseModel):
+    status: BaselineStatus
+    captured_at: datetime
+    window_seconds: int
+    availability: MetricGroupRead
+    restarts: MetricGroupRead
+    requests: MetricGroupRead
+    failure_reasons: list[str]
+
+
 class ExperimentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,5 +71,6 @@ class ExperimentRead(BaseModel):
     duration_seconds: int
     affected_replicas: int
     validation_result: ValidationResultRead | None
+    baseline: BaselineRead | None
     created_at: datetime
     updated_at: datetime
