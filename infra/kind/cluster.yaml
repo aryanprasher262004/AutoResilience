@@ -1,6 +1,12 @@
 # Local AutoResilience development cluster. Created by scripts/dev-cluster.sh.
+# Port mappings only apply at creation; recreate the cluster after changing them.
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: autoresilience
 nodes:
   - role: control-plane
+    extraPortMappings:
+      # Prometheus server NodePort (monitoring/prometheus/values.yaml) -> localhost:9090
+      - containerPort: 30090
+        hostPort: 9090
+        listenAddress: "127.0.0.1"

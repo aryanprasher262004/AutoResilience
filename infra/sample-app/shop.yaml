@@ -1,6 +1,9 @@
 # Sample "shop" microservices used as chaos targets in local development.
 # Replica counts are chosen so blast-radius checks have both passing and failing cases:
 #   frontend 3, checkout 2, cart-redis 1 (single replica: any pod fault leaves 0 healthy).
+# Only checkout (podinfo) exposes HTTP request metrics (http_requests_total{status});
+# loadgen sends it steady traffic so request/error rates are real, not zero-by-default.
+# frontend (nginx) and cart-redis expose no request metrics.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -52,17 +55,25 @@ spec:
   template:
     metadata:
       labels: {app: checkout}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9797"
+        prometheus.io/path: /metrics
     spec:
       containers:
-        - name: checkout
-          image: hashicorp/http-echo:1.0
-          args: ["-text=checkout ok", "-listen=:5678"]
-          ports: [{containerPort: 5678}]
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.9.2
+          command: ["./podinfo", "--port=9898", "--port-metrics=9797", "--level=info"]
+          ports:
+            - {name: http, containerPort: 9898}
+            - {name: metrics, containerPort: 9797}
           readinessProbe:
-            httpGet: {path: /, port: 5678}
+            httpGet: {path: /readyz, port: 9898}
+          livenessProbe:
+            httpGet: {path: /healthz, port: 9898}
           resources:
-            requests: {cpu: 10m, memory: 8Mi}
-            limits: {memory: 32Mi}
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {memory: 64Mi}
 ---
 apiVersion: v1
 kind: Service
@@ -71,7 +82,7 @@ metadata:
   namespace: shop
 spec:
   selector: {app: checkout}
-  ports: [{port: 80, targetPort: 5678}]
+  ports: [{port: 80, targetPort: 9898}]
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -107,3 +118,28 @@ spec:
   clusterIP: None
   selector: {app: cart-redis}
   ports: [{port: 6379}]
+---
+# Steady synthetic traffic (~2 req/s) to checkout so its request metrics have data.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  namespace: shop
+  labels: {app: loadgen}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: loadgen}
+  template:
+    metadata:
+      labels: {app: loadgen}
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl:8.15.0
+          command: ["/bin/sh", "-c"]
+          args:
+            - while true; do curl -s -o /dev/null --max-time 2 http://checkout/; sleep 0.5; done
+          resources:
+            requests: {cpu: 5m, memory: 8Mi}
+            limits: {memory: 32Mi}

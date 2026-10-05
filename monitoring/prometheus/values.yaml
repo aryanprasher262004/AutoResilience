@@ -1,0 +1,29 @@
+# prometheus-community/prometheus chart values for the local kind cluster.
+# Installed by scripts/dev-cluster.sh (chart version pinned there).
+# Scope: Prometheus server + kube-state-metrics only. Pods opt in to scraping with
+# the prometheus.io/scrape|port|path annotations (chart's "kubernetes-pods" job).
+
+server:
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+  retention: 2d
+  persistentVolume:
+    enabled: false # dev cluster: data is disposable
+  service:
+    type: NodePort
+    nodePort: 30090 # mapped to localhost:9090 by infra/kind/cluster.yaml
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 1Gi}
+
+kube-state-metrics:
+  enabled: true
+
+# Not needed yet (Alertmanager arrives with alerting work).
+alertmanager:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
