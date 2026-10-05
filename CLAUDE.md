@@ -6,7 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AutoResilience is a self-service resilience testing platform for Kubernetes: configure a controlled failure, validate safety, observe impact via Prometheus/Alertmanager, measure recovery, calculate an explainable Resilience Score, and produce evidence-backed reports. Target stack: LitmusChaos for failure injection, FastAPI orchestration/analysis, PostgreSQL for experiment history, Next.js/React UI.
 
-**Current state:** early scaffold. `apps/api` is a bare FastAPI app with a single `/health` route; `apps/web` is an unmodified `create-next-app` output. `chaos/`, `infra/`, `monitoring/`, `packages/contracts/`, `scripts/`, `tests/`, and `docs/` exist as empty directories — treat them as intended locations for chaos experiment templates/policies, Kubernetes/Helm infra, Prometheus/Grafana/Alertmanager config, shared API contracts, tooling scripts, and product docs respectively, not as populated code to read.
+**Current state:** backend foundation (B1), static safety validation (B2) and cluster-aware preflight (B3) done; everything else is scaffold.
+- `apps/api` implements: settings (`app/core/config.py`), SQLAlchemy 2 + psycopg 3 (`app/db/`), the 11-state experiment state machine with explicit transitions (`app/domain/state_machine.py`), and the `Experiment` model (target namespace/kind/name, fault type, duration, affected replicas, `validation_result` JSON) with Alembic migrations.
+- Endpoints: `GET /health`, `POST /experiments`, `GET /experiments`, `GET /experiments/{id}`, `POST /experiments/{id}/validate`. Validate runs `CREATED → VALIDATING → BASELINING | VALIDATION_FAILED` via `services/orchestration/preflight.py`, committing each step; non-`CREATED` experiments get 409.
+- Safety: `domain/safety_policy.py` holds the code-defined `DEFAULT_SAFETY_POLICY` (injected via `get_safety_policy`; not persisted). `services/safety/policy_evaluator.py` is pure: `evaluate_static` (namespace forbidden/allowlist, max duration, max affected replicas) and `evaluate_cluster` (workload exists, running+ready pods, ready pods − affected ≥ `min_healthy_replicas`). Every check has a status `PASSED | FAILED | ERROR | SKIPPED`; only all-`PASSED` reaches `BASELINING`. Cluster is queried only if static checks pass; Kubernetes errors become `ERROR`, never a pass. Result JSON: `{passed, static_checks, cluster_checks, policy}`.
+- Kubernetes: `integrations/kubernetes_adapter.py` is **read-only** (only `read_*`/`list_*` calls; tests assert this). Returns `WorkloadStatus` or `None` (404), raises `ClusterUnavailableError` otherwise. Uses kubeconfig context `KUBE_CONTEXT`; injected via `get_kubernetes_adapter` (tests override it with `FakeKubernetes` in `tests/conftest.py`).
+- Local cluster: `scripts/dev-cluster.sh` creates kind cluster `autoresilience` (`infra/kind/cluster.yaml`) and deploys the sample `shop` namespace (`infra/sample-app/shop.yaml`: `frontend` Deployment ×3, `checkout` Deployment ×2, `cart-redis` StatefulSet ×1).
+- Placeholders (2-line `# OWNER: … / # Intended: …`): `integrations/{chaos_provider,prometheus_client}.py`, `services/{analysis,scoring,coverage}`, `services/safety/live_monitor.py`, `orchestration/{baseline,recovery,timeline,orchestrator}.py`, `db/models/safety_policy.py`, `schemas/{coverage,safety}.py`, routes `targets/safety/coverage/reports`. Read the `Intended:` line for planned scope and respect the `OWNER:` tag.
+- `apps/web`: default create-next-app home page plus placeholder `(dashboard)` routes; `package.json` lists deps (react-query, react-hook-form, recharts, msw) that aren't in `package-lock.json` yet.
+- `chaos/`, `monitoring/`, `packages/contracts/`, `infra/{helm,namespaces}` contain only placeholders; `docs/` and `.github/workflows/` are empty.
 
 The root `README.md` states docs should be split into **Concept** (what a term means), **Decision** (why an approach was chosen), **Runbook** (how to operate/debug), and **Contract** (expected data/API shape) — follow this taxonomy if asked to add documentation, and don't duplicate implementation detail that's obvious from code.
 
@@ -18,17 +26,31 @@ The root `README.md` states docs should be split into **Concept** (what a term m
 
 ## Commands
 
+### Local cluster
+```bash
+./scripts/dev-cluster.sh   # idempotent: kind cluster + sample shop app (needs Docker running, kind, kubectl)
+kind delete cluster --name autoresilience
+```
+Run the API against it with `KUBE_CONTEXT=kind-autoresilience`.
+
 ### API (`apps/api`)
 ```bash
 cd apps/api
 uv sync                    # install deps (Python >=3.12)
+uv run alembic upgrade head     # apply migrations to DATABASE_URL
+uv run alembic revision --autogenerate -m "..."   # new migration after model changes
 uv run fastapi dev app/main.py   # run dev server (or: uv run uvicorn app.main:app --reload)
 uv run pytest              # run tests
 uv run pytest path/to/test.py::test_name   # run a single test
 uv run ruff check .        # lint
+uv run ruff format .       # format
 uv run mypy .              # type check
 ```
-Dev/test/lint tooling (`pytest`, `pytest-asyncio`, `ruff`, `mypy`) is declared in the `dev` dependency group in `pyproject.toml`; `uv sync` installs it. There are no test files yet.
+Dev/test/lint tooling (`pytest`, `pytest-asyncio`, `ruff`, `mypy`) is declared in the `dev` dependency group in `pyproject.toml`; `uv sync` installs it.
+
+- Config comes from env vars or `apps/api/.env` (see `.env.example`). `DATABASE_URL` defaults to `postgresql+psycopg://postgres:postgres@localhost:5432/autoresilience`; Alembic reads it from settings, not from `alembic.ini`.
+- New models must be imported in `app/db/models/__init__.py` so autogenerate sees them.
+- Tests use in-memory SQLite via a `get_db` override in `tests/conftest.py` (no Postgres needed), so keep models portable (non-native enums, `sa.Uuid`). Unit tests live in `tests/unit/`, HTTP tests in `tests/api/`.
 
 ### Web (`apps/web`)
 ```bash
