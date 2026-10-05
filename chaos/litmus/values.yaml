@@ -1,0 +1,7 @@
+# litmuschaos/litmus-core chart values (chaos operator + CRDs only, no ChaosCenter).
+# Installed by scripts/dev-cluster.sh; chart version pinned there.
+operator:
+  image:
+    pullPolicy: IfNotPresent # images are preloaded into kind by the script
+exporter:
+  enabled: false

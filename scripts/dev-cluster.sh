@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create (idempotently) the local kind cluster, deploy the sample shop workload and
-# install Prometheus. Requires: docker (running), kind, kubectl, helm.
+# install Prometheus and LitmusChaos. Requires: docker (running), kind, kubectl, helm.
 # After changing infra/kind/cluster.yaml port mappings, delete the cluster first:
 #   kind delete cluster --name autoresilience
 set -euo pipefail
@@ -9,6 +9,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLUSTER=autoresilience
 CONTEXT="kind-${CLUSTER}"
 PROMETHEUS_CHART_VERSION=29.35.0
+LITMUS_CORE_CHART_VERSION=3.31.1
+LITMUS_VERSION=3.31.0
 
 if ! kind get clusters | grep -qx "${CLUSTER}"; then
   kind create cluster --config "${ROOT}/infra/kind/cluster.yaml" --wait 120s
@@ -25,11 +27,32 @@ helm upgrade --install prometheus prometheus-community/prometheus \
   --values "${ROOT}/monitoring/prometheus/values.yaml" \
   --wait --timeout 5m
 
+# LitmusChaos: operator + CRDs only. Images are pulled inside the kind node up front
+# so the first fault doesn't wait on a ~400MB go-runner pull (kind load fails on
+# Docker Desktop multi-arch images, hence crictl).
+for image in chaos-operator chaos-runner go-runner; do
+  docker exec "${CLUSTER}-control-plane" crictl pull \
+    "litmuschaos.docker.scarf.sh/litmuschaos/${image}:${LITMUS_VERSION}" >/dev/null
+done
+helm repo add litmuschaos https://litmuschaos.github.io/litmus-helm/ >/dev/null
+helm repo update litmuschaos >/dev/null
+helm upgrade --install litmus litmuschaos/litmus-core \
+  --kube-context "${CONTEXT}" \
+  --namespace litmus --create-namespace \
+  --version "${LITMUS_CORE_CHART_VERSION}" \
+  --values "${ROOT}/chaos/litmus/values.yaml" \
+  --wait --timeout 5m
+# Chaos targets: the vetted pod-delete ChaosExperiment + scoped ServiceAccount per namespace.
+kubectl --context "${CONTEXT}" -n shop apply -f "${ROOT}/chaos/templates/pod-delete.yaml"
+kubectl --context "${CONTEXT}" apply -f "${ROOT}/chaos/rbac/pod-delete-rbac.yaml"
+
 for workload in deployment/frontend deployment/checkout deployment/loadgen statefulset/cart-redis; do
   kubectl --context "${CONTEXT}" -n shop rollout status "${workload}" --timeout=180s
 done
 kubectl --context "${CONTEXT}" -n shop get deploy,sts,pods
 kubectl --context "${CONTEXT}" -n monitoring get pods
+kubectl --context "${CONTEXT}" -n litmus get pods
+kubectl --context "${CONTEXT}" -n shop get chaosexperiments
 
 for _ in $(seq 30); do
   curl -sf http://localhost:9090/-/ready >/dev/null && break
