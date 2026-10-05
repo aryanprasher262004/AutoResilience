@@ -1,0 +1,109 @@
+# Sample "shop" microservices used as chaos targets in local development.
+# Replica counts are chosen so blast-radius checks have both passing and failing cases:
+#   frontend 3, checkout 2, cart-redis 1 (single replica: any pod fault leaves 0 healthy).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shop
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: shop
+  labels: {app: frontend}
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: frontend}
+  template:
+    metadata:
+      labels: {app: frontend}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: shop
+spec:
+  selector: {app: frontend}
+  ports: [{port: 80, targetPort: 80}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: shop
+  labels: {app: checkout}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: checkout}
+  template:
+    metadata:
+      labels: {app: checkout}
+    spec:
+      containers:
+        - name: checkout
+          image: hashicorp/http-echo:1.0
+          args: ["-text=checkout ok", "-listen=:5678"]
+          ports: [{containerPort: 5678}]
+          readinessProbe:
+            httpGet: {path: /, port: 5678}
+          resources:
+            requests: {cpu: 10m, memory: 8Mi}
+            limits: {memory: 32Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout
+  namespace: shop
+spec:
+  selector: {app: checkout}
+  ports: [{port: 80, targetPort: 5678}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cart-redis
+  namespace: shop
+  labels: {app: cart-redis}
+spec:
+  serviceName: cart-redis
+  replicas: 1
+  selector:
+    matchLabels: {app: cart-redis}
+  template:
+    metadata:
+      labels: {app: cart-redis}
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports: [{containerPort: 6379}]
+          readinessProbe:
+            exec: {command: ["redis-cli", "ping"]}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-redis
+  namespace: shop
+spec:
+  clusterIP: None
+  selector: {app: cart-redis}
+  ports: [{port: 6379}]
