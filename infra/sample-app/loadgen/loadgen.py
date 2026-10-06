@@ -9,6 +9,16 @@ Metrics on :9100/metrics:
   loadgen_requests_total{target_namespace,target_workload,outcome}
       outcome = success | http_error | connection_error | timeout
   loadgen_request_duration_seconds{...}  histogram of requests that got a response
+  loadgen_outage_seconds_total{...}      client-observed down time (see below)
+  loadgen_outages_total{...}             number of up -> down transitions
+  loadgen_last_outage_start_timestamp_seconds / _end_timestamp_seconds{...}
+                                         unix time of the most recent outage (0 = none / ongoing)
+
+Outage model (per target, from this client's own requests):
+  an outage starts at the start of the first failing request after a success and
+  ends at the start of the next successful request. Down time is added to the
+  counter as it accrues (after every failing request), so a scrape taken during an
+  outage already includes it and scrape gaps never lose seconds.
 
 Classification:
   success           response with status < 500
@@ -43,10 +53,33 @@ class Stats:
         self.buckets = [0] * len(BUCKETS)
         self.duration_sum = 0.0
         self.duration_count = 0
+        self.down = False
+        self.accounted_until = 0.0  # wall time up to which down time is counted
+        self.outage_seconds = 0.0
+        self.outages = 0
+        self.last_outage_start = 0.0
+        self.last_outage_end = 0.0
 
-    def record(self, outcome: str, duration: float | None) -> None:
+    def record(
+        self, outcome: str, duration: float | None, started: float, ended: float
+    ) -> None:
+        """`started`/`ended` are wall-clock times of the request."""
         with self.lock:
             self.counts[outcome] += 1
+            if outcome == "success":
+                if self.down:  # recovered: down until this request started
+                    self.outage_seconds += max(0.0, started - self.accounted_until)
+                    self.last_outage_end = started
+                    self.down = False
+            else:
+                if not self.down:  # up -> down
+                    self.down = True
+                    self.outages += 1
+                    self.last_outage_start = started
+                    self.last_outage_end = 0.0
+                    self.accounted_until = started
+                self.outage_seconds += max(0.0, ended - self.accounted_until)
+                self.accounted_until = ended
             if duration is not None:
                 self.duration_sum += duration
                 self.duration_count += 1
@@ -79,9 +112,9 @@ def probe(url: str) -> tuple[str, float | None]:
 def worker(ns: str, workload: str, url: str) -> None:
     stats = STATS[(ns, workload)]
     while True:
-        started = time.monotonic()
+        started, wall_started = time.monotonic(), time.time()
         outcome, duration = probe(url)
-        stats.record(outcome, duration)
+        stats.record(outcome, duration, wall_started, time.time())
         time.sleep(max(0.0, INTERVAL - (time.monotonic() - started)))
 
 
@@ -113,6 +146,29 @@ def render() -> str:
             )
             lines.append(f"loadgen_request_duration_seconds_sum{{{labels}}} {s.duration_sum}")
             lines.append(f"loadgen_request_duration_seconds_count{{{labels}}} {s.duration_count}")
+    for name, kind, help_text, attr in (
+        ("loadgen_outage_seconds_total", "counter", "Client-observed down time.", "outage_seconds"),
+        ("loadgen_outages_total", "counter", "Up to down transitions.", "outages"),
+        (
+            "loadgen_last_outage_start_timestamp_seconds",
+            "gauge",
+            "Start of the most recent outage (0 = none).",
+            "last_outage_start",
+        ),
+        (
+            "loadgen_last_outage_end_timestamp_seconds",
+            "gauge",
+            "End of the most recent outage (0 = none or ongoing).",
+            "last_outage_end",
+        ),
+    ):
+        lines += [f"# HELP {name} {help_text}", f"# TYPE {name} {kind}"]
+        for (ns, workload), s in STATS.items():
+            with s.lock:
+                value = getattr(s, attr)
+            lines.append(
+                f'{name}{{target_namespace="{ns}",target_workload="{workload}"}} {value}'
+            )
     return "\n".join(lines) + "\n"
 
 
