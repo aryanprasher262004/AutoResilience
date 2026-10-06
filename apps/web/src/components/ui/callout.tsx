@@ -2,13 +2,14 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
-type Tone = "info" | "warning" | "danger" | "success";
+type Tone = "info" | "warning" | "danger" | "success" | "neutral";
 
 const tones: Record<Tone, string> = {
   info: "border-info/30 bg-info/5",
   warning: "border-warning/35 bg-warning/5",
   danger: "border-danger/35 bg-danger/5",
   success: "border-success/30 bg-success/5",
+  neutral: "border-line-strong bg-surface-2",
 };
 
 const titles: Record<Tone, string> = {
@@ -16,6 +17,7 @@ const titles: Record<Tone, string> = {
   warning: "text-warning",
   danger: "text-danger",
   success: "text-success",
+  neutral: "text-fg",
 };
 
 export function Callout({
