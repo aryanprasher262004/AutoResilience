@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.errors import register_error_handlers
 from app.api.routes.experiments import (
     get_chaos_provider,
     get_kubernetes_adapter,
@@ -64,6 +65,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title=get_settings().app_name, lifespan=lifespan)
+register_error_handlers(app)
 
 app.include_router(health_router)
 # Before experiments_router: /experiments/history must not match /{experiment_id}.

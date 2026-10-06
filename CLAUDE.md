@@ -35,6 +35,7 @@ The root `README.md` states docs should be split into **Concept** (what a term m
 ```bash
 ./scripts/dev-cluster.sh   # idempotent: kind cluster + sample shop app + Prometheus (needs Docker running, kind, kubectl, helm); also installs Litmus
 kind delete cluster --name autoresilience
+./scripts/dev-db.sh        # idempotent: Docker Postgres matching the default DATABASE_URL + alembic upgrade head
 ```
 Run the API against it with `KUBE_CONTEXT=kind-autoresilience` (Prometheus defaults to `http://localhost:9090`). Port mappings only apply at cluster creation: after changing `infra/kind/cluster.yaml`, run `kind delete cluster --name autoresilience` first. Prometheus storage is ephemeral, so baselines fail with insufficient data for ~1 min after a Prometheus restart.
 
@@ -53,7 +54,7 @@ uv run mypy .              # type check
 ```
 Dev/test/lint tooling (`pytest`, `pytest-asyncio`, `ruff`, `mypy`) is declared in the `dev` dependency group in `pyproject.toml`; `uv sync` installs it.
 
-- Config comes from env vars or `apps/api/.env` (see `.env.example`). `DATABASE_URL` defaults to `postgresql+psycopg://postgres:postgres@localhost:5432/autoresilience`; Alembic reads it from settings, not from `alembic.ini`.
+- Config comes from env vars or `apps/api/.env` (see `.env.example`). `DATABASE_URL` defaults to `postgresql+psycopg://postgres:postgres@localhost:5432/autoresilience`; Alembic reads it from settings, not from `alembic.ini`. `scripts/dev-db.sh` provides exactly that database. An unreachable or unmigrated database returns **503** with the cause in `detail` (`app/api/errors.py`); `/health` does not touch the database.
 - New models must be imported in `app/db/models/__init__.py` so autogenerate sees them.
 - Tests use in-memory SQLite via a `get_db` override in `tests/conftest.py` (no Postgres needed); `FakeKubernetes`, `FakePrometheus` (answers baseline queries by name) and `FakeChaos` (scripted Litmus statuses) replace the integrations; injection polling uses a no-sleep `FAST_WAIT`; `/observe` time is controlled through the `get_now` dependency (`Clock` fixture) and `FakePrometheus.healthy_recovery()` seeds observation data. Keep models portable (non-native enums, `sa.Uuid`). Unit tests live in `tests/unit/`, HTTP tests in `tests/api/`.
 
