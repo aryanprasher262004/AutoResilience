@@ -8,6 +8,7 @@ npm run dev          # http://localhost:3000 (expects the API on :8000)
 npm run lint
 npm run typecheck    # next typegen && tsc --noEmit
 npm run build
+npm test             # Vitest, once (CI); npm run test:watch while developing
 ```
 
 - **Backend access:** the browser calls `/api/backend/*`; `next.config.ts` rewrites it to
@@ -29,3 +30,26 @@ npm run build
   is typed against the generated state union, so a new backend state fails the typecheck).
 - **UI primitives** live in `src/components/ui`. Pages show real API data or an explicit
   "planned" state, never sample data.
+
+## Tests
+
+Vitest + React Testing Library on happy-dom (`vitest.config.mts`, setup in `src/test/`).
+Tests sit next to the component (`*.test.tsx`) and cover the critical workflows:
+
+| File | Covers |
+|---|---|
+| `components/experiment/builder/experiment-builder.test.tsx` | required fields, server 422s on their fields, passed/blocked safety validation, confirmation before start, navigation to the room, duplicate-submit protection, discovered-workload picker |
+| `components/shell/api-status.test.tsx` | ready, database not ready, API unreachable (network / bare proxy 500), recovery with refetch |
+| `components/history/history-view.test.tsx` | rows from the API, search (debounced), filters, sort, paging, URL state, empty and error states |
+| `components/experiment/room/experiment-room.test.tsx` | every state from VALIDATING to ABORTED, polling stops when terminal, score only when stored, NOT_SCORED, abort (success and refusal) |
+
+How the tests talk to the "backend":
+
+- `src/test/api.ts` stubs `fetch`, so requests go through the real `src/lib/api/client.ts`.
+  Tests assert the request the UI sends (path, query, body) and answer with payloads typed by
+  the generated contract (`src/test/fixtures.ts`). They never reimplement filtering, safety
+  or scoring; a request without a handler fails the test.
+- `src/test/navigation.tsx` replaces `next/navigation` / `next/link` with an in-memory URL,
+  so URL state, `router.push` and refreshes are observable.
+- Time-based behaviour (polling, readiness re-checks) uses Vitest fake timers.
+- QueryClient defaults come from `src/lib/api/query-client.ts` (same as the app), with retries off.
