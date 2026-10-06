@@ -73,7 +73,9 @@ def run_injection(
 
     try:
         request = _prepare(experiment, policy, kubernetes)
-        _start_and_confirm(db, experiment, request, kubernetes, chaos, wait)
+        _start_and_confirm(
+            db, experiment, request, kubernetes, chaos, wait, policy.name
+        )
     except _InjectionFailed as exc:
         record = dict(
             experiment.chaos or {"provider": "litmus", "experiment": "pod-delete"}
@@ -94,6 +96,13 @@ def _prepare(
         raise _InjectionFailed("Experiment has no passing validation result")
     if (experiment.baseline or {}).get("status") != BaselineStatus.CAPTURED:
         raise _InjectionFailed("Experiment has no captured baseline")
+    validated_with = ((experiment.validation_result or {}).get("policy") or {}).get(
+        "name"
+    )
+    if validated_with != policy.name:
+        raise _InjectionFailed(
+            f"Safety policy changed since validation ({validated_with} -> {policy.name})"
+        )
     if experiment.fault_type is not FaultType.POD_DELETE:
         raise _InjectionFailed(f"Fault type '{experiment.fault_type}' is not supported")
 
@@ -127,6 +136,7 @@ def _start_and_confirm(
     kubernetes: Cluster,
     chaos: Chaos,
     wait: StartWait,
+    policy_name: str,
 ) -> None:
     namespace = request.target.namespace
     try:
@@ -138,6 +148,7 @@ def _start_and_confirm(
         "provider": "litmus",
         "experiment": "pod-delete",
         "pod_delete_mode": request.mode.value,
+        "safety_policy": policy_name,
         "engine_name": engine,
         "namespace": namespace,
         "target_pods": list(request.target_pods),

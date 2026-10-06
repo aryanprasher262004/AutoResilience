@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.db.models import Experiment
-from app.domain.safety_policy import SafetyPolicy
+from app.domain.safety_policy import SafetyPolicy, policy_selection
 from app.domain.state_machine import ExperimentState, transition
 from app.integrations.kubernetes_adapter import (
     ClusterUnavailableError,
@@ -50,6 +50,9 @@ def run_validation(
         if result.passed
         else ExperimentState.VALIDATION_FAILED
     )
-    experiment.validation_result = result.to_dict()
+    experiment.validation_result = {
+        **result.to_dict(),
+        "policy_selection": policy_selection(experiment.target_namespace, policy),
+    }
     experiment.state = transition(experiment.state, outcome)
     db.commit()

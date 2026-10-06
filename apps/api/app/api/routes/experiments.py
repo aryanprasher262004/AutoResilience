@@ -1,5 +1,6 @@
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated, Any
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.models import Experiment
 from app.db.session import get_db
-from app.domain.safety_policy import DEFAULT_SAFETY_POLICY, SafetyPolicy
+from app.domain.safety_policy import SafetyPolicy, policy_for_namespace
 from app.domain.state_machine import InvalidTransitionError
 from app.integrations.chaos_provider import LitmusChaosProvider
 from app.integrations.kubernetes_adapter import KubernetesAdapter
@@ -30,8 +31,12 @@ from app.services.scoring.resilience_score import SUPPORTED_VERSIONS, score_expe
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
 
-def get_safety_policy() -> SafetyPolicy:
-    return DEFAULT_SAFETY_POLICY
+PolicyResolver = Callable[[str], SafetyPolicy]
+
+
+def get_policy_resolver() -> PolicyResolver:
+    """Namespace -> policy. Only the experiment's target namespace selects it."""
+    return policy_for_namespace
 
 
 @lru_cache
@@ -89,7 +94,7 @@ def get_now() -> datetime:
 
 
 DbSession = Annotated[Session, Depends(get_db)]
-Policy = Annotated[SafetyPolicy, Depends(get_safety_policy)]
+Policies = Annotated[PolicyResolver, Depends(get_policy_resolver)]
 Kubernetes = Annotated[KubernetesAdapter, Depends(get_kubernetes_adapter)]
 Prometheus = Annotated[PrometheusClient, Depends(get_prometheus_client)]
 BaselineWindow = Annotated[int, Depends(get_baseline_window_seconds)]
@@ -172,7 +177,7 @@ def get_experiment_score(
 
 @router.post("/{experiment_id}/validate", response_model=ExperimentRead)
 def validate_experiment(
-    experiment_id: uuid.UUID, db: DbSession, policy: Policy, kubernetes: Kubernetes
+    experiment_id: uuid.UUID, db: DbSession, policies: Policies, kubernetes: Kubernetes
 ) -> Experiment:
     """Run static then cluster safety checks.
 
@@ -180,7 +185,9 @@ def validate_experiment(
     """
     experiment = _get_or_404(db, experiment_id)
     try:
-        run_validation(db, experiment, policy, kubernetes)
+        run_validation(
+            db, experiment, policies(experiment.target_namespace), kubernetes
+        )
     except InvalidTransitionError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
@@ -216,7 +223,7 @@ def capture_experiment_baseline(
 def inject_fault(
     experiment_id: uuid.UUID,
     db: DbSession,
-    policy: Policy,
+    policies: Policies,
     kubernetes: Kubernetes,
     chaos: ChaosProvider,
     wait: Wait,
@@ -228,7 +235,14 @@ def inject_fault(
     """
     experiment = _get_or_404(db, experiment_id)
     try:
-        run_injection(db, experiment, policy, kubernetes, chaos, wait)
+        run_injection(
+            db,
+            experiment,
+            policies(experiment.target_namespace),
+            kubernetes,
+            chaos,
+            wait,
+        )
     except InvalidTransitionError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)

@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.routes.experiments import get_safety_policy
+from app.api.routes.experiments import get_policy_resolver
 from app.db.models import Experiment
 from app.domain.safety_policy import SafetyPolicy
 from app.domain.state_machine import ExperimentState
@@ -72,8 +72,8 @@ def test_successful_injection_moves_to_observing_and_persists(
 def test_affected_replicas_selects_first_n_ready_pods(
     client: TestClient, chaos: FakeChaos
 ) -> None:
-    app.dependency_overrides[get_safety_policy] = lambda: SafetyPolicy(
-        max_affected_replicas=2
+    app.dependency_overrides[get_policy_resolver] = lambda: (
+        lambda _ns: SafetyPolicy(max_affected_replicas=2)
     )
     body = inject(client, ready_to_inject(client, affected_replicas=2))
 

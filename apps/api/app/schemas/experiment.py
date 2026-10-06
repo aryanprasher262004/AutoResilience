@@ -44,6 +44,8 @@ class ValidationResultRead(BaseModel):
     static_checks: list[ValidationCheckRead]
     cluster_checks: list[ValidationCheckRead]
     policy: dict[str, object]
+    # Absent on results recorded before per-namespace policies.
+    policy_selection: dict[str, str] | None = None
 
 
 class MetricGroupRead(BaseModel):
@@ -68,6 +70,7 @@ class ChaosRead(BaseModel):
     provider: str
     experiment: str
     pod_delete_mode: PodDeleteMode | None = None  # absent on pre-mode records
+    safety_policy: str | None = None
     engine_name: str | None = None
     namespace: str | None = None
     target_pods: list[str] = []

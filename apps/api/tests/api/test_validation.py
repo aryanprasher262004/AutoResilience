@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.routes.experiments import get_safety_policy
+from app.api.routes.experiments import get_policy_resolver
 from app.db.models import Experiment
 from app.domain.safety_policy import SafetyPolicy
 from app.integrations.kubernetes_adapter import WorkloadStatus
@@ -131,11 +131,11 @@ def test_all_violations_are_reported_together(client: TestClient) -> None:
 
 @pytest.fixture
 def allowlist_policy(client: TestClient) -> Iterator[None]:
-    app.dependency_overrides[get_safety_policy] = lambda: SafetyPolicy(
-        allowed_namespaces=frozenset({"sandbox"})
+    app.dependency_overrides[get_policy_resolver] = lambda: (
+        lambda _ns: SafetyPolicy(allowed_namespaces=frozenset({"sandbox"}))
     )
     yield
-    app.dependency_overrides.pop(get_safety_policy, None)
+    app.dependency_overrides.pop(get_policy_resolver, None)
 
 
 @pytest.mark.usefixtures("allowlist_policy")
