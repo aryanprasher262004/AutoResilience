@@ -98,6 +98,23 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
+  frontend-tests:
+    name: Frontend · tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm test
+
   contract:
     name: API contract in sync
     runs-on: ubuntu-latest

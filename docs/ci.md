@@ -9,11 +9,14 @@ run for the same branch cancels the older one.
 
 ## Jobs (run in parallel)
 
+Five jobs, each a separate check on the pull request:
+
 | Job | What fails it | Same thing locally |
 |---|---|---|
 | Backend · ruff, mypy, pytest | lint errors, type errors, failing tests | `cd apps/api && uv sync --frozen && uv run ruff check . && uv run mypy . && uv run pytest` |
 | Backend · migrations on PostgreSQL | a migration that does not apply, or models changed without a migration | `./scripts/dev-db.sh` (applies `alembic upgrade head`), then `cd apps/api && uv run alembic check` |
 | Frontend · lint, typecheck, build | ESLint errors, TypeScript errors, a failing `next build` | `cd apps/web && npm ci && npm run lint && npm run typecheck && npm run build` |
+| Frontend · tests | a failing Vitest test (`apps/web/src/**/*.test.tsx`, see `apps/web/README.md`) | `cd apps/web && npm ci && npm test` |
 | API contract in sync | `packages/contracts/openapi.json` or `apps/web/src/lib/api/schema.ts` differ from what the code generates | `./scripts/gen-api-contracts.sh && git diff --exit-code -- packages/contracts/openapi.json apps/web/src/lib/api/schema.ts` |
 
 Fixing a contract failure: run `scripts/gen-api-contracts.sh` and commit both generated files.
@@ -21,7 +24,8 @@ Fixing a contract failure: run `scripts/gen-api-contracts.sh` and commit both ge
 ## Decision: what CI does not need
 
 - **No cluster, Docker Desktop or LitmusChaos.** The API tests run on in-memory SQLite with
-  fakes for Kubernetes, Prometheus and Litmus (`apps/api/tests/conftest.py`). End-to-end
+  fakes for Kubernetes, Prometheus and Litmus (`apps/api/tests/conftest.py`); the frontend
+  tests stub `fetch` with contract-typed responses and need no running API. End-to-end
   runs against kind stay a local, manual verification.
 - **One service container.** Only the migration job uses PostgreSQL (`postgres:17-alpine`,
   the image `scripts/dev-db.sh` uses), because Alembic migrations and `alembic check` need a
