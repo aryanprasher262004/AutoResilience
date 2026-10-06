@@ -1,7 +1,10 @@
 # Resilience Score v1
 
+> **Superseded by [v2](resilience-score-v2.md)** for new experiments (client-side request failures).
+> v1 stays reproducible from stored evidence via `GET /experiments/{id}/score?version=v1`.
+
 Implementation: `apps/api/app/services/scoring/resilience_score.py` (pure, deterministic, no LLM).
-Persisted in `experiments.score`; served by `GET /experiments/{id}/score`.
+Served by `GET /experiments/{id}/score?version=v1`.
 
 ## Concept
 
