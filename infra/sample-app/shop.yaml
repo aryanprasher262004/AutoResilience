@@ -122,7 +122,7 @@ spec:
 ---
 # Client-side load generator (infra/sample-app/loadgen/loadgen.py, mounted from the
 # loadgen-script ConfigMap that scripts/dev-cluster.sh creates). Sends 10 req/s per
-# target over a new connection each time and exports what the client experienced
+# target (shop/checkout, shop/frontend, resilience-sandbox/fragile) over a new connection each time and exports what the client experienced
 # (success / http_error / connection_error / timeout, latency) on :9100/metrics.
 apiVersion: apps/v1
 kind: Deployment
@@ -147,7 +147,8 @@ spec:
           image: python:3.12.11-alpine3.22
           command: ["python", "-u", "/app/loadgen.py"]
           env:
-            - {name: TARGETS, value: "shop/checkout=http://checkout/;shop/frontend=http://frontend/"}
+            - name: TARGETS
+              value: "shop/checkout=http://checkout/;shop/frontend=http://frontend/;resilience-sandbox/fragile=http://fragile.resilience-sandbox/"
             - {name: INTERVAL_SECONDS, value: "0.1"}
             - {name: TIMEOUT_SECONDS, value: "1"}
           ports: [{name: metrics, containerPort: 9100}]

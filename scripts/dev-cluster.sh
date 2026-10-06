@@ -16,7 +16,10 @@ if ! kind get clusters | grep -qx "${CLUSTER}"; then
   kind create cluster --config "${ROOT}/infra/kind/cluster.yaml" --wait 120s
 fi
 
+CHAOS_NAMESPACES=(shop resilience-sandbox)
+
 kubectl --context "${CONTEXT}" apply -f "${ROOT}/infra/sample-app/shop.yaml"
+kubectl --context "${CONTEXT}" apply -f "${ROOT}/infra/sample-app/sandbox.yaml"
 kubectl --context "${CONTEXT}" -n shop create configmap loadgen-script \
   --from-file=loadgen.py="${ROOT}/infra/sample-app/loadgen/loadgen.py" \
   --dry-run=client -o yaml | kubectl --context "${CONTEXT}" apply -f -
@@ -51,16 +54,21 @@ helm upgrade --install litmus litmuschaos/litmus-core \
   --values "${ROOT}/chaos/litmus/values.yaml" \
   --wait --timeout 5m
 # Chaos targets: the vetted pod-delete ChaosExperiment + scoped ServiceAccount per namespace.
-kubectl --context "${CONTEXT}" -n shop apply -f "${ROOT}/chaos/templates/pod-delete.yaml"
-kubectl --context "${CONTEXT}" apply -f "${ROOT}/chaos/rbac/pod-delete-rbac.yaml"
+for ns in "${CHAOS_NAMESPACES[@]}"; do
+  kubectl --context "${CONTEXT}" -n "${ns}" apply -f "${ROOT}/chaos/templates/pod-delete.yaml"
+  sed "s/namespace: shop$/namespace: ${ns}/" "${ROOT}/chaos/rbac/pod-delete-rbac.yaml" \
+    | kubectl --context "${CONTEXT}" apply -f -
+done
 
 for workload in deployment/frontend deployment/checkout deployment/loadgen statefulset/cart-redis; do
   kubectl --context "${CONTEXT}" -n shop rollout status "${workload}" --timeout=180s
 done
+kubectl --context "${CONTEXT}" -n resilience-sandbox rollout status deployment/fragile --timeout=180s
 kubectl --context "${CONTEXT}" -n shop get deploy,sts,pods
+kubectl --context "${CONTEXT}" -n resilience-sandbox get deploy,pods
 kubectl --context "${CONTEXT}" -n monitoring get pods
 kubectl --context "${CONTEXT}" -n litmus get pods
-kubectl --context "${CONTEXT}" -n shop get chaosexperiments
+kubectl --context "${CONTEXT}" get chaosexperiments -A
 
 for _ in $(seq 30); do
   curl -sf http://localhost:9090/-/ready >/dev/null && break

@@ -1,4 +1,6 @@
 # ServiceAccount the pod-delete runner/experiment pods run as in the target namespace.
+# Written for "shop"; scripts/dev-cluster.sh applies it to each chaos namespace by
+# substituting the namespace (shop, resilience-sandbox).
 # Namespaced Role (not the upstream cluster-wide litmus-admin): chaos can only touch
 # pods in this namespace. Workload kinds are read-only (used for target/health checks).
 apiVersion: v1

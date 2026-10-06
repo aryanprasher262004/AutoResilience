@@ -1,0 +1,54 @@
+# Resilience sandbox: deliberately fragile workloads for reduced-redundancy testing.
+# Experiments here are validated with the "sandbox" safety policy
+# (apps/api/app/domain/safety_policy.py: min_healthy_replicas=0, this namespace only).
+# Do not deploy anything here that must stay available.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: resilience-sandbox
+  labels:
+    autoresilience.io/sandbox: "true"
+---
+# Single replica on purpose: deleting its pod leaves no endpoint until the
+# replacement is Ready, so clients should see a real (short) outage.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fragile
+  namespace: resilience-sandbox
+  labels: {app: fragile}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: fragile}
+  template:
+    metadata:
+      labels: {app: fragile}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9797"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.9.2
+          command: ["./podinfo", "--port=9898", "--port-metrics=9797", "--level=info"]
+          ports:
+            - {name: http, containerPort: 9898}
+            - {name: metrics, containerPort: 9797}
+          readinessProbe:
+            httpGet: {path: /readyz, port: 9898}
+          livenessProbe:
+            httpGet: {path: /healthz, port: 9898}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fragile
+  namespace: resilience-sandbox
+spec:
+  selector: {app: fragile}
+  ports: [{port: 80, targetPort: 9898}]
