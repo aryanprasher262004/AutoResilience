@@ -68,24 +68,30 @@ pods are not deleted within `CHAOS_START_TIMEOUT_SECONDS`, or status cannot be r
 the engine is stopped (`engineState: stop`) and the experiment is `INJECTION_FAILED`.
 The engine name, target pods and last Litmus status are persisted in `experiments.chaos`.
 
-## Observed on kind: why even a single replica showed no client outage
+## Observed on kind: sandbox pod-delete (`resilience-sandbox/fragile`, 1 replica, 30 s)
 
-Real sandbox runs against `resilience-sandbox/fragile` (podinfo, 1 replica, 30 s):
+**Without a warm-up**, podinfo is Ready in about 0.5 s. Graceful and forced deletes both gave
+0/740 client failures, and a score of 100:
+- **GRACEFUL:** kube-proxy falls back to serving-but-terminating endpoints.
+- **FORCE:** even with `gracePeriodSeconds=0`, the kubelet keeps the container for its minimum
+  2 s termination grace. iptables kube-proxy syncs at most once per second.
+- **Both:** the replacement is Ready before the old container stops.
 
-| Mode | Pod timeline | Client | v2 score |
-|---|---|---|---|
-| GRACEFUL | old pod Terminating 10:51:30.212, still serving until it exited about 3 s later; replacement Ready 10:51:30.863 | 739 requests, 0 failed | 100.0 |
-| FORCE | old pod object deleted 10:53:01.843; replacement Ready 10:53:02.348 | 740 requests, 0 failed | 100.0 |
+**With the modelled 10 s warm-up** (`readinessProbe.initialDelaySeconds: 10`, the current
+manifest), the outage is real:
 
-Why no failures:
-- **GRACEFUL:** kube-proxy keeps routing to serving-but-terminating endpoints when no ready
-  endpoint exists.
-- **FORCE:** even with `gracePeriodSeconds=0`, the kubelet enforces a minimum 2 s termination
-  grace, so the container keeps serving.
-- **Both:** iptables kube-proxy syncs at most once per second.
+| | GRACEFUL | FORCE |
+|---|---|---|
+| Replacement created → Ready | 10:58:59 → 10:59:10 (11 s) | 11:05:36 → 11:05:46 (10 s) |
+| Client | 19/826 failed (13 connection errors, 6 timeouts) | 22/668 failed (14 connection errors, 8 timeouts) |
+| Kubernetes min available (15 s samples) | 0/1, the dip was caught by a scrape | 1/1, the 10 s gap fell between scrapes |
+| v2 score | 71.2 (Fair) | 80.5 (Good) |
+| v1 score on the same evidence | 74.7 | 100.0 |
 
-podinfo is Ready in about 0.5 s, faster than the old container dies, so a pod-delete cannot
-open a client-visible gap for this workload.
+v1, which uses only server and Kubernetes evidence, gives FORCE a perfect score despite 22 real
+client failures. The difference between the two v2 scores comes mostly from the sampled
+availability component: whether a scrape happened to land inside the gap. That component is
+noisy for outages shorter than the scrape interval.
 
 ## Not yet covered
 

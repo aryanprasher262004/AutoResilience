@@ -9,8 +9,11 @@ metadata:
   labels:
     autoresilience.io/sandbox: "true"
 ---
-# Single replica on purpose: deleting its pod leaves no endpoint until the
-# replacement is Ready, so clients should see a real (short) outage.
+# Single replica with a modelled 10s warm-up (readiness initialDelaySeconds), like a
+# service that must load caches/JIT before serving. Deleting its pod leaves no ready
+# endpoint until the replacement finishes warming up, so clients see a real outage.
+# Without the warm-up, podinfo is Ready in ~0.5s, before the old container is even
+# stopped (kubelet keeps it >= 2s), and no client ever notices the fault.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,6 +41,8 @@ spec:
             - {name: metrics, containerPort: 9797}
           readinessProbe:
             httpGet: {path: /readyz, port: 9898}
+            initialDelaySeconds: 10 # modelled warm-up
+            periodSeconds: 1
           livenessProbe:
             httpGet: {path: /healthz, port: 9898}
           resources:
