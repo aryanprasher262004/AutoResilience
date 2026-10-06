@@ -21,7 +21,7 @@ Target pods are selected by name: Deployment `<name>-[a-z0-9]+-[a-z0-9]{5}`, Sta
 | restarts | yes | `sum(restarts)`, `sum(max_over_time(restarts[W]) - min_over_time(restarts[W]))` | no restart series, or Prometheus error |
 | requests | no | `count(http_requests_total)`, `sum(rate(...[W]))`, `sum(rate(...{status=~"5.."}[W]))` | Prometheus error only. A target without the metric is `UNAVAILABLE` (does not block). |
 
-| client | no | `count(loadgen_requests_total{target_namespace,target_workload})`, `sum(rate(...[W]))`, `sum(rate(...{outcome!="success"}[W]))`, p95 from `loadgen_request_duration_seconds_bucket` | Prometheus error only. A target the load generator does not hit is `UNAVAILABLE`. |
+| client | no | `count(loadgen_requests_total{target_namespace,target_workload})`, `sum(rate(...[W]))`, `sum(rate(...{outcome!="success"}[W]))`, p95 from `loadgen_request_duration_seconds_bucket`, `sum(increase(loadgen_outage_seconds_total[W]))`, `sum(increase(loadgen_outages_total[W]))` | Prometheus error only. A target the load generator does not hit is `UNAVAILABLE`. |
 
 A baseline is `CAPTURED` only if both required groups are `OK` and neither optional group (`requests`, `client`) is `ERROR`; only then does the experiment move `BASELINING → INJECTING`.
 
@@ -35,6 +35,7 @@ ChaosEngine was created.
 |---|---|---|
 | Client outcomes (raw counters) | `loadgen_requests_total{target_namespace,target_workload}[W+60s]` | Exact per-outcome counts from the last scrape before the fault; failure intervals at scrape resolution. |
 | Client latency | `histogram_quantile(0.95, sum by (le) (rate(loadgen_request_duration_seconds_bucket{…}[W])))` | Evidence only. |
+| Client outage (raw) | `{__name__=~"loadgen_outage_seconds_total\|loadgen_outages_total\|loadgen_last_outage_(start\|end)_timestamp_seconds", target_namespace, target_workload}[W+60s]` | Exact outage seconds/transitions and windows; pattern NONE/CONTINUOUS/INTERMITTENT/INSUFFICIENT_DATA (score v3). |
 | Availability (raw scrapes) | `kube_deployment_status_replicas_available{…}[W]` (StatefulSet: `kube_statefulset_status_replicas_ready`) | Range selector returns actual samples, so data gaps stay visible (no lookback fill). |
 | Replacement pods | `last_over_time(kube_pod_created{pod=~…}[W])`, `last_over_time(kube_pod_status_ready_time{pod=~…}[W])` | Kubernetes object timestamps (1s resolution), independent of the 15s scrape interval. |
 | Impact | `sum(max_over_time(restarts[W]) - min_over_time(restarts[W]))`, `sum(increase(http_requests_total[W]))`, same with `status=~"5.."` | Evidence only. |

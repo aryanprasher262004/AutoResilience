@@ -1,6 +1,9 @@
 # Resilience Score v2
 
-v2 is the current version, computed automatically for new experiments. It differs from
+> **Superseded by [v3](resilience-score-v3.md)** for new experiments (measured client outage
+> replaces sampled availability). v2 stays reproducible via `GET /experiments/{id}/score?version=v2`.
+
+v2 differs from
 [v1](resilience-score-v1.md) **only** in how request failures and availability are weighted
 and measured. Everything else is unchanged: the formula, recovery and restart components,
 thresholds, the `NOT_APPLICABLE` re-normalization, the platform/application `UNKNOWN` policy,
