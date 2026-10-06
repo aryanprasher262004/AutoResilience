@@ -97,8 +97,7 @@ guaranteed by the repository.
 | API contract in sync | regenerate the contract; `git diff --exit-code` | none |
 
 Triggers: every pull request, pushes to `main`, `workflow_dispatch`. The workflow has
-read-only permissions and per-ref concurrency. **Not yet executed on GitHub** (nothing has
-been pushed; Not verified from implementation).
+read-only permissions and per-ref concurrency. The first GitHub run passed: all 5 jobs green (run 37538740103, 2026-10-06T22:09Z, commit `995c66d`).
 
 ---
 

@@ -61,7 +61,7 @@ Mitigation status: `IMPL` (in the code) · `PROTO` (in the protocol, [13](13-exp
 | E-02 | The state-machine edge UNKNOWN → ABORTED is unreachable through the API | [08](08-recovery-framework.md) §5 | NONE (documentation inconsistency) |
 | E-03 | The API runs with the developer kubeconfig (admin); read-only and ownership guarantees are code-level, not RBAC-enforced | [06](06-safety-framework.md) §6 | NONE |
 | E-04 | No authentication or authorization | code search | NONE |
-| E-05 | CI not yet executed on GitHub | [11](11-technology-stack.md) §6 | NONE |
+| E-05 | CI actions pinned to versions that GitHub flags as Node 20-based (deprecation notice in the first run) | [11](11-technology-stack.md) §6 | NONE (CI itself passes) |
 | E-06 | The OpenAPI contract documents only 200/422 for experiment endpoints, while the API also returns 404/409/503 | [appendix/api-overview](appendix/api-overview.md) | NONE |
 | E-07 | Stale documentation (`queries.md` and the v2 doc list two load-generator targets; root `README.md` scope and links) | [10](10-implementation.md) | NONE |
 

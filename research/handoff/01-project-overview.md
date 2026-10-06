@@ -92,7 +92,7 @@ flowchart LR
 |---|---|
 | Backend tests | 431 pytest tests (in-memory SQLite plus fakes) |
 | Frontend tests | 39 Vitest tests (happy-dom, contract-typed fixtures) |
-| CI | `.github/workflows/ci.yml`, 5 jobs; **not yet executed on GitHub** (nothing pushed; Not verified from implementation) |
+| CI | `.github/workflows/ci.yml`, 5 jobs; first GitHub run passed: all 5 jobs green (run 37538740103, 2026-10-06T22:09Z, commit `995c66d`) |
 | Experimental evidence | No complete records; see [14](14-current-evidence.md) |
 
 ## 6. Non-goals

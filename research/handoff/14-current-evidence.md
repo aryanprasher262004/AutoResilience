@@ -125,7 +125,7 @@ are **synthetic** and must never be reported as observations.
 |---|---|
 | Code reading for this knowledge base | done at `92e33dd` |
 | Methodology stability (scoring, observation, recovery, baseline, manifests) | unchanged from `e1b6923` (v3) to HEAD (`git diff`) |
-| CI workflow | validated with actionlint; all job commands executed locally on a fresh clone; **not yet run on GitHub** |
+| CI workflow | validated with actionlint; all job commands executed locally on a fresh clone; first GitHub run passed: all 5 jobs green (run 37538740103, 2026-10-06T22:09Z, commit `995c66d`) |
 | Contract determinism | regenerated twice, identical |
 
 ## 8. Evidence gaps (what Level A must supply)

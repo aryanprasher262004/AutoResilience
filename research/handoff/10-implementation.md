@@ -139,7 +139,7 @@ The end-to-end pipeline ran on kind during development (validation → injection
 
 ## Missing information
 - No code metrics (lines of code, complexity) have been computed; compute them with a tool before quoting any.
-- CI has not run on GitHub yet (Not verified from implementation).
+- CI on GitHub: first GitHub run passed: all 5 jobs green (run 37538740103, 2026-10-06T22:09Z, commit `995c66d`). Annotations: GitHub deprecation notices for Node 20-based action versions (`actions/checkout@v4`, `actions/setup-node@v4`, `astral-sh/setup-uv@v6`).
 
 ## Open questions
 - Should the scaffold placeholders be removed before publication, to avoid suggesting unimplemented features?
