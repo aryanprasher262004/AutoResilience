@@ -1,26 +1,44 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* AutoResilience design tokens. Dark, low-glare console palette; status colours are
+   reserved for meaning (state, health), never decoration. */
+@theme {
+  --color-canvas: #0a0e19;
+  --color-surface: #0e1424;
+  --color-surface-2: #131a2c;
+  --color-surface-3: #19223a;
+  --color-line: #1d263d;
+  --color-line-strong: #2a3552;
+  --color-fg: #e4e8f1;
+  --color-muted: #939fb6;
+  --color-faint: #616d87;
+  --color-accent: #4f8bff;
+  --color-accent-strong: #3b75ea;
+  --color-success: #3dcc8e;
+  --color-danger: #f0606c;
+  --color-warning: #f0b543;
+  --color-fault: #f08a45;
+  --color-info: #5ea8ff;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    color-scheme: dark;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-canvas text-fg font-sans text-sm antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  ::selection {
+    @apply bg-accent/30;
+  }
 }
