@@ -116,6 +116,7 @@ def _prepare(
         # Deterministic choice: the first N ready pods by name.
         target_pods=status.ready_pod_names[: spec.affected_replicas],
         duration_seconds=spec.duration_seconds,
+        mode=spec.pod_delete_mode,
     )
 
 
@@ -136,6 +137,7 @@ def _start_and_confirm(
     record: dict[str, Any] = {
         "provider": "litmus",
         "experiment": "pod-delete",
+        "pod_delete_mode": request.mode.value,
         "engine_name": engine,
         "namespace": namespace,
         "target_pods": list(request.target_pods),

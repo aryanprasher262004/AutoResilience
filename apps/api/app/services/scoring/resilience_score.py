@@ -381,8 +381,23 @@ def _components(
 SUPPORTED_VERSIONS = ("v1", "v2")
 
 
+def _fault_inputs(chaos: dict[str, Any] | None) -> dict[str, Any]:
+    """Which fault produced the evidence (context only; never changes the number)."""
+    chaos = chaos or {}
+    return {
+        "type": chaos.get("experiment"),
+        # Records from before modes existed all ran graceful deletion (FORCE=false).
+        "pod_delete_mode": chaos.get("pod_delete_mode") or "GRACEFUL",
+        "target_pods": chaos.get("target_pods"),
+    }
+
+
 def _not_scored(
-    version: str, reason: str, state: str, result: dict[str, Any]
+    version: str,
+    reason: str,
+    state: str,
+    result: dict[str, Any],
+    chaos: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "version": version,
@@ -392,7 +407,7 @@ def _not_scored(
         "explanation": reason,
         "components": [],
         "cap_applied": None,
-        "inputs": {"state": state, "result": result},
+        "inputs": {"state": state, "result": result, "fault": _fault_inputs(chaos)},
     }
 
 
@@ -402,6 +417,7 @@ def score_experiment(
     observation: dict[str, Any] | None,
     thresholds: Thresholds = THRESHOLDS,
     version: str = CURRENT_VERSION,
+    chaos: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if version not in SUPPORTED_VERSIONS:
         raise ValueError(f"Unknown scoring version {version!r}")
@@ -412,6 +428,7 @@ def score_experiment(
             f"Experiment is {state}; only finished runs are scored",
             state,
             result,
+            chaos,
         )
     if state == "UNKNOWN" and result.get("cause") != "application":
         return _not_scored(
@@ -421,6 +438,7 @@ def score_experiment(
             "reliable about the target's resilience.",
             state,
             result,
+            chaos,
         )
     recovered = state == "COMPLETED"
     recovery = observation.get("recovery") or {}
@@ -429,7 +447,9 @@ def score_experiment(
         or not recovery
         or (recovered and recovery.get("time_to_recovery_seconds") is None)
     ):
-        return _not_scored(version, "Observation evidence incomplete", state, result)
+        return _not_scored(
+            version, "Observation evidence incomplete", state, result, chaos
+        )
 
     components, weights = _components(
         version, recovered, baseline, observation, thresholds
@@ -468,7 +488,11 @@ def score_experiment(
         ),
         key=lambda b: b["contribution"] - b["effective_weight"],
     )
-    explanation = f"Resilience Score {score:g}/100 ({rating})."
+    fault = _fault_inputs(chaos)
+    explanation = f"Resilience Score {score:g}/100 ({rating})"
+    if fault["type"]:
+        explanation += f" for {fault['type']} ({fault['pod_delete_mode']})"
+    explanation += "."
     if not recovered:
         explanation += (
             f" Target did NOT recover ({result.get('reason_code')}); score capped at "
@@ -499,5 +523,5 @@ def score_experiment(
         "cap_applied": cap,
         "weights": weights,
         "thresholds": asdict(thresholds),
-        "inputs": {"state": state, "result": result},
+        "inputs": {"state": state, "result": result, "fault": fault},
     }

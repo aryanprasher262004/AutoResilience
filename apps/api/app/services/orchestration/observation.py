@@ -127,7 +127,7 @@ def advance_observation(
     if experiment.state in (ExperimentState.COMPLETED, ExperimentState.UNKNOWN):
         # Scored in the same transaction as the final state (or recorded NOT_SCORED).
         experiment.score = score_experiment(
-            experiment.state, experiment.baseline, record
+            experiment.state, experiment.baseline, record, chaos=experiment.chaos
         )
     db.commit()
 

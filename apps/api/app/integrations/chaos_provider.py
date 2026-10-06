@@ -21,7 +21,7 @@ from kubernetes.client.exceptions import ApiException
 from kubernetes.config.config_exception import ConfigException
 from urllib3.exceptions import HTTPError
 
-from app.domain.experiment import ExperimentTarget
+from app.domain.experiment import ExperimentTarget, PodDeleteMode
 from app.domain.safety_policy import SYSTEM_NAMESPACES
 
 LITMUS_GROUP = "litmuschaos.io"
@@ -30,6 +30,7 @@ EXPERIMENT_NAME = "pod-delete"
 SERVICE_ACCOUNT = "autoresilience-chaos"
 MANAGED_BY_LABEL = {"app.kubernetes.io/managed-by": "autoresilience"}
 EXPERIMENT_ID_LABEL = "autoresilience.io/experiment-id"
+MODE_LABEL = "autoresilience.io/pod-delete-mode"
 
 
 class ChaosProviderError(Exception):
@@ -50,6 +51,7 @@ class PodDeleteRequest:
     label_selector: str
     target_pods: tuple[str, ...]
     duration_seconds: int
+    mode: PodDeleteMode = PodDeleteMode.GRACEFUL
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,8 @@ def build_pod_delete_engine(request: PodDeleteRequest) -> dict[str, Any]:
 
     CHAOS_INTERVAL == TOTAL_CHAOS_DURATION makes pod-delete kill once and then wait
     out the duration, so the blast radius is the validated affected_replicas.
+    The mode only selects the vetted experiment's FORCE flag (litmus-go 3.31:
+    FORCE=true deletes with gracePeriodSeconds=0, false uses the pod's own grace).
     """
     target = request.target
     if target.namespace in SYSTEM_NAMESPACES:
@@ -97,7 +101,11 @@ def build_pod_delete_engine(request: PodDeleteRequest) -> dict[str, Any]:
         "metadata": {
             "name": engine_name(request.experiment_id),
             "namespace": target.namespace,
-            "labels": {**MANAGED_BY_LABEL, EXPERIMENT_ID_LABEL: request.experiment_id},
+            "labels": {
+                **MANAGED_BY_LABEL,
+                EXPERIMENT_ID_LABEL: request.experiment_id,
+                MODE_LABEL: request.mode.value,
+            },
         },
         "spec": {
             "engineState": "active",
@@ -118,7 +126,12 @@ def build_pod_delete_engine(request: PodDeleteRequest) -> dict[str, Any]:
                             "env": [
                                 {"name": "TOTAL_CHAOS_DURATION", "value": duration},
                                 {"name": "CHAOS_INTERVAL", "value": duration},
-                                {"name": "FORCE", "value": "false"},
+                                {
+                                    "name": "FORCE",
+                                    "value": "true"
+                                    if request.mode is PodDeleteMode.FORCE
+                                    else "false",
+                                },
                                 {
                                     "name": "TARGET_PODS",
                                     "value": ",".join(request.target_pods),

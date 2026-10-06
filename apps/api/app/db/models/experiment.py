@@ -10,6 +10,7 @@ from app.domain.experiment import (
     ExperimentSpec,
     ExperimentTarget,
     FaultType,
+    PodDeleteMode,
     WorkloadKind,
 )
 from app.domain.state_machine import INITIAL_STATE, ExperimentState
@@ -53,6 +54,11 @@ class Experiment(Base):
     )
     duration_seconds: Mapped[int] = mapped_column(Integer)
     affected_replicas: Mapped[int] = mapped_column(Integer)
+    pod_delete_mode: Mapped[PodDeleteMode] = mapped_column(
+        Enum(PodDeleteMode, native_enum=False, length=16, name="pod_delete_mode"),
+        default=PodDeleteMode.GRACEFUL,
+        server_default=PodDeleteMode.GRACEFUL.value,
+    )
     # Output of the last safety validation (checks, reasons, policy snapshot).
     validation_result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     # Last baseline capture (CAPTURED or FAILED, with per-metric-group results).
@@ -86,4 +92,5 @@ class Experiment(Base):
             fault_type=self.fault_type,
             duration_seconds=self.duration_seconds,
             affected_replicas=self.affected_replicas,
+            pod_delete_mode=self.pod_delete_mode,
         )

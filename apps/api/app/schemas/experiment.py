@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain.experiment import FaultType, WorkloadKind
+from app.domain.experiment import FaultType, PodDeleteMode, WorkloadKind
 from app.domain.state_machine import ExperimentState
 from app.services.orchestration.baseline import BaselineStatus, MetricStatus
 from app.services.safety.policy_evaluator import CheckStatus
@@ -29,6 +29,8 @@ class ExperimentCreate(BaseModel):
     fault_type: FaultType
     duration_seconds: int = Field(gt=0)
     affected_replicas: int = Field(gt=0)
+    # Only GRACEFUL or FORCE; omitted means GRACEFUL (the behaviour before modes).
+    pod_delete_mode: PodDeleteMode = PodDeleteMode.GRACEFUL
 
 
 class ValidationCheckRead(BaseModel):
@@ -65,6 +67,7 @@ class BaselineRead(BaseModel):
 class ChaosRead(BaseModel):
     provider: str
     experiment: str
+    pod_delete_mode: PodDeleteMode | None = None  # absent on pre-mode records
     engine_name: str | None = None
     namespace: str | None = None
     target_pods: list[str] = []
@@ -131,6 +134,7 @@ class ExperimentRead(BaseModel):
     fault_type: FaultType
     duration_seconds: int
     affected_replicas: int
+    pod_delete_mode: PodDeleteMode
     validation_result: ValidationResultRead | None
     baseline: BaselineRead | None
     chaos: ChaosRead | None

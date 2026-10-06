@@ -5,7 +5,7 @@ import pytest
 from kubernetes.client.exceptions import ApiException
 from urllib3.exceptions import MaxRetryError
 
-from app.domain.experiment import ExperimentTarget, WorkloadKind
+from app.domain.experiment import ExperimentTarget, PodDeleteMode, WorkloadKind
 from app.integrations import chaos_provider
 from app.integrations.chaos_provider import (
     ChaosProviderError,
@@ -305,3 +305,36 @@ def test_get_result_reads_chaos_result(apis: tuple[MagicMock, MagicMock]) -> Non
         "ar-x-pod-delete",
         _request_timeout=5,
     )
+
+
+# --- pod-delete mode ---------------------------------------------------------------
+
+
+def test_graceful_is_the_default_and_maps_to_force_false() -> None:
+    engine = build_pod_delete_engine(request())
+
+    assert env(engine)["FORCE"] == "false"
+    assert (
+        engine["metadata"]["labels"]["autoresilience.io/pod-delete-mode"] == "GRACEFUL"
+    )
+
+
+def test_force_mode_maps_to_force_true_only() -> None:
+    graceful = build_pod_delete_engine(request(mode=PodDeleteMode.GRACEFUL))
+    force = build_pod_delete_engine(request(mode=PodDeleteMode.FORCE))
+
+    assert env(force)["FORCE"] == "true"
+    assert force["metadata"]["labels"]["autoresilience.io/pod-delete-mode"] == "FORCE"
+    # Nothing else about the engine differs: same target, pods, duration, RBAC.
+    for engine in (graceful, force):
+        engine["metadata"]["labels"].pop("autoresilience.io/pod-delete-mode")
+        for item in engine["spec"]["experiments"][0]["spec"]["components"]["env"]:
+            if item["name"] == "FORCE":
+                item["value"] = "X"
+    assert graceful == force
+
+
+def test_force_mode_keeps_namespace_guard() -> None:
+    target = ExperimentTarget("kube-system", WorkloadKind.DEPLOYMENT, "coredns")
+    with pytest.raises(ChaosProviderError, match="Refusing to inject"):
+        build_pod_delete_engine(request(target=target, mode=PodDeleteMode.FORCE))

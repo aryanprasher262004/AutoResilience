@@ -14,6 +14,18 @@ class FaultType(StrEnum):
 SUPPORTED_FAULT_TYPES = frozenset({FaultType.POD_DELETE})
 
 
+class PodDeleteMode(StrEnum):
+    """How pod-delete removes pods (maps to the vetted experiment's FORCE env).
+
+    GRACEFUL: default Kubernetes deletion; the pod's terminationGracePeriodSeconds
+              applies (SIGTERM, then SIGKILL after the grace period).
+    FORCE:    deletion with gracePeriodSeconds=0; containers are killed at once.
+    """
+
+    GRACEFUL = "GRACEFUL"
+    FORCE = "FORCE"
+
+
 class WorkloadKind(StrEnum):
     DEPLOYMENT = "Deployment"
     STATEFULSET = "StatefulSet"
@@ -34,3 +46,4 @@ class ExperimentSpec:
     fault_type: FaultType
     duration_seconds: int
     affected_replicas: int
+    pod_delete_mode: PodDeleteMode = PodDeleteMode.GRACEFUL

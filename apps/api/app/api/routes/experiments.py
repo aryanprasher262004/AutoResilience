@@ -119,6 +119,7 @@ def create_experiment(payload: ExperimentCreate, db: DbSession) -> Experiment:
         fault_type=payload.fault_type,
         duration_seconds=payload.duration_seconds,
         affected_replicas=payload.affected_replicas,
+        pod_delete_mode=payload.pod_delete_mode,
     )
     db.add(experiment)
     db.commit()
@@ -161,7 +162,11 @@ def get_experiment_score(
             detail=f"Unknown scoring version {version}; supported: {list(SUPPORTED_VERSIONS)}",
         )
     return score_experiment(
-        experiment.state, experiment.baseline, experiment.observation, version=version
+        experiment.state,
+        experiment.baseline,
+        experiment.observation,
+        version=version,
+        chaos=experiment.chaos,
     )
 
 
