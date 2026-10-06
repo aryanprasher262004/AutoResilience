@@ -138,10 +138,11 @@ def test_observation_queries_cover_the_window() -> None:
         'kube_deployment_status_replicas_available{namespace="shop",deployment="checkout"}[120s]'
     )
     assert q["pod_ready_time"].startswith("last_over_time(kube_pod_status_ready_time{")
-    assert q["client_raw"].endswith(
-        "[180s]"
-    )  # window + lookback for the pre-fault scrape
-    assert all("[120s]" in v for k, v in q.items() if k != "client_raw")
+    # Raw client series reach back past the fault for the pre-fault scrape.
+    assert q["client_raw"].endswith("[180s]")
+    assert q["client_outage_raw"].endswith("[180s]")
+    raw = ("client_raw", "client_outage_raw")
+    assert all("[120s]" in v for k, v in q.items() if k not in raw)
 
 
 # --- client-side counts ---------------------------------------------------------

@@ -8,6 +8,10 @@ Versions (every stored score records its version; older versions stay reproducib
   v2  request_failures from the client-side load generator when available
       (connection errors, timeouts and HTTP 5xx as the client saw them), falling
       back to server-side 5xx; weight 30. availability reduced to 15.
+  v3  client_outage (weight 15) replaces the sampled Kubernetes availability: the
+      client-observed outage duration measured by the load generator, independent of
+      the scrape interval. Falls back to sampled availability (stated in the reason)
+      when the client outage data is insufficient.
 
 score = 100 * sum(weight_i * normalized_i) / sum(weight_i over applicable components)
 
@@ -20,7 +24,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
-CURRENT_VERSION = "v2"
+CURRENT_VERSION = "v3"
 
 
 class ScoreStatus(StrEnum):
@@ -69,7 +73,26 @@ class Thresholds:
     not_recovered_cap: float = 40
 
 
+@dataclass(frozen=True)
+class WeightsV3:
+    recovery_time: float = 35
+    client_outage: float = 15
+    request_failures: float = 30
+    restarts: float = 10
+    litmus_verdict: float = 10
+
+
+@dataclass(frozen=True)
+class OutageThresholds:
+    # Client-observed outage beyond baseline: full marks up to `tolerated`, zero at
+    # `severe`, linear in between.
+    outage_tolerated_seconds: float = 1
+    outage_severe_seconds: float = 60
+
+
 WEIGHTS_V1 = WeightsV1()
+WEIGHTS_V3 = WeightsV3()
+OUTAGE_THRESHOLDS = OutageThresholds()
 WEIGHTS_V2 = WeightsV2()
 THRESHOLDS = Thresholds()
 RATING_BANDS = ((90, "Excellent"), (75, "Good"), (50, "Fair"), (0, "Poor"))
@@ -343,6 +366,74 @@ def _client_failures(
     return Component(name, ComponentStatus.SCORED, raw, score, weight, reason)
 
 
+def client_outage_component(
+    baseline: dict[str, Any],
+    impact: dict[str, Any],
+    desired: int,
+    o: OutageThresholds,
+    weight: float,
+) -> Component:
+    """v3: measured client-observed outage duration (sampled availability as fallback)."""
+    name = "client_outage"
+    client = impact.get("client") or {}
+    outage = client.get("outage") or {}
+    insufficient = None
+    if client.get("status") != "OK" or not outage:
+        insufficient = "no client outage measurement for this target"
+    elif not client.get("requests"):
+        insufficient = "the load generator recorded no requests in the window"
+    elif outage.get("status") != "OK":
+        insufficient = outage.get("reason") or "insufficient client outage data"
+    if insufficient:
+        sampled = availability_component(desired, impact, weight)
+        return Component(
+            name,
+            sampled.status,
+            {
+                "source": "kubernetes_sampled",
+                "pattern": "INSUFFICIENT_DATA",
+                **sampled.raw,
+            },
+            sampled.normalized,
+            weight,
+            f"{sampled.reason} [fallback: {insufficient}]",
+        )
+
+    window = impact.get("window_seconds") or 0
+    base = (baseline.get("client") or {}).get("values") or {}
+    base_seconds = base.get("client_outage_seconds")
+    base_window = baseline.get("window_seconds") or 0
+    expected = (
+        round(base_seconds / base_window * window, 3)
+        if base_seconds and base_window
+        else 0.0
+    )
+    seconds = outage["outage_seconds"]
+    excess = round(max(0.0, seconds - expected), 3)
+    score = _linear_down(excess, o.outage_tolerated_seconds, o.outage_severe_seconds)
+    windows = outage.get("outage_windows") or []
+    raw = {
+        "source": "client",
+        "pattern": outage["pattern"],
+        "outage_seconds": seconds,
+        "outages": outage.get("outages"),
+        "baseline_expected_seconds": expected,
+        "excess_seconds": excess,
+        "outage_windows": windows,
+        "window_seconds": window,
+    }
+    timing = ""
+    if outage["pattern"] == "CONTINUOUS" and windows and windows[-1].get("end"):
+        timing = f" ({windows[-1]['start'][11:23]} -> {windows[-1]['end'][11:23]})"
+    reason = (
+        f"{outage['reason']}{timing}"
+        + (f"; baseline expects {expected:g}s" if expected else "")
+        + f"; excess {excess:g}s (full marks <= {o.outage_tolerated_seconds:g}s, "
+        f"zero >= {o.outage_severe_seconds:g}s)"
+    )
+    return Component(name, ComponentStatus.SCORED, raw, score, weight, reason)
+
+
 # --- overall ------------------------------------------------------------------
 
 
@@ -368,6 +459,17 @@ def _components(
             restarts_component(restarts_baseline, impact, t, w1.restarts),
             litmus_component(litmus, w1.litmus_verdict),
         ], asdict(w1)
+    if version == "v3":
+        w3 = WEIGHTS_V3
+        return [
+            recovery_component(recovered, recovery, t, w3.recovery_time),
+            client_outage_component(
+                baseline, impact, desired, OUTAGE_THRESHOLDS, w3.client_outage
+            ),
+            request_failures_component(baseline, impact, t, w3.request_failures),
+            restarts_component(restarts_baseline, impact, t, w3.restarts),
+            litmus_component(litmus, w3.litmus_verdict),
+        ], asdict(w3)
     w2 = WEIGHTS_V2
     return [
         recovery_component(recovered, recovery, t, w2.recovery_time),
@@ -378,7 +480,7 @@ def _components(
     ], asdict(w2)
 
 
-SUPPORTED_VERSIONS = ("v1", "v2")
+SUPPORTED_VERSIONS = ("v1", "v2", "v3")
 
 
 def _fault_inputs(chaos: dict[str, Any] | None) -> dict[str, Any]:
@@ -522,6 +624,10 @@ def score_experiment(
         "components": breakdown,
         "cap_applied": cap,
         "weights": weights,
-        "thresholds": asdict(thresholds),
+        "thresholds": (
+            {**asdict(thresholds), **asdict(OUTAGE_THRESHOLDS)}
+            if version == "v3"
+            else asdict(thresholds)
+        ),
         "inputs": {"state": state, "result": result, "fault": fault},
     }

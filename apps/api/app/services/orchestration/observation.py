@@ -31,6 +31,7 @@ from app.services.orchestration.recovery import (
     PodTimes,
     RecoveryFinding,
     RecoveryRule,
+    client_outage,
     client_window_counts,
     error_check,
     find_recovery,
@@ -314,6 +315,9 @@ def _measure(
         client = client_window_counts(client_series, fault_start)
         client["latency_p95_seconds"] = metrics.query_value(
             q["client_latency_p95"], now
+        )
+        client["outage"] = client_outage(
+            metrics.query_raw(q["client_outage_raw"], now), fault_start
         )
     else:
         client = {

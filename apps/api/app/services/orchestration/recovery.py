@@ -100,6 +100,12 @@ def observation_queries(
             f"loadgen_requests_total{{{client_selector(target)}}}"
             f"[{window_seconds + CLIENT_LOOKBACK_SECONDS}s]"
         ),
+        "client_outage_raw": (
+            '{__name__=~"loadgen_outage_seconds_total|loadgen_outages_total|'
+            "loadgen_last_outage_start_timestamp_seconds|"
+            f'loadgen_last_outage_end_timestamp_seconds",{client_selector(target)}}}'
+            f"[{window_seconds + CLIENT_LOOKBACK_SECONDS}s]"
+        ),
         "client_latency_p95": (
             "histogram_quantile(0.95, sum by (le) (rate("
             f"loadgen_request_duration_seconds_bucket{{{client_selector(target)}}}{w})))"
@@ -176,6 +182,106 @@ def client_window_counts(series: list[Series], fault_start: float) -> dict[str, 
         "counted_to": _iso(all_times[-1]) if all_times else None,
         "starts_before_fault": bool(all_times) and all_times[0] <= fault_start,
         "failure_intervals": intervals,
+    }
+
+
+OUTAGE_SECONDS = "loadgen_outage_seconds_total"
+OUTAGES = "loadgen_outages_total"
+OUTAGE_START = "loadgen_last_outage_start_timestamp_seconds"
+OUTAGE_END = "loadgen_last_outage_end_timestamp_seconds"
+
+
+def client_outage(series: list[Series], fault_start: float) -> dict[str, Any]:
+    """Client-observed outage from the load generator's outage counters.
+
+    outage_seconds is the counters' exact increase from the last scrape before the
+    fault (the client accrues down time while an outage lasts, so scrape gaps lose no
+    seconds). pattern: NONE | CONTINUOUS (one outage) | INTERMITTENT (several) |
+    INSUFFICIENT_DATA (series missing, counting started after the fault, or a counter
+    reset, i.e. the load generator restarted and down time may be lost).
+    """
+    by_name = {s.labels.get("__name__", ""): sorted(s.samples) for s in series}
+
+    def from_fault(samples: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        before = [i for i, (t, _) in enumerate(samples) if t <= fault_start]
+        return samples[before[-1] :] if before else samples
+
+    seconds_samples = from_fault(by_name.get(OUTAGE_SECONDS, []))
+    count_samples = from_fault(by_name.get(OUTAGES, []))
+    if len(seconds_samples) < 2 or len(count_samples) < 2:
+        return {
+            "status": "INSUFFICIENT_DATA",
+            "pattern": "INSUFFICIENT_DATA",
+            "reason": (
+                "No client outage series for the window (load generator not "
+                "targeting this workload, or without outage metrics)"
+            ),
+        }
+    reset = any(
+        b < a
+        for samples in (seconds_samples, count_samples)
+        for (_, a), (_, b) in pairwise(samples)
+    )
+    seconds = round(_counter_increase(seconds_samples), 3)
+    outages = round(_counter_increase(count_samples))
+    counted_from = seconds_samples[0][0]
+    starts_before = counted_from <= fault_start
+
+    # Exact windows from the "last outage" gauges (one per distinct start time seen).
+    ends = dict(by_name.get(OUTAGE_END, []))
+    windows: dict[float, float | None] = {}
+    for ts, start in by_name.get(OUTAGE_START, []):
+        if start >= counted_from:
+            end = ends.get(ts) or None
+            if end is not None and end < start:
+                end = None  # end belongs to an earlier outage
+            if windows.get(start) is None:
+                windows[start] = end
+    outage_windows = [
+        {
+            "start": _iso(start),
+            "end": _iso(end) if end else None,
+            "seconds": round(end - start, 3) if end else None,
+        }
+        for start, end in sorted(windows.items())
+    ]
+
+    if reset:
+        pattern, reason = (
+            "INSUFFICIENT_DATA",
+            (
+                "Counter reset in the window: the load generator restarted, down "
+                "time may be missing"
+            ),
+        )
+    elif not starts_before:
+        pattern, reason = (
+            "INSUFFICIENT_DATA",
+            "Outage counting began after the fault started",
+        )
+    elif seconds == 0 and outages == 0:
+        pattern, reason = "NONE", "No client-observed outage"
+    elif outages <= 1:
+        pattern, reason = (
+            "CONTINUOUS",
+            f"Continuous client outage of {seconds:g}s",
+        )
+    else:
+        pattern, reason = (
+            "INTERMITTENT",
+            f"Intermittent client failures: {outages} outages totalling {seconds:g}s",
+        )
+    return {
+        "status": "INSUFFICIENT_DATA" if pattern == "INSUFFICIENT_DATA" else "OK",
+        "pattern": pattern,
+        "reason": reason,
+        "outage_seconds": seconds,
+        "outages": outages,
+        "reset_detected": reset,
+        "starts_before_fault": starts_before,
+        "counted_from": _iso(counted_from),
+        "counted_to": _iso(seconds_samples[-1][0]),
+        "outage_windows": outage_windows,
     }
 
 

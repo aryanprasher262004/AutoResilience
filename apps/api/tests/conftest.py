@@ -33,7 +33,13 @@ from app.main import app
 from app.services.orchestration.baseline import baseline_queries
 from app.services.orchestration.injection import StartWait
 from app.services.orchestration.observation import ObservationConfig
-from app.services.orchestration.recovery import RecoveryRule
+from app.services.orchestration.recovery import (
+    OUTAGE_END,
+    OUTAGE_SECONDS,
+    OUTAGE_START,
+    OUTAGES,
+    RecoveryRule,
+)
 
 CHECKOUT_PODS = ("checkout-a", "checkout-b", "checkout-c")
 
@@ -159,6 +165,8 @@ HEALTHY_BASELINE: dict[str, float | None] = {
     "client_rate_rps": 9.9,
     "client_failure_rate_rps": None,  # no failures recorded
     "client_latency_p95_seconds": 0.0048,
+    "client_outage_seconds": 0.0,
+    "client_outages": 0.0,
 }
 
 
@@ -196,6 +204,8 @@ class FakePrometheus:
         }
         # Client-side loadgen counter series (see client_counters()).
         self.client: list[Series] = []
+        # Client outage counters/gauges (see outage_counters()).
+        self.client_outage: list[Series] = []
 
     def query_value(self, promql: str, at: datetime) -> float | None:
         self.queries.append((promql, at))
@@ -225,6 +235,8 @@ class FakePrometheus:
         self.queries.append((promql, at))
         if self.error is not None:
             raise PrometheusError(self.error)
+        if "loadgen_outage_seconds_total" in promql:
+            return self.client_outage
         if "loadgen_requests_total" in promql:
             return self.client
         assert "replicas_available" in promql or "replicas_ready" in promql
@@ -265,6 +277,42 @@ class FakePrometheus:
             for outcome, value in totals.items():
                 points[outcome].append((ts, value))
         self.client = [Series({"outcome": o}, samples) for o, samples in points.items()]
+
+    def outage_counters(
+        self,
+        fault_start: float,
+        outages: list[tuple[float, float]] | None = None,
+        scrape_every: float = 15,
+        first_scrape: float = -15,
+        samples: int = 10,
+        reset_at: int | None = None,
+    ) -> None:
+        """Mirror the loadgen's outage metrics as Prometheus would scrape them.
+
+        `outages` are (start, end) offsets from fault_start; down time accrues while
+        an outage lasts. `reset_at` simulates a loadgen restart at that scrape index.
+        """
+        outages = outages or []
+        names = (OUTAGE_SECONDS, OUTAGES, OUTAGE_START, OUTAGE_END)
+        points: dict[str, list[tuple[float, float]]] = {n: [] for n in names}
+        base = 0.0
+        for i in range(samples):
+            ts = fault_start + first_scrape + scrape_every * i
+            started = [(a, b) for a, b in outages if fault_start + a <= ts]
+            seconds = sum(
+                min(ts, fault_start + b) - (fault_start + a) for a, b in started
+            )
+            last = started[-1] if started else None
+            if reset_at is not None and i == reset_at:
+                base = seconds  # counters restart from zero after this point
+            points[OUTAGE_SECONDS].append((ts, seconds - base))
+            points[OUTAGES].append((ts, float(len(started)) - (0 if base == 0 else 1)))
+            points[OUTAGE_START].append((ts, fault_start + last[0] if last else 0.0))
+            ended = last is not None and fault_start + last[1] <= ts
+            points[OUTAGE_END].append(
+                (ts, fault_start + last[1] if last and ended else 0.0)
+            )
+        self.client_outage = [Series({"__name__": n}, p) for n, p in points.items()]
 
     def healthy_recovery(self, fault_start: float, desired: int = 2) -> None:
         """Replacement created 5s and Ready 7s after fault start, then steady samples."""

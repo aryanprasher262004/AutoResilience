@@ -61,15 +61,15 @@ def v2(
     obs = observation(**kwargs)
     if client is not None:
         obs["impact"]["client"] = client
-    return score_experiment(state, b or client_baseline(), obs)
+    return score_experiment(state, b or client_baseline(), obs, version="v2")
 
 
 def failures(result: dict[str, Any]) -> dict[str, Any]:
     return next(c for c in result["components"] if c["name"] == "request_failures")
 
 
-def test_v2_is_the_current_version() -> None:
-    assert CURRENT_VERSION == "v2"
+def test_v2_weights() -> None:
+    assert CURRENT_VERSION == "v3"  # v2 stays reproducible by version
     result = v2(client=client_impact())
     assert result["version"] == "v2"
     assert result["weights"] == {
@@ -189,7 +189,7 @@ def test_v1_and_v2_differ_only_where_documented() -> None:
     obs["impact"]["client"] = client_impact(connection_error=20)
 
     v1 = score_experiment("COMPLETED", b, obs, version="v1")
-    v2_ = score_experiment("COMPLETED", b, obs, version="v2")
+    v2_ = score_experiment("COMPLETED", b, obs, version="v2")  # pinned
 
     assert v1["score"] == 100.0  # server-side 0 errors
     assert v2_["score"] < 100.0
@@ -198,3 +198,7 @@ def test_v1_and_v2_differ_only_where_documented() -> None:
 def test_unknown_version_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unknown scoring version"):
         score_experiment("COMPLETED", baseline(), observation(), version="v9")
+
+
+def test_v2_explicitly_pinned_everywhere() -> None:
+    assert v2(client=client_impact())["version"] == "v2"

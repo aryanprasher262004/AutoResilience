@@ -181,6 +181,8 @@ def test_client_group_records_client_view() -> None:
         "client_failure_rate_rps": 0.0,
         "client_failure_ratio": 0.0,
         "client_latency_p95_seconds": 0.0048,
+        "client_outage_seconds": 0.0,
+        "client_outages": 0,
     }
     assert "p95 4.8 ms" in client["message"]
 

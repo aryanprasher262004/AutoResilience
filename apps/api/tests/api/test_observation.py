@@ -392,10 +392,10 @@ def test_completed_experiment_is_scored_and_retrievable(
     score = response.json()
     assert score == body["score"]
     assert score["score"] == 100.0  # recovered in 2s, no dip/restarts/errors, Pass
-    assert score["version"] == "v2"
+    assert score["version"] == "v3"
     assert {c["name"] for c in score["components"]} == {
         "recovery_time",
-        "availability",
+        "client_outage",
         "request_failures",
         "restarts",
         "litmus_verdict",
@@ -499,10 +499,11 @@ def test_v1_can_be_recomputed_from_the_same_evidence(
     at(clock, start, 120)
     observe(client, experiment_id)
 
-    v2 = client.get(f"/experiments/{experiment_id}/score").json()
+    current = client.get(f"/experiments/{experiment_id}/score").json()
     v1 = client.get(f"/experiments/{experiment_id}/score?version=v1").json()
+    v2 = client.get(f"/experiments/{experiment_id}/score?version=v2").json()
 
-    assert (v1["version"], v2["version"]) == ("v1", "v2")
+    assert (v1["version"], v2["version"], current["version"]) == ("v1", "v2", "v3")
     assert v1["score"] == 100.0  # server/K8s evidence saw nothing
     assert v2["score"] < v1["score"]  # the client did
     assert (
@@ -528,3 +529,27 @@ def test_target_without_client_metrics_still_scores(
     assert failures["raw"]["source"] == "server"
     assert "server-side fallback: no client-side baseline" in failures["reason"]
     assert body["score"]["score"] == 100.0
+
+
+@pytest.mark.usefixtures("litmus_done")
+def test_v3_uses_measured_client_outage(
+    client: TestClient, prometheus: FakePrometheus, clock: Clock
+) -> None:
+    experiment_id, start = observing(client)
+    prometheus.healthy_recovery(start.timestamp())
+    prometheus.client_counters(start.timestamp(), {1: {"connection_error": 60}})
+    prometheus.outage_counters(start.timestamp(), outages=[(2.0, 11.0)])
+    at(clock, start, 120)
+
+    body = observe(client, experiment_id)
+
+    measured = body["observation"]["impact"]["client"]["outage"]
+    assert measured["pattern"] == "CONTINUOUS"
+    assert measured["outage_seconds"] == 9.0
+    score = client.get(f"/experiments/{experiment_id}/score").json()
+    outage = next(c for c in score["components"] if c["name"] == "client_outage")
+    assert outage["raw"]["source"] == "client"
+    assert outage["normalized"] == 0.8644  # 1 - 8/59
+    assert "Continuous client outage of 9s" in outage["reason"]
+    v2 = client.get(f"/experiments/{experiment_id}/score?version=v2").json()
+    assert "availability" in {c["name"] for c in v2["components"]}

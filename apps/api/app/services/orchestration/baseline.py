@@ -99,6 +99,12 @@ def baseline_queries(target: ExperimentTarget, window_seconds: int) -> dict[str,
         "client_latency_p95_seconds": (
             f"histogram_quantile(0.95, sum by (le) (rate({client_latency}{w})))"
         ),
+        "client_outage_seconds": (
+            f"sum(increase(loadgen_outage_seconds_total{{{client_selector(target)}}}{w}))"
+        ),
+        "client_outages": (
+            f"sum(increase(loadgen_outages_total{{{client_selector(target)}}}{w}))"
+        ),
     }
 
 
@@ -232,6 +238,9 @@ def _client(value: ValueFn) -> GroupResult:
     failures = value("client_failure_rate_rps") or 0.0
     ratio = _round(failures / rate) if rate > 0 else None
     p95 = value("client_latency_p95_seconds")
+    # None when the load generator predates outage metrics.
+    outage_seconds = value("client_outage_seconds")
+    outages = value("client_outages")
     return (
         MetricStatus.OK,
         f"client {rate:.2f} req/s, {failures:.3f} failed/s"
@@ -242,6 +251,10 @@ def _client(value: ValueFn) -> GroupResult:
             "client_failure_rate_rps": _round(failures),
             "client_failure_ratio": ratio,
             "client_latency_p95_seconds": _round(p95) if p95 is not None else None,
+            "client_outage_seconds": (
+                _round(outage_seconds) if outage_seconds is not None else None
+            ),
+            "client_outages": round(outages) if outages is not None else None,
         },
     )
 
