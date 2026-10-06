@@ -28,6 +28,8 @@ export type ServiceSummary = Schemas["ServiceSummary"];
 export type ServiceList = Schemas["ServiceList"];
 export type ServiceDetail = Schemas["ServiceDetail"];
 export type WorkloadHealth = ServiceDetail["health"];
+export type Readiness = Schemas["Readiness"];
+export type ReadinessReason = NonNullable<Readiness["checks"][number]["reason"]>;
 
 /** Query parameters of GET /experiments/history (mirrors the OpenAPI operation). */
 export type HistoryQuery = {

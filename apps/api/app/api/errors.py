@@ -17,12 +17,12 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-def _database() -> str:
+def database_location() -> str:
     url = make_url(get_settings().database_url)  # never includes the password
     return f"{url.host or 'localhost'}:{url.port or 5432}/{url.database}"
 
 
-def _cause(exc: Exception) -> str:
+def error_cause(exc: Exception) -> str:
     orig = getattr(exc, "orig", None) or exc
     lines = str(orig).strip().splitlines()
     return lines[0] if lines else type(orig).__name__
@@ -33,18 +33,18 @@ def _unavailable(detail: str) -> JSONResponse:
 
 
 async def database_unavailable(_: Request, exc: Exception) -> JSONResponse:
-    logger.error("Database unavailable: %s", _cause(exc))
+    logger.error("Database unavailable: %s", error_cause(exc))
     return _unavailable(
-        f"Database unavailable at {_database()}: {_cause(exc)}. "
+        f"Database unavailable at {database_location()}: {error_cause(exc)}. "
         "Start it with scripts/dev-db.sh or set DATABASE_URL."
     )
 
 
 async def database_error(request: Request, exc: Exception) -> JSONResponse:
     if isinstance(getattr(exc, "orig", None), pg_errors.UndefinedTable):
-        logger.error("Database schema missing: %s", _cause(exc))
+        logger.error("Database schema missing: %s", error_cause(exc))
         return _unavailable(
-            f"Database {_database()} has no AutoResilience schema ({_cause(exc)}). "
+            f"Database {database_location()} has no AutoResilience schema ({error_cause(exc)}). "
             "Run `uv run alembic upgrade head` in apps/api."
         )
     raise exc  # a genuine bug: keep the 500

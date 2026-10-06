@@ -13,6 +13,7 @@ from app.api.routes.experiments import (
 )
 from app.api.routes.experiments import router as experiments_router
 from app.api.routes.health import router as health_router
+from app.api.routes.ready import router as ready_router
 from app.api.routes.reports import router as history_router
 from app.api.routes.targets import router as services_router
 from app.core.config import get_settings
@@ -69,6 +70,7 @@ app = FastAPI(title=get_settings().app_name, lifespan=lifespan)
 register_error_handlers(app)
 
 app.include_router(health_router)
+app.include_router(ready_router)
 # Before experiments_router: /experiments/history must not match /{experiment_id}.
 app.include_router(history_router)
 app.include_router(experiments_router)

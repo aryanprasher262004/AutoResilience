@@ -1127,6 +1127,76 @@
         "title": "PodDeleteMode",
         "type": "string"
       },
+      "Readiness": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ReadinessCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ],
+        "title": "Readiness",
+        "type": "object"
+      },
+      "ReadinessCheck": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "const": "database",
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "database_unreachable",
+                  "schema_missing",
+                  "schema_outdated"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "reason",
+          "detail"
+        ],
+        "title": "ReadinessCheck",
+        "type": "object"
+      },
       "ScoreComponentRead": {
         "properties": {
           "contribution": {
@@ -2445,6 +2515,38 @@
           }
         },
         "summary": "Health Check"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "200 when the database is reachable and migrated to this API's head, else 503.\n\n`/health` only says the process is up; use this to know whether normal\noperations (experiments, history, services) can work.",
+        "operationId": "get_readiness_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            },
+            "description": "A required dependency failed"
+          }
+        },
+        "summary": "Get Readiness",
+        "tags": [
+          "health"
+        ]
       }
     },
     "/services": {

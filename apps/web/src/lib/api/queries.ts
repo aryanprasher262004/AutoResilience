@@ -12,7 +12,7 @@ const ACTIVE_POLL_MS = 3000;
 const IDLE_POLL_MS = 15_000;
 
 export const queryKeys = {
-  health: ["health"] as const,
+  readiness: ["readiness"] as const,
   experiments: ["experiments"] as const,
   experiment: (id: string) => ["experiments", id] as const,
   history: (query: HistoryQuery) => ["experiments", "history", query] as const,
@@ -21,11 +21,12 @@ export const queryKeys = {
   service: (namespace: string, kind: WorkloadKind, name: string) => ["services", namespace, kind, name] as const,
 };
 
-export function useHealth() {
+/** Dependency readiness (GET /ready); re-checked sooner while not ready. */
+export function useReadiness() {
   return useQuery({
-    queryKey: queryKeys.health,
-    queryFn: api.health,
-    refetchInterval: 15_000,
+    queryKey: queryKeys.readiness,
+    queryFn: api.readiness,
+    refetchInterval: (q) => (q.state.data?.status === "ready" ? 15_000 : 5_000),
     retry: false,
   });
 }

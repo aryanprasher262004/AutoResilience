@@ -12,6 +12,7 @@ import type {
   ExperimentPage,
   Health,
   HistoryQuery,
+  Readiness,
   Score,
   ServiceDetail,
   ServiceList,
@@ -122,8 +123,21 @@ function post<T>(path: string, payload?: unknown): Promise<T> {
   });
 }
 
+function isReadiness(body: unknown): body is Readiness {
+  return !!body && typeof body === "object" && "status" in body && "checks" in body;
+}
+
 export const api = {
   health: () => request<Health>("/health"),
+  /** 503 "not_ready" is an answer, not a failure: it is returned as data. */
+  readiness: async (): Promise<Readiness> => {
+    try {
+      return await request<Readiness>("/ready");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 503 && isReadiness(error.body)) return error.body;
+      throw error;
+    }
+  },
   listExperiments: () => request<Experiment[]>("/experiments"),
   history: (query: HistoryQuery) => request<ExperimentPage>(`/experiments/history${toSearch(query)}`),
   dashboard: () => request<DashboardSummary>("/dashboard/summary"),

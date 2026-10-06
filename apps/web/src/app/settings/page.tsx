@@ -26,7 +26,7 @@ export default function SettingsPage() {
                   label: "Proxied to (AUTORESILIENCE_API_URL at build time)",
                   value: <code className="font-mono">{upstream}</code>,
                 },
-                { label: "Status", value: <ApiStatus /> },
+                { label: "Status (GET /ready)", value: <ApiStatus detailed /> },
               ]}
             />
           </CardBody>

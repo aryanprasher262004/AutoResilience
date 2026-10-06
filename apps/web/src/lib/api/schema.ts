@@ -258,6 +258,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Readiness
+         * @description 200 when the database is reachable and migrated to this API's head, else 503.
+         *
+         *     `/health` only says the process is up; use this to know whether normal
+         *     operations (experiments, history, services) can work.
+         */
+        get: operations["get_readiness_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/services": {
         parameters: {
             query?: never;
@@ -681,6 +704,33 @@ export interface components {
          * @enum {string}
          */
         PodDeleteMode: "GRACEFUL" | "FORCE";
+        /** Readiness */
+        Readiness: {
+            /** Checks */
+            checks: components["schemas"]["ReadinessCheck"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "not_ready";
+        };
+        /** ReadinessCheck */
+        ReadinessCheck: {
+            /** Detail */
+            detail: string;
+            /**
+             * Name
+             * @constant
+             */
+            name: "database";
+            /** Reason */
+            reason: ("database_unreachable" | "schema_missing" | "schema_outdated") | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pass" | "fail";
+        };
         /** ScoreComponentRead */
         ScoreComponentRead: {
             /** Contribution */
@@ -1284,6 +1334,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_readiness_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+            /** @description A required dependency failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
                 };
             };
         };
