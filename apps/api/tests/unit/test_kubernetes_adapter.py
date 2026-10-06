@@ -12,6 +12,7 @@ from app.integrations.kubernetes_adapter import (
     ClusterUnavailableError,
     KubernetesAdapter,
     WorkloadStatus,
+    WorkloadSummary,
     label_selector_to_string,
 )
 
@@ -199,3 +200,57 @@ def test_live_pod_names_failure_raises(apis: tuple[MagicMock, MagicMock]) -> Non
     core.list_namespaced_pod.side_effect = ApiException(status=500, reason="boom")
     with pytest.raises(ClusterUnavailableError, match="500"):
         adapter().live_pod_names("shop", ["x"])
+
+
+def listed(namespace: str, name: str, replicas: int, status: NS | None) -> NS:
+    return NS(
+        metadata=NS(namespace=namespace, name=name, creation_timestamp=None),
+        spec=NS(replicas=replicas),
+        status=status,
+    )
+
+
+def test_list_workloads_reads_controller_status(
+    apis: tuple[MagicMock, MagicMock],
+) -> None:
+    apps, core = apis
+    apps.list_deployment_for_all_namespaces.return_value = NS(
+        items=[
+            listed(
+                "shop",
+                "checkout",
+                2,
+                NS(replicas=3, ready_replicas=1, available_replicas=1),
+            ),
+            # Fresh/scaled-down controllers leave status fields unset.
+            listed(
+                "shop",
+                "idle",
+                0,
+                NS(replicas=None, ready_replicas=None, available_replicas=None),
+            ),
+        ]
+    )
+    apps.list_stateful_set_for_all_namespaces.return_value = NS(
+        items=[listed("shop", "cart-redis", 1, None)]
+    )
+
+    workloads = adapter().list_workloads()
+
+    assert workloads == [
+        WorkloadSummary("shop", WorkloadKind.DEPLOYMENT, "checkout", 2, 3, 1, 1, None),
+        WorkloadSummary("shop", WorkloadKind.DEPLOYMENT, "idle", 0, 0, 0, 0, None),
+        WorkloadSummary(
+            "shop", WorkloadKind.STATEFULSET, "cart-redis", 1, 0, 0, 0, None
+        ),
+    ]
+    apps.list_deployment_for_all_namespaces.assert_called_once_with(_request_timeout=5)
+    assert_read_only(apps, core)
+
+
+def test_list_workloads_unreachable(apis: tuple[MagicMock, MagicMock]) -> None:
+    apps, _ = apis
+    apps.list_deployment_for_all_namespaces.side_effect = ApiException(403, "Forbidden")
+
+    with pytest.raises(ClusterUnavailableError, match="403"):
+        adapter().list_workloads()

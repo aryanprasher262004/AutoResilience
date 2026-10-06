@@ -258,6 +258,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Services
+         * @description Deployments and StatefulSets outside system namespaces, with experiment history.
+         *
+         *     Replica counts are the controllers' own status (as `kubectl get` shows them).
+         */
+        get: operations["get_services_services_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/{namespace}/{kind}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Service
+         * @description Live pod health plus this workload's experiments, scores and tested faults.
+         *
+         *     If the cluster cannot be queried, history is still returned with
+         *     health UNKNOWN and the error in `cluster_error`.
+         */
+        get: operations["get_service_services__namespace___kind___name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -479,6 +524,21 @@ export interface components {
             /** Namespace */
             namespace: string;
         };
+        /** FaultCoverage */
+        FaultCoverage: {
+            /** Completed */
+            completed: number;
+            fault_type: components["schemas"]["FaultType"];
+            /**
+             * Last Run At
+             * Format: date-time
+             */
+            last_run_at: string;
+            latest_score: components["schemas"]["LatestScore"] | null;
+            pod_delete_mode: components["schemas"]["PodDeleteMode"];
+            /** Runs */
+            runs: number;
+        };
         /**
          * FaultType
          * @enum {string}
@@ -488,6 +548,44 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * LatestScore
+         * @description The most recent experiment on this workload that produced a numeric score.
+         */
+        LatestScore: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Experiment Id
+             * Format: uuid
+             */
+            experiment_id: string;
+            /** Rating */
+            rating: string | null;
+            /** Score */
+            score: number;
+            /** Status */
+            status: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * LiveStatus
+         * @description Pod-level status, read the same way safety validation reads it.
+         */
+        LiveStatus: {
+            /** Desired Replicas */
+            desired_replicas: number;
+            /** Ready Pod Names */
+            ready_pod_names: string[];
+            /** Ready Pods */
+            ready_pods: number;
+            /** Running Pods */
+            running_pods: number;
         };
         /** MetricGroupRead */
         MetricGroupRead: {
@@ -691,6 +789,67 @@ export interface components {
             status: string;
             /** Version */
             version: string;
+        };
+        /** ServiceDetail */
+        ServiceDetail: {
+            /** Cluster Error */
+            cluster_error: string | null;
+            /** Experiment Count */
+            experiment_count: number;
+            /** Experiments */
+            experiments: components["schemas"]["ExperimentSummary"][];
+            /** Faults */
+            faults: components["schemas"]["FaultCoverage"][];
+            /**
+             * Health
+             * @enum {string}
+             */
+            health: "HEALTHY" | "DEGRADED" | "UNAVAILABLE" | "SCALED_TO_ZERO" | "NOT_FOUND" | "UNKNOWN";
+            kind: components["schemas"]["WorkloadKind"];
+            latest_score: components["schemas"]["LatestScore"] | null;
+            live: components["schemas"]["LiveStatus"] | null;
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string;
+            /** Score History */
+            score_history: components["schemas"]["ScorePoint"][];
+            /** Score Version */
+            score_version: string;
+        };
+        /** ServiceList */
+        ServiceList: {
+            /** Excluded Namespaces */
+            excluded_namespaces: string[];
+            /** Items */
+            items: components["schemas"]["ServiceSummary"][];
+        };
+        /** ServiceSummary */
+        ServiceSummary: {
+            /** Available Replicas */
+            available_replicas: number;
+            /** Created At */
+            created_at: string | null;
+            /** Current Replicas */
+            current_replicas: number;
+            /** Desired Replicas */
+            desired_replicas: number;
+            /** Experiment Count */
+            experiment_count: number;
+            /**
+             * Health
+             * @enum {string}
+             */
+            health: "HEALTHY" | "DEGRADED" | "UNAVAILABLE" | "SCALED_TO_ZERO" | "NOT_FOUND" | "UNKNOWN";
+            kind: components["schemas"]["WorkloadKind"];
+            latest_experiment: components["schemas"]["ExperimentSummary"] | null;
+            latest_score: components["schemas"]["LatestScore"] | null;
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string;
+            /** Ready Replicas */
+            ready_replicas: number;
         };
         /** ValidationCheckRead */
         ValidationCheckRead: {
@@ -1125,6 +1284,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_services_services_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceList"];
+                };
+            };
+        };
+    };
+    get_service_services__namespace___kind___name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespace: string;
+                kind: components["schemas"]["WorkloadKind"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

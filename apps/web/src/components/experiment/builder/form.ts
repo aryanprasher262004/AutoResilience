@@ -1,4 +1,5 @@
 import type { ExperimentCreate, FaultType, PodDeleteMode, WorkloadKind } from "@/lib/api/types";
+import { WORKLOAD_KINDS } from "@/lib/experiment-options";
 
 /** Raw form state (strings for number inputs so partial edits are possible). */
 export type FormValues = {
@@ -26,6 +27,17 @@ export const INITIAL_VALUES: FormValues = {
   durationSeconds: "60",
   affectedReplicas: "1",
 };
+
+/** Target prefilled from a link (e.g. Services → "New experiment"); still editable. */
+export function initialValues(params: URLSearchParams): FormValues {
+  const kind = params.get("kind");
+  return {
+    ...INITIAL_VALUES,
+    namespace: params.get("namespace") ?? "",
+    workload: params.get("name") ?? "",
+    kind: kind && (WORKLOAD_KINDS as readonly string[]).includes(kind) ? (kind as WorkloadKind) : INITIAL_VALUES.kind,
+  };
+}
 
 const positiveInt = (value: string) => /^\d+$/.test(value.trim()) && Number(value) > 0;
 

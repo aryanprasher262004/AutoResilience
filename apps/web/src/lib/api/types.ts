@@ -24,6 +24,10 @@ export type ExperimentSummary = Schemas["ExperimentSummary"];
 export type ExperimentPage = Schemas["ExperimentPage"];
 export type DashboardSummary = Schemas["DashboardSummary"];
 export type ScorePoint = Schemas["ScorePoint"];
+export type ServiceSummary = Schemas["ServiceSummary"];
+export type ServiceList = Schemas["ServiceList"];
+export type ServiceDetail = Schemas["ServiceDetail"];
+export type WorkloadHealth = ServiceDetail["health"];
 
 /** Query parameters of GET /experiments/history (mirrors the OpenAPI operation). */
 export type HistoryQuery = {

@@ -1,14 +1,81 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 
+import { HealthBadge } from "@/components/services/health-badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { useServices } from "@/lib/api/queries";
+import type { ServiceSummary } from "@/lib/api/types";
 import { FAULT_TYPES, MODE_HELP, POD_DELETE_MODES, WORKLOAD_KINDS } from "@/lib/experiment-options";
 
 import type { FieldErrors, FormValues } from "./form";
+
+const keyOf = (s: { namespace: string; kind: string; name: string }) => `${s.namespace}/${s.kind}/${s.name}`;
+
+/** Picks a discovered workload into the target fields. The fields stay editable. */
+function DiscoveredWorkload({
+  values,
+  onPick,
+}: {
+  values: FormValues;
+  onPick: (s: ServiceSummary) => void;
+}) {
+  const { data, isPending, isError, error } = useServices();
+  const items = data?.items ?? [];
+  const current = keyOf({ namespace: values.namespace.trim(), kind: values.kind, name: values.workload.trim() });
+  const selected = items.find((s) => keyOf(s) === current);
+  const namespaces = [...new Set(items.map((s) => s.namespace))];
+
+  let hint: ReactNode;
+  if (isError) hint = `Discovery unavailable (${error.message}). Enter the target manually.`;
+  else if (selected)
+    hint = (
+      <span className="flex flex-wrap items-center gap-2">
+        <HealthBadge health={selected.health} />
+        <span className="font-mono">
+          {selected.ready_replicas}/{selected.desired_replicas} ready
+        </span>
+        <span>
+          · {selected.experiment_count} experiment{selected.experiment_count === 1 ? "" : "s"}
+          {selected.latest_score ? ` · latest score ${selected.latest_score.score.toFixed(1)} (${selected.latest_score.version})` : ""}
+        </span>
+      </span>
+    );
+  else if (values.namespace.trim() && values.workload.trim() && data)
+    hint = "Not a discovered workload; the server checks that it exists and is allowed.";
+  else hint = "Or type the target below. System namespaces are not listed.";
+
+  return (
+    <Field id="discovered" label="Discovered workload" hint={hint} className="sm:col-span-3">
+      <Select
+        id="discovered"
+        value={selected ? current : ""}
+        disabled={isPending || isError || !items.length}
+        aria-describedby="discovered-hint"
+        onChange={(e) => {
+          const pick = items.find((s) => keyOf(s) === e.target.value);
+          if (pick) onPick(pick);
+        }}
+      >
+        <option value="">{isPending ? "Discovering workloads…" : items.length ? "Manual entry" : "No workloads discovered"}</option>
+        {namespaces.map((ns) => (
+          <optgroup key={ns} label={ns}>
+            {items
+              .filter((s) => s.namespace === ns)
+              .map((s) => (
+                <option key={keyOf(s)} value={keyOf(s)}>
+                  {s.namespace}/{s.name} · {s.kind} · {s.ready_replicas}/{s.desired_replicas} ready
+                </option>
+              ))}
+          </optgroup>
+        ))}
+      </Select>
+    </Field>
+  );
+}
 
 export function ConfigureStep({
   values,
@@ -72,6 +139,14 @@ export function ConfigureStep({
             description="The workload whose pods will be deleted. The server checks that it exists and is safe to target."
           />
           <CardBody className="grid gap-4 sm:grid-cols-3">
+            <DiscoveredWorkload
+              values={values}
+              onPick={(s) => {
+                onChange("namespace", s.namespace);
+                onChange("workload", s.name);
+                onChange("kind", s.kind);
+              }}
+            />
             <Field id="namespace" label="Namespace" error={errors.namespace} hint="Kubernetes namespace">
               <Input
                 id="namespace"

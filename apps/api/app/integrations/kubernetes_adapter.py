@@ -4,6 +4,7 @@ Only get/list calls are made here; nothing in this module may create, patch or d
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from kubernetes import client, config
@@ -23,6 +24,21 @@ class WorkloadStatus:
     # The workload's pod selector and its ready pods (used to scope fault injection).
     selector: str = ""
     ready_pod_names: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class WorkloadSummary:
+    """A Deployment/StatefulSet as its controller reports it (what `kubectl get` shows)."""
+
+    namespace: str
+    kind: WorkloadKind
+    name: str
+    desired_replicas: int
+    # status.replicas: pods the controller currently has, ready or not.
+    current_replicas: int
+    ready_replicas: int
+    available_replicas: int
+    created_at: datetime | None
 
 
 class ClusterUnavailableError(Exception):
@@ -62,6 +78,26 @@ class KubernetesAdapter:
             selector=selector,
             ready_pod_names=tuple(ready),
         )
+
+    def list_workloads(self) -> list[WorkloadSummary]:
+        """Every Deployment and StatefulSet in the cluster, from controller status."""
+        apps = client.AppsV1Api(self._client())
+        listings = (
+            (WorkloadKind.DEPLOYMENT, apps.list_deployment_for_all_namespaces),
+            (WorkloadKind.STATEFULSET, apps.list_stateful_set_for_all_namespaces),
+        )
+        try:
+            return [
+                _summary(kind, item)
+                for kind, list_all in listings
+                for item in list_all(_request_timeout=self._timeout).items
+            ]
+        except ApiException as exc:
+            raise ClusterUnavailableError(
+                f"Kubernetes API error {exc.status}: {exc.reason}"
+            ) from exc
+        except (ConfigException, HTTPError, OSError) as exc:
+            raise ClusterUnavailableError(f"Kubernetes API unreachable: {exc}") from exc
 
     def live_pod_names(self, namespace: str, names: list[str]) -> set[str]:
         """Which of the named pods still exist and are not terminating."""
@@ -118,6 +154,20 @@ def label_selector_to_string(selector: Any) -> str:
         # An empty selector would match every pod in the namespace.
         raise ClusterUnavailableError("Workload has an empty pod selector")
     return ",".join(parts)
+
+
+def _summary(kind: WorkloadKind, item: Any) -> WorkloadSummary:
+    status = item.status
+    return WorkloadSummary(
+        namespace=item.metadata.namespace,
+        kind=kind,
+        name=item.metadata.name,
+        desired_replicas=item.spec.replicas or 0,
+        current_replicas=(status and status.replicas) or 0,
+        ready_replicas=(status and status.ready_replicas) or 0,
+        available_replicas=(status and status.available_replicas) or 0,
+        created_at=item.metadata.creation_timestamp,
+    )
 
 
 def _is_running(pod: Any) -> bool:

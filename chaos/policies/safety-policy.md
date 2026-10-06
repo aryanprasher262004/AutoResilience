@@ -35,7 +35,7 @@ The sandbox namespace is created by `infra/sample-app/sandbox.yaml` (labelled
    ready − affected ≥ `min_healthy_replicas`). A failure → `INJECTION_FAILED`.
 4. Target pods = the first `affected_replicas` ready pods by name (deterministic).
 5. The provider refuses `SYSTEM_NAMESPACES` (kube-system, kube-public,
-   kube-node-lease, litmus, monitoring) independently of validation.
+   kube-node-lease, local-path-storage, litmus, monitoring) independently of validation.
 6. The namespace must already contain the vetted `pod-delete` ChaosExperiment
    (`chaos/templates/pod-delete.yaml`) and the `autoresilience-chaos` ServiceAccount
    (`chaos/rbac/pod-delete-rbac.yaml`, applied per chaos namespace: `shop`,

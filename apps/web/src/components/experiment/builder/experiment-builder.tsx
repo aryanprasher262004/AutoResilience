@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Stepper } from "@/components/ui/stepper";
@@ -14,8 +14,8 @@ import { ConfigureStep } from "./configure-step";
 import {
   type FieldErrors,
   type FormValues,
-  INITIAL_VALUES,
   checkObvious,
+  initialValues,
   serverFieldErrors,
   toPayload,
 } from "./form";
@@ -43,7 +43,8 @@ export function ExperimentBuilder() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<StepId>("configure");
-  const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
+  const searchParams = useSearchParams();
+  const [values, setValues] = useState<FormValues>(() => initialValues(searchParams));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
@@ -81,6 +82,7 @@ export function ExperimentBuilder() {
 
   function refreshLists() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.experiments });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.services });
   }
 
   function onChange<K extends keyof FormValues>(key: K, value: FormValues[K]) {

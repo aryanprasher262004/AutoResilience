@@ -13,6 +13,9 @@ import type {
   Health,
   HistoryQuery,
   Score,
+  ServiceDetail,
+  ServiceList,
+  WorkloadKind,
 } from "./types";
 
 function toSearch(query: HistoryQuery): string {
@@ -124,6 +127,11 @@ export const api = {
   listExperiments: () => request<Experiment[]>("/experiments"),
   history: (query: HistoryQuery) => request<ExperimentPage>(`/experiments/history${toSearch(query)}`),
   dashboard: () => request<DashboardSummary>("/dashboard/summary"),
+  services: () => request<ServiceList>("/services"),
+  service: (namespace: string, kind: WorkloadKind, name: string) =>
+    request<ServiceDetail>(
+      `/services/${encodeURIComponent(namespace)}/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`,
+    ),
   getExperiment: (id: string) => request<Experiment>(`/experiments/${encodeURIComponent(id)}`),
   getScore: (id: string, version?: string) =>
     request<Score>(

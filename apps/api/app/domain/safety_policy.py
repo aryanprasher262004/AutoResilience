@@ -1,8 +1,16 @@
 from dataclasses import asdict, dataclass
 from typing import Any
 
+# Cluster/platform namespaces: never a fault target, never offered as a service.
 SYSTEM_NAMESPACES = frozenset(
-    {"kube-system", "kube-public", "kube-node-lease", "litmus", "monitoring"}
+    {
+        "kube-system",
+        "kube-public",
+        "kube-node-lease",
+        "local-path-storage",  # kind's storage provisioner
+        "litmus",
+        "monitoring",
+    }
 )
 
 # Reserved for deliberately fragile test workloads (infra/sample-app/sandbox.yaml).

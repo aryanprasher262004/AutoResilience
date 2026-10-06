@@ -36,7 +36,11 @@ from app.integrations.chaos_provider import (
     PodDeleteRequest,
     engine_name,
 )
-from app.integrations.kubernetes_adapter import ClusterUnavailableError, WorkloadStatus
+from app.integrations.kubernetes_adapter import (
+    ClusterUnavailableError,
+    WorkloadStatus,
+    WorkloadSummary,
+)
 from app.integrations.prometheus_client import PrometheusError, Sample, Series
 from app.main import app
 from app.services.orchestration.baseline import baseline_queries
@@ -68,6 +72,12 @@ class FakeKubernetes:
         self.calls: list[ExperimentTarget] = []
         self.live_sequence: list[set[str] | Exception] = [set()]
         self.live_calls: list[list[str]] = []
+        self.workloads: list[WorkloadSummary] = []
+
+    def list_workloads(self) -> list[WorkloadSummary]:
+        if self.error is not None:
+            raise ClusterUnavailableError(self.error)
+        return self.workloads
 
     def get_workload_status(self, target: ExperimentTarget) -> WorkloadStatus | None:
         self.calls.append(target)

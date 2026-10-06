@@ -733,6 +733,49 @@
         "title": "ExperimentTargetSchema",
         "type": "object"
       },
+      "FaultCoverage": {
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "fault_type": {
+            "$ref": "#/components/schemas/FaultType"
+          },
+          "last_run_at": {
+            "format": "date-time",
+            "title": "Last Run At",
+            "type": "string"
+          },
+          "latest_score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatestScore"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pod_delete_mode": {
+            "$ref": "#/components/schemas/PodDeleteMode"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fault_type",
+          "pod_delete_mode",
+          "runs",
+          "completed",
+          "last_run_at",
+          "latest_score"
+        ],
+        "title": "FaultCoverage",
+        "type": "object"
+      },
       "FaultType": {
         "enum": [
           "pod-delete",
@@ -754,6 +797,86 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LatestScore": {
+        "description": "The most recent experiment on this workload that produced a numeric score.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "experiment_id": {
+            "format": "uuid",
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "score",
+          "rating",
+          "status",
+          "version",
+          "at"
+        ],
+        "title": "LatestScore",
+        "type": "object"
+      },
+      "LiveStatus": {
+        "description": "Pod-level status, read the same way safety validation reads it.",
+        "properties": {
+          "desired_replicas": {
+            "title": "Desired Replicas",
+            "type": "integer"
+          },
+          "ready_pod_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ready Pod Names",
+            "type": "array"
+          },
+          "ready_pods": {
+            "title": "Ready Pods",
+            "type": "integer"
+          },
+          "running_pods": {
+            "title": "Running Pods",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "desired_replicas",
+          "running_pods",
+          "ready_pods",
+          "ready_pod_names"
+        ],
+        "title": "LiveStatus",
         "type": "object"
       },
       "MetricGroupRead": {
@@ -1332,6 +1455,228 @@
           "version"
         ],
         "title": "ScoreSummary",
+        "type": "object"
+      },
+      "ServiceDetail": {
+        "properties": {
+          "cluster_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Error"
+          },
+          "experiment_count": {
+            "title": "Experiment Count",
+            "type": "integer"
+          },
+          "experiments": {
+            "items": {
+              "$ref": "#/components/schemas/ExperimentSummary"
+            },
+            "title": "Experiments",
+            "type": "array"
+          },
+          "faults": {
+            "items": {
+              "$ref": "#/components/schemas/FaultCoverage"
+            },
+            "title": "Faults",
+            "type": "array"
+          },
+          "health": {
+            "enum": [
+              "HEALTHY",
+              "DEGRADED",
+              "UNAVAILABLE",
+              "SCALED_TO_ZERO",
+              "NOT_FOUND",
+              "UNKNOWN"
+            ],
+            "title": "Health",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WorkloadKind"
+          },
+          "latest_score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatestScore"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "live": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "score_history": {
+            "items": {
+              "$ref": "#/components/schemas/ScorePoint"
+            },
+            "title": "Score History",
+            "type": "array"
+          },
+          "score_version": {
+            "title": "Score Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "kind",
+          "name",
+          "health",
+          "live",
+          "cluster_error",
+          "experiment_count",
+          "latest_score",
+          "faults",
+          "score_version",
+          "score_history",
+          "experiments"
+        ],
+        "title": "ServiceDetail",
+        "type": "object"
+      },
+      "ServiceList": {
+        "properties": {
+          "excluded_namespaces": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded Namespaces",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "excluded_namespaces"
+        ],
+        "title": "ServiceList",
+        "type": "object"
+      },
+      "ServiceSummary": {
+        "properties": {
+          "available_replicas": {
+            "title": "Available Replicas",
+            "type": "integer"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "current_replicas": {
+            "title": "Current Replicas",
+            "type": "integer"
+          },
+          "desired_replicas": {
+            "title": "Desired Replicas",
+            "type": "integer"
+          },
+          "experiment_count": {
+            "title": "Experiment Count",
+            "type": "integer"
+          },
+          "health": {
+            "enum": [
+              "HEALTHY",
+              "DEGRADED",
+              "UNAVAILABLE",
+              "SCALED_TO_ZERO",
+              "NOT_FOUND",
+              "UNKNOWN"
+            ],
+            "title": "Health",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WorkloadKind"
+          },
+          "latest_experiment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExperimentSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatestScore"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "ready_replicas": {
+            "title": "Ready Replicas",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "namespace",
+          "kind",
+          "name",
+          "desired_replicas",
+          "current_replicas",
+          "ready_replicas",
+          "available_replicas",
+          "health",
+          "created_at",
+          "experiment_count",
+          "latest_experiment",
+          "latest_score"
+        ],
+        "title": "ServiceSummary",
         "type": "object"
       },
       "ValidationCheckRead": {
@@ -2100,6 +2445,90 @@
           }
         },
         "summary": "Health Check"
+      }
+    },
+    "/services": {
+      "get": {
+        "description": "Deployments and StatefulSets outside system namespaces, with experiment history.\n\nReplica counts are the controllers' own status (as `kubectl get` shows them).",
+        "operationId": "get_services_services_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Services",
+        "tags": [
+          "services"
+        ]
+      }
+    },
+    "/services/{namespace}/{kind}/{name}": {
+      "get": {
+        "description": "Live pod health plus this workload's experiments, scores and tested faults.\n\nIf the cluster cannot be queried, history is still returned with\nhealth UNKNOWN and the error in `cluster_error`.",
+        "operationId": "get_service_services__namespace___kind___name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "schema": {
+              "maxLength": 63,
+              "title": "Namespace",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/WorkloadKind"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 253,
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Service",
+        "tags": [
+          "services"
+        ]
       }
     }
   }

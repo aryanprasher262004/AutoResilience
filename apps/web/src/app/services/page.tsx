@@ -1,21 +1,24 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
+import { ServicesView } from "@/components/services/services-view";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { PlannedState } from "@/components/ui/states";
+import { LoadingState } from "@/components/ui/states";
 
 export const metadata: Metadata = { title: "Services" };
 
 export default function ServicesPage() {
   return (
     <>
-      <PageHeader title="Services" description="Workloads that can be targeted by experiments." />
-      <PlannedState milestone="Planned · needs a backend endpoint" title="Service inventory">
-        <p>
-          The backend can inspect a single target during validation, but it does not yet expose
-          a list of candidate workloads. This page will list Deployments and StatefulSets per
-          namespace, with their last experiment result, once that read-only endpoint exists.
-        </p>
-      </PlannedState>
+      <PageHeader
+        title="Services"
+        description="Deployments and StatefulSets discovered in the cluster, with their live health and resilience history."
+      />
+      {/* useSearchParams needs a Suspense boundary on statically rendered routes. */}
+      <Suspense fallback={<Card><LoadingState rows={6} label="Discovering workloads" /></Card>}>
+        <ServicesView />
+      </Suspense>
     </>
   );
 }

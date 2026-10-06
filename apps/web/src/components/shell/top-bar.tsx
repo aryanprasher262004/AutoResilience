@@ -15,6 +15,8 @@ const LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Breadcrumbs derived from the URL (ids are shortened, never looked up). */
 export function TopBar() {
   const pathname = usePathname();
@@ -23,9 +25,13 @@ export function TopBar() {
     { href: "/", label: "Overview" },
     ...segments.map((segment, i) => ({
       href: `/${segments.slice(0, i + 1).join("/")}`,
-      label: LABELS[segment] ?? shortId(segment),
+      label: LABELS[segment] ?? (UUID.test(segment) ? shortId(segment) : decodeURIComponent(segment)),
     })),
   ];
+  // /services/<namespace>/<kind>/<name> is one page: show it as a single "namespace/name" crumb.
+  if (segments[0] === "services" && segments.length === 4) {
+    crumbs.splice(2, 3, { href: pathname, label: `${crumbs[2].label}/${crumbs[4].label}` });
+  }
   return (
     <header className="sticky top-0 z-10 flex h-12 items-center border-b border-line bg-canvas/90 px-6 backdrop-blur print:hidden">
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-xs">

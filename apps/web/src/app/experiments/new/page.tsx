@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { ExperimentBuilder } from "@/components/experiment/builder/experiment-builder";
 import { PageHeader } from "@/components/ui/page-header";
@@ -12,7 +13,10 @@ export default function NewExperimentPage() {
         title="New Experiment"
         description="Configure a controlled pod-delete, let the server check it, then start it."
       />
-      <ExperimentBuilder />
+      {/* The builder reads a prefilled target from the URL (useSearchParams). */}
+      <Suspense>
+        <ExperimentBuilder />
+      </Suspense>
     </>
   );
 }
