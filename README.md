@@ -308,7 +308,7 @@ docker volume rm autoresilience-pgdata        # deletes all experiment history
 | `chaos/policies/safety-policy.md` | Chaos safety contract |
 | `monitoring/prometheus/queries.md` | PromQL used for baseline and observation |
 | `research/handoff/README.md` | Research knowledge base: architecture, methodology, evidence, experiment plan, paper guide |
-| `CLAUDE.md` | Developer guide (current state, commands) |
+| `DEVELOPMENT.md` | Developer guide (current state, commands) |
 
 ### Documentation rule
 

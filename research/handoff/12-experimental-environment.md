@@ -159,7 +159,7 @@ Health checks before an experiment block:
 2. `kubectl --context kind-autoresilience get deploy,sts -A` shows every workload at full replicas.
 3. `curl localhost:9090/-/ready`.
 4. The load generator's series exist (`loadgen_requests_total`).
-5. **Wait at least 1 min after a Prometheus restart**, because baselines need ≥ 4 samples (`CLAUDE.md`).
+5. **Wait at least 1 min after a Prometheus restart**, because baselines need ≥ 4 samples (`DEVELOPMENT.md`).
 
 ## 11. Environmental confounders
 

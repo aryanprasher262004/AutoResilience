@@ -18,7 +18,7 @@ Mitigation status: `IMPL` (in the code) · `PROTO` (in the protocol, [13](13-exp
 | I-01 | Development runs used evolving builds | Commit brackets per record ([14](14-current-evidence.md)) | Single-commit campaign | PROTO | Low after the campaign |
 | I-02 | Baseline contamination from recent faults inflates v3 | O-09 (7/13 runs) | ≥ 6 min spacing | PROTO | Low |
 | I-03 | Order or time drift (host load, Prometheus state) | — | Interleave modes; randomise cells | PROTO | Medium |
-| I-04 | Prometheus restarts reduce baseline samples | `MIN_SAMPLES = 4`; `CLAUDE.md` note | Warm-up wait; no restarts in a block | PROTO | Low |
+| I-04 | Prometheus restarts reduce baseline samples | `MIN_SAMPLES = 4`; `DEVELOPMENT.md` note | Warm-up wait; no restarts in a block | PROTO | Low |
 | I-05 | Orphan objects from earlier runs | Six orphan engines | Clean before the campaign; record them | PROTO | Low |
 | I-06 | Load generator restart resets counters | `INSUFFICIENT_DATA` handling | No loadgen changes in a block | IMPL+PROTO | Low |
 

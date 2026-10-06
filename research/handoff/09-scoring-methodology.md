@@ -21,7 +21,7 @@ check, not new evidence.
 | Computed once, at the final state | In the same database transaction as COMPLETED or UNKNOWN (`advance_observation`) |
 | Explainable | Every component has a raw input record, a normalized value, an effective weight, a contribution and a textual reason; the overall `explanation` lists the points lost |
 | Versioned | The stored score records `version`, `weights`, `thresholds`; `GET /score?version=v1|v2` recomputes from the same evidence (not persisted) |
-| Never changes an existing version's semantics | Project rule (`CLAUDE.md`); new behaviour gets a new version |
+| Never changes an existing version's semantics | Project rule (`DEVELOPMENT.md`); new behaviour gets a new version |
 
 ## 2. Eligibility
 

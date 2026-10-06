@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Purpose** | State the problem, motivation, goals, scope, current status, non-goals and evolution of AutoResilience, as implemented. |
-| **Source of truth** | Repository at commit `92e33dd`; `git log`; root `README.md` (for stated intent only); `CLAUDE.md`. |
+| **Source of truth** | Repository at commit `92e33dd`; `git log`; root `README.md` (for stated intent only); `DEVELOPMENT.md`. |
 | **Last generated from commit** | `92e33dd` |
 | **Dependencies on other files** | [25-research-integrity](25-research-integrity.md) (evidence levels), [02-research-context](02-research-context.md) |
 
