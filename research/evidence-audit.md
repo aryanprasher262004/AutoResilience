@@ -106,7 +106,7 @@ States (`domain/state_machine.py`), with explicit allowed transitions:
 CREATED → VALIDATING → BASELINING → INJECTING → OBSERVING → RECOVERING → COMPLETED
              └→ VALIDATION_FAILED       └→ INJECTION_FAILED
 Any of CREATED…RECOVERING → ABORTED;  BASELINING/INJECTING/OBSERVING/RECOVERING → UNKNOWN;  UNKNOWN → ABORTED
-Terminal: COMPLETED, VALIDATION_FAILED, INJECTION_FAILED, ABORTED (UNKNOWN can still be aborted)
+Terminal: COMPLETED, VALIDATION_FAILED, INJECTION_FAILED, ABORTED and, in practice, UNKNOWN: the state machine allows UNKNOWN → ABORTED, but the orchestrator treats UNKNOWN as terminal and its ABORTABLE set excludes it, so that edge is unreachable through the API
 ```
 
 - **Driving it:** `POST /run` sets `orchestration.mode="auto"`. The reconciler then advances one bounded step per 5 s tick. Manual step endpoints still exist and return 409 for auto runs.
