@@ -1,0 +1,2755 @@
+{
+ "schema": "autoresilience-research-evidence/1",
+ "generated_at": "2026-10-06T20:26:18Z",
+ "repository_commit": "72be555",
+ "method": "read-only audit: SQL in a read-only transaction, kubectl get, Prometheus GET /api/v1/query[_range]; no experiments were run",
+ "evidence_categories": {
+  "autoresilience_db_record": "complete experiment record from the AutoResilience database (the authoritative source)",
+  "real_api_run_partial_record": "real run created by AutoResilience; identified by its surviving ChaosEngine; DB record lost; values from Litmus objects, committed docs and post-hoc telemetry",
+  "real_disruption_unattributed": "real pod replacement + client impact seen in retained telemetry, consistent with an AutoResilience pod-delete run but not attributable to an experiment",
+  "real_api_run_documented_only": "real run described in a committed doc; no raw data or record retained",
+  "manual_infrastructure_probe": "direct infrastructure manipulation, not an experiment",
+  "tests_and_fixtures": "unit/integration tests and synthetic fixtures; never experimental evidence (summarised only, see audit report)"
+ },
+ "autoresilience_database": {
+  "location": "localhost:5432/autoresilience (Docker autoresilience-postgres, Alembic revision 08697f19aec0)",
+  "experiment_count": 0,
+  "note": "every development-verification run used temporary databases that were deleted during cleanup; no AutoResilience experiment record survives"
+ },
+ "telemetry_retention_warning": "Prometheus retention is 2d on ephemeral storage (started 2026-10-06T10:47:11Z); raw samples from 2026-10-06T11:14:14.019Z expire around 2026-10-08T11:14Z or on pod restart",
+ "real_experiments": [
+  {
+   "record_id": "LIT-9d95d794",
+   "evidence_category": "real_api_run_partial_record",
+   "attribution": "exact: ChaosEngine ar-<experiment id> labelled app.kubernetes.io/managed-by=autoresilience still exists in the cluster",
+   "experiment_id": "9d95d794-179d-43bf-8a24-c0f5481dfb4d",
+   "timestamp_utc": "2026-10-06T10:51:16Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "GRACEFUL",
+   "affected_replicas": 1,
+   "duration_seconds": 30,
+   "validation_result": {
+    "value": null,
+    "note": "not retained (AutoResilience DB record lost); a ChaosEngine is only created after validation passed and a baseline was CAPTURED, so validation must have passed under policy 'sandbox' (inferred from code path)"
+   },
+   "baseline_evidence": {
+    "stored": null,
+    "note": "system baseline not retained",
+    "post_hoc": null
+   },
+   "observation_evidence": {
+    "documented": {
+     "source": "chaos/policies/safety-policy.md ('Without a warm-up')",
+     "client": "0/740 client failures (doc states the figure for both graceful and forced runs)"
+    },
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": null,
+      "note": "loadgen outage metrics did not exist before 2026-10-06T11:14:57Z (commit 40782d1)"
+     },
+     "client_failures": {
+      "failed": 0,
+      "requests": 444,
+      "connection_error": 0,
+      "timeout": 0,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T10:51:15.000Z",
+       "2026-10-06T10:51:50.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-844c559bb8-p98p7",
+      "replacement_created": "2026-10-06T10:51:30.000Z",
+      "replacement_ready": "2026-10-06T10:51:30.000Z",
+      "created_to_ready_seconds": 0,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": null,
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    },
+    "deleted_target_pod": "fragile-844c559bb8-zfhrj"
+   },
+   "litmus": {
+    "verdict": "Pass",
+    "status": "Completed",
+    "engine_status": "completed",
+    "finished": "2026-10-06T10:52:23Z",
+    "env": {
+     "TOTAL_CHAOS_DURATION": "30",
+     "CHAOS_INTERVAL": "30",
+     "FORCE": "false",
+     "TARGET_PODS": "fragile-844c559bb8-zfhrj"
+    },
+    "service_account": "autoresilience-chaos",
+    "source": "ChaosEngine/ChaosResult objects in namespace resilience-sandbox (read-only kubectl get)"
+   },
+   "final_state": {
+    "value": null,
+    "note": "not retained; Litmus completed with Pass. The 11:19/11:26 runs were scored (doc), which only happens for COMPLETED or application-UNKNOWN"
+   },
+   "score": {
+    "documented": {
+     "value": 100.0,
+     "version": "not stated in doc (v2 was the current version at that time - inferred)"
+    },
+    "source": "chaos/policies/safety-policy.md ('Without a warm-up')"
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "4b008b8 (pod-delete mode, 2026-10-06T10:35:50Z)",
+    "before_commit": "9b6613e (sandbox safety policy, 2026-10-06T10:55:14Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "kubectl get chaosengine/chaosresult -n resilience-sandbox",
+    "Prometheus raw samples (post hoc)",
+    "chaos/policies/safety-policy.md ('Without a warm-up')"
+   ],
+   "notes": "pod template 844c559bb8 = fragile WITHOUT the 10 s readiness warm-up (before commit a0482fa)"
+  },
+  {
+   "record_id": "LIT-e89d2585",
+   "evidence_category": "real_api_run_partial_record",
+   "attribution": "exact: ChaosEngine ar-<experiment id> labelled app.kubernetes.io/managed-by=autoresilience still exists in the cluster",
+   "experiment_id": "e89d2585-bf62-4fda-9066-3049b24be39a",
+   "timestamp_utc": "2026-10-06T10:52:48Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "FORCE",
+   "affected_replicas": 1,
+   "duration_seconds": 30,
+   "validation_result": {
+    "value": null,
+    "note": "not retained (AutoResilience DB record lost); a ChaosEngine is only created after validation passed and a baseline was CAPTURED, so validation must have passed under policy 'sandbox' (inferred from code path)"
+   },
+   "baseline_evidence": {
+    "stored": null,
+    "note": "system baseline not retained",
+    "post_hoc": {
+     "window": [
+      "2026-10-06T10:47:46.000Z",
+      "2026-10-06T10:52:46.000Z"
+     ],
+     "requests": 3108,
+     "failed": 0,
+     "request_rate_rps": 10.36,
+     "failure_ratio": 0.0,
+     "outage_seconds": null
+    }
+   },
+   "observation_evidence": {
+    "documented": {
+     "source": "chaos/policies/safety-policy.md ('Without a warm-up')",
+     "client": "0/740 client failures (doc states the figure for both graceful and forced runs)"
+    },
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": null,
+      "note": "loadgen outage metrics did not exist before 2026-10-06T11:14:57Z (commit 40782d1)"
+     },
+     "client_failures": {
+      "failed": 0,
+      "requests": 443,
+      "connection_error": 0,
+      "timeout": 0,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T10:52:46.000Z",
+       "2026-10-06T10:53:22.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-844c559bb8-4h7bp",
+      "replacement_created": "2026-10-06T10:53:01.000Z",
+      "replacement_ready": "2026-10-06T10:53:02.000Z",
+      "created_to_ready_seconds": 1,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T10:47:46.000Z",
+       "2026-10-06T10:52:46.000Z"
+      ],
+      "requests": 3108,
+      "failed": 0,
+      "request_rate_rps": 10.36,
+      "failure_ratio": 0.0,
+      "outage_seconds": null
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    },
+    "deleted_target_pod": "fragile-844c559bb8-p98p7"
+   },
+   "litmus": {
+    "verdict": "Pass",
+    "status": "Completed",
+    "engine_status": "completed",
+    "finished": "2026-10-06T10:53:51Z",
+    "env": {
+     "TOTAL_CHAOS_DURATION": "30",
+     "CHAOS_INTERVAL": "30",
+     "FORCE": "true",
+     "TARGET_PODS": "fragile-844c559bb8-p98p7"
+    },
+    "service_account": "autoresilience-chaos",
+    "source": "ChaosEngine/ChaosResult objects in namespace resilience-sandbox (read-only kubectl get)"
+   },
+   "final_state": {
+    "value": null,
+    "note": "not retained; Litmus completed with Pass. The 11:19/11:26 runs were scored (doc), which only happens for COMPLETED or application-UNKNOWN"
+   },
+   "score": {
+    "documented": {
+     "value": 100.0,
+     "version": "not stated in doc (v2 was the current version at that time - inferred)"
+    },
+    "source": "chaos/policies/safety-policy.md ('Without a warm-up')"
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "4b008b8 (pod-delete mode, 2026-10-06T10:35:50Z)",
+    "before_commit": "9b6613e (sandbox safety policy, 2026-10-06T10:55:14Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "kubectl get chaosengine/chaosresult -n resilience-sandbox",
+    "Prometheus raw samples (post hoc)",
+    "chaos/policies/safety-policy.md ('Without a warm-up')"
+   ],
+   "notes": "pod template 844c559bb8 = fragile WITHOUT the 10 s readiness warm-up (before commit a0482fa)"
+  },
+  {
+   "record_id": "LIT-d406ca22",
+   "evidence_category": "real_api_run_partial_record",
+   "attribution": "exact: ChaosEngine ar-<experiment id> labelled app.kubernetes.io/managed-by=autoresilience still exists in the cluster",
+   "experiment_id": "d406ca22-e116-4733-8af0-f4a736c6e966",
+   "timestamp_utc": "2026-10-06T10:58:45Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "GRACEFUL",
+   "affected_replicas": 1,
+   "duration_seconds": 30,
+   "validation_result": {
+    "value": null,
+    "note": "not retained (AutoResilience DB record lost); a ChaosEngine is only created after validation passed and a baseline was CAPTURED, so validation must have passed under policy 'sandbox' (inferred from code path)"
+   },
+   "baseline_evidence": {
+    "stored": null,
+    "note": "system baseline not retained",
+    "post_hoc": {
+     "window": [
+      "2026-10-06T10:53:44.000Z",
+      "2026-10-06T10:58:44.000Z"
+     ],
+     "requests": 2518,
+     "failed": 0,
+     "request_rate_rps": 8.39,
+     "failure_ratio": 0.0,
+     "outage_seconds": null
+    }
+   },
+   "observation_evidence": {
+    "documented": {
+     "source": "chaos/policies/safety-policy.md ('With the modelled 10 s warm-up', GRACEFUL column)",
+     "client": "19/826 failed (13 connection errors, 6 timeouts)",
+     "kubernetes_min_available": "0/1",
+     "recovery": "10:58:59 -> 10:59:10 (11 s)"
+    },
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": null,
+      "note": "loadgen outage metrics did not exist before 2026-10-06T11:14:57Z (commit 40782d1)"
+     },
+     "client_failures": {
+      "failed": 19,
+      "requests": 530,
+      "connection_error": 13,
+      "timeout": 6,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T10:58:44.000Z",
+       "2026-10-06T10:59:30.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-mpthd",
+      "replacement_created": "2026-10-06T10:58:59.000Z",
+      "replacement_ready": "2026-10-06T10:59:10.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T10:53:44.000Z",
+       "2026-10-06T10:58:44.000Z"
+      ],
+      "requests": 2518,
+      "failed": 0,
+      "request_rate_rps": 8.39,
+      "failure_ratio": 0.0,
+      "outage_seconds": null
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    },
+    "deleted_target_pod": "fragile-7d44884fd9-g2dc6"
+   },
+   "litmus": {
+    "verdict": "Pass",
+    "status": "Completed",
+    "engine_status": "completed",
+    "finished": "2026-10-06T10:59:49Z",
+    "env": {
+     "TOTAL_CHAOS_DURATION": "30",
+     "CHAOS_INTERVAL": "30",
+     "FORCE": "false",
+     "TARGET_PODS": "fragile-7d44884fd9-g2dc6"
+    },
+    "service_account": "autoresilience-chaos",
+    "source": "ChaosEngine/ChaosResult objects in namespace resilience-sandbox (read-only kubectl get)"
+   },
+   "final_state": {
+    "value": null,
+    "note": "not retained; Litmus completed with Pass. The 11:19/11:26 runs were scored (doc), which only happens for COMPLETED or application-UNKNOWN"
+   },
+   "score": {
+    "documented": {
+     "v2": 71.2,
+     "v2_rating": "Fair",
+     "v1": 74.7
+    },
+    "source": "chaos/policies/safety-policy.md ('With the modelled 10 s warm-up', GRACEFUL column)"
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "9b6613e (sandbox safety policy, 2026-10-06T10:55:14Z)",
+    "before_commit": "a0482fa (10s warm-up for fragile, 2026-10-06T11:07:09Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "kubectl get chaosengine/chaosresult -n resilience-sandbox",
+    "Prometheus raw samples (post hoc)",
+    "chaos/policies/safety-policy.md ('With the modelled 10 s warm-up', GRACEFUL column)"
+   ],
+   "notes": "pod template 7d44884fd9 = fragile with initialDelaySeconds 10"
+  },
+  {
+   "record_id": "LIT-4a44f687",
+   "evidence_category": "real_api_run_partial_record",
+   "attribution": "exact: ChaosEngine ar-<experiment id> labelled app.kubernetes.io/managed-by=autoresilience still exists in the cluster",
+   "experiment_id": "4a44f687-f60d-4696-93f4-8c9bf1a9344d",
+   "timestamp_utc": "2026-10-06T11:05:22Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "FORCE",
+   "affected_replicas": 1,
+   "duration_seconds": 30,
+   "validation_result": {
+    "value": null,
+    "note": "not retained (AutoResilience DB record lost); a ChaosEngine is only created after validation passed and a baseline was CAPTURED, so validation must have passed under policy 'sandbox' (inferred from code path)"
+   },
+   "baseline_evidence": {
+    "stored": null,
+    "note": "system baseline not retained",
+    "post_hoc": {
+     "window": [
+      "2026-10-06T11:00:21.000Z",
+      "2026-10-06T11:05:21.000Z"
+     ],
+     "requests": 3113,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": null
+    }
+   },
+   "observation_evidence": {
+    "documented": {
+     "source": "chaos/policies/safety-policy.md ('With the modelled 10 s warm-up', FORCE column)",
+     "client": "22/668 failed (14 connection errors, 8 timeouts)",
+     "kubernetes_min_available": "1/1",
+     "recovery": "11:05:36 -> 11:05:46 (10 s)"
+    },
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": null,
+      "note": "loadgen outage metrics did not exist before 2026-10-06T11:14:57Z (commit 40782d1)"
+     },
+     "client_failures": {
+      "failed": 22,
+      "requests": 520,
+      "connection_error": 14,
+      "timeout": 8,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T11:05:21.000Z",
+       "2026-10-06T11:06:06.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-wmg28",
+      "replacement_created": "2026-10-06T11:05:36.000Z",
+      "replacement_ready": "2026-10-06T11:05:46.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T11:00:21.000Z",
+       "2026-10-06T11:05:21.000Z"
+      ],
+      "requests": 3113,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": null
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    },
+    "deleted_target_pod": "fragile-7d44884fd9-mpthd"
+   },
+   "litmus": {
+    "verdict": "Pass",
+    "status": "Completed",
+    "engine_status": "completed",
+    "finished": "2026-10-06T11:06:25Z",
+    "env": {
+     "TOTAL_CHAOS_DURATION": "30",
+     "CHAOS_INTERVAL": "30",
+     "FORCE": "true",
+     "TARGET_PODS": "fragile-7d44884fd9-mpthd"
+    },
+    "service_account": "autoresilience-chaos",
+    "source": "ChaosEngine/ChaosResult objects in namespace resilience-sandbox (read-only kubectl get)"
+   },
+   "final_state": {
+    "value": null,
+    "note": "not retained; Litmus completed with Pass. The 11:19/11:26 runs were scored (doc), which only happens for COMPLETED or application-UNKNOWN"
+   },
+   "score": {
+    "documented": {
+     "v2": 80.5,
+     "v2_rating": "Good",
+     "v1": 100.0
+    },
+    "source": "chaos/policies/safety-policy.md ('With the modelled 10 s warm-up', FORCE column)"
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "9b6613e (sandbox safety policy, 2026-10-06T10:55:14Z)",
+    "before_commit": "a0482fa (10s warm-up for fragile, 2026-10-06T11:07:09Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "kubectl get chaosengine/chaosresult -n resilience-sandbox",
+    "Prometheus raw samples (post hoc)",
+    "chaos/policies/safety-policy.md ('With the modelled 10 s warm-up', FORCE column)"
+   ],
+   "notes": "pod template 7d44884fd9 = fragile with initialDelaySeconds 10"
+  },
+  {
+   "record_id": "LIT-66d86b9a",
+   "evidence_category": "real_api_run_partial_record",
+   "attribution": "exact: ChaosEngine ar-<experiment id> labelled app.kubernetes.io/managed-by=autoresilience still exists in the cluster",
+   "experiment_id": "66d86b9a-9a7f-46aa-84db-e48d6e3c537c",
+   "timestamp_utc": "2026-10-06T11:19:30Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "GRACEFUL",
+   "affected_replicas": 1,
+   "duration_seconds": 30,
+   "validation_result": {
+    "value": null,
+    "note": "not retained (AutoResilience DB record lost); a ChaosEngine is only created after validation passed and a baseline was CAPTURED, so validation must have passed under policy 'sandbox' (inferred from code path)"
+   },
+   "baseline_evidence": {
+    "stored": null,
+    "note": "system baseline not retained",
+    "post_hoc": {
+     "window": [
+      "2026-10-06T11:14:29.000Z",
+      "2026-10-06T11:19:29.000Z"
+     ],
+     "requests": 3114,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "documented": {
+     "source": "docs/scoring/resilience-score-v3.md ('Real runs', GRACEFUL column)",
+     "client": "20/678 (13 connection errors, 7 timeouts)",
+     "outage": "CONTINUOUS 8.358 s (11:19:47.198 -> 11:19:55.557)",
+     "kubernetes_min_available": "0/1"
+    },
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.358,
+      "start": "2026-10-06T11:19:47.198Z",
+      "end": "2026-10-06T11:19:55.557Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.358
+     },
+     "client_failures": {
+      "failed": 20,
+      "requests": 678,
+      "connection_error": 13,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T11:19:29.000Z",
+       "2026-10-06T11:20:15.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-z4hd8",
+      "replacement_created": "2026-10-06T11:19:44.000Z",
+      "replacement_ready": "2026-10-06T11:19:55.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T11:14:29.000Z",
+       "2026-10-06T11:19:29.000Z"
+      ],
+      "requests": 3114,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    },
+    "deleted_target_pod": "fragile-7d44884fd9-wmg28"
+   },
+   "litmus": {
+    "verdict": "Pass",
+    "status": "Completed",
+    "engine_status": "completed",
+    "finished": "2026-10-06T11:20:34Z",
+    "env": {
+     "TOTAL_CHAOS_DURATION": "30",
+     "CHAOS_INTERVAL": "30",
+     "FORCE": "false",
+     "TARGET_PODS": "fragile-7d44884fd9-wmg28"
+    },
+    "service_account": "autoresilience-chaos",
+    "source": "ChaosEngine/ChaosResult objects in namespace resilience-sandbox (read-only kubectl get)"
+   },
+   "final_state": {
+    "value": null,
+    "note": "not retained; Litmus completed with Pass. The 11:19/11:26 runs were scored (doc), which only happens for COMPLETED or application-UNKNOWN"
+   },
+   "score": {
+    "documented": {
+     "v3": 80.4,
+     "v2": 67.2,
+     "v1": 74.7
+    },
+    "source": "docs/scoring/resilience-score-v3.md ('Real runs', GRACEFUL column)"
+   },
+   "component_scores": {
+    "documented": {
+     "client_outage": "13.13/15 points (v3)",
+     "availability": "0/15 (v2)"
+    },
+    "note": "full component breakdown not retained"
+   },
+   "reasons": null,
+   "code_version": {
+    "after_commit": "40782d1 (loadgen outage metrics, 2026-10-06T11:14:57Z)",
+    "before_commit": "e1b6923 (Resilience Score v3, 2026-10-06T11:28:27Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "kubectl get chaosengine/chaosresult -n resilience-sandbox",
+    "Prometheus raw samples (post hoc)",
+    "docs/scoring/resilience-score-v3.md ('Real runs', GRACEFUL column)"
+   ],
+   "notes": "pod template 7d44884fd9 = fragile with initialDelaySeconds 10"
+  },
+  {
+   "record_id": "LIT-7ea2e0f7",
+   "evidence_category": "real_api_run_partial_record",
+   "attribution": "exact: ChaosEngine ar-<experiment id> labelled app.kubernetes.io/managed-by=autoresilience still exists in the cluster",
+   "experiment_id": "7ea2e0f7-eade-4d46-8734-d4a35e86b947",
+   "timestamp_utc": "2026-10-06T11:26:07Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "FORCE",
+   "affected_replicas": 1,
+   "duration_seconds": 30,
+   "validation_result": {
+    "value": null,
+    "note": "not retained (AutoResilience DB record lost); a ChaosEngine is only created after validation passed and a baseline was CAPTURED, so validation must have passed under policy 'sandbox' (inferred from code path)"
+   },
+   "baseline_evidence": {
+    "stored": null,
+    "note": "system baseline not retained",
+    "post_hoc": {
+     "window": [
+      "2026-10-06T11:21:06.000Z",
+      "2026-10-06T11:26:06.000Z"
+     ],
+     "requests": 3113,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "documented": {
+     "source": "docs/scoring/resilience-score-v3.md ('Real runs', FORCE column)",
+     "client": "23/658 (15 connection errors, 8 timeouts)",
+     "outage": "CONTINUOUS 10.479 s (11:26:22.304 -> 11:26:32.782)",
+     "kubernetes_min_available": "1/1"
+    },
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 10.479,
+      "start": "2026-10-06T11:26:22.304Z",
+      "end": "2026-10-06T11:26:32.782Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 10.479
+     },
+     "client_failures": {
+      "failed": 23,
+      "requests": 510,
+      "connection_error": 15,
+      "timeout": 8,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T11:26:06.000Z",
+       "2026-10-06T11:26:51.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-zlmjm",
+      "replacement_created": "2026-10-06T11:26:21.000Z",
+      "replacement_ready": "2026-10-06T11:26:31.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T11:21:06.000Z",
+       "2026-10-06T11:26:06.000Z"
+      ],
+      "requests": 3113,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    },
+    "deleted_target_pod": "fragile-7d44884fd9-z4hd8"
+   },
+   "litmus": {
+    "verdict": "Pass",
+    "status": "Completed",
+    "engine_status": "completed",
+    "finished": "2026-10-06T11:27:11Z",
+    "env": {
+     "TOTAL_CHAOS_DURATION": "30",
+     "CHAOS_INTERVAL": "30",
+     "FORCE": "true",
+     "TARGET_PODS": "fragile-7d44884fd9-z4hd8"
+    },
+    "service_account": "autoresilience-chaos",
+    "source": "ChaosEngine/ChaosResult objects in namespace resilience-sandbox (read-only kubectl get)"
+   },
+   "final_state": {
+    "value": null,
+    "note": "not retained; Litmus completed with Pass. The 11:19/11:26 runs were scored (doc), which only happens for COMPLETED or application-UNKNOWN"
+   },
+   "score": {
+    "documented": {
+     "v3": 76.8,
+     "v2": 79.2,
+     "v1": 100.0
+    },
+    "source": "docs/scoring/resilience-score-v3.md ('Real runs', FORCE column)"
+   },
+   "component_scores": {
+    "documented": {
+     "client_outage": "12.59/15 points (v3)",
+     "availability": "15/15 (v2)"
+    },
+    "note": "full component breakdown not retained"
+   },
+   "reasons": null,
+   "code_version": {
+    "after_commit": "40782d1 (loadgen outage metrics, 2026-10-06T11:14:57Z)",
+    "before_commit": "e1b6923 (Resilience Score v3, 2026-10-06T11:28:27Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "kubectl get chaosengine/chaosresult -n resilience-sandbox",
+    "Prometheus raw samples (post hoc)",
+    "docs/scoring/resilience-score-v3.md ('Real runs', FORCE column)"
+   ],
+   "notes": "pod template 7d44884fd9 = fragile with initialDelaySeconds 10"
+  },
+  {
+   "record_id": "TEL-fragile-113926",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T11:39:26.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T11:34:11.000Z",
+      "2026-10-06T11:39:11.000Z"
+     ],
+     "requests": 3113,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 7.239,
+      "start": "2026-10-06T11:39:28.980Z",
+      "end": "2026-10-06T11:39:36.219Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 7.239
+     },
+     "client_failures": {
+      "failed": 18,
+      "requests": 539,
+      "connection_error": 12,
+      "timeout": 6,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T11:39:11.000Z",
+       "2026-10-06T11:39:56.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-crslr",
+      "replacement_created": "2026-10-06T11:39:26.000Z",
+      "replacement_ready": "2026-10-06T11:39:36.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T11:34:11.000Z",
+       "2026-10-06T11:39:11.000Z"
+      ],
+      "requests": 3113,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "e1b6923 (Resilience Score v3, 2026-10-06T11:28:27Z)",
+    "before_commit": "29d493d (automatic orchestration, 2026-10-06T11:49:51Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-114632",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T11:46:32.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T11:41:17.000Z",
+      "2026-10-06T11:46:17.000Z"
+     ],
+     "requests": 3113,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.359,
+      "start": "2026-10-06T11:46:35.114Z",
+      "end": "2026-10-06T11:46:43.474Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.359
+     },
+     "client_failures": {
+      "failed": 20,
+      "requests": 529,
+      "connection_error": 13,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T11:46:17.000Z",
+       "2026-10-06T11:47:02.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-rw8kt",
+      "replacement_created": "2026-10-06T11:46:32.000Z",
+      "replacement_ready": "2026-10-06T11:46:42.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T11:41:17.000Z",
+       "2026-10-06T11:46:17.000Z"
+      ],
+      "requests": 3113,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "e1b6923 (Resilience Score v3, 2026-10-06T11:28:27Z)",
+    "before_commit": "29d493d (automatic orchestration, 2026-10-06T11:49:51Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-114824",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T11:48:24.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T11:43:09.000Z",
+      "2026-10-06T11:48:09.000Z"
+     ],
+     "requests": 3050,
+     "failed": 20,
+     "request_rate_rps": 10.17,
+     "failure_ratio": 0.0066,
+     "outage_seconds": 8.359
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.457,
+      "start": "2026-10-06T11:48:26.842Z",
+      "end": "2026-10-06T11:48:35.299Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.457
+     },
+     "client_failures": {
+      "failed": 21,
+      "requests": 530,
+      "connection_error": 14,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T11:48:09.000Z",
+       "2026-10-06T11:48:55.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-6qgs2",
+      "replacement_created": "2026-10-06T11:48:24.000Z",
+      "replacement_ready": "2026-10-06T11:48:35.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T11:43:09.000Z",
+       "2026-10-06T11:48:09.000Z"
+      ],
+      "requests": 3050,
+      "failed": 20,
+      "request_rate_rps": 10.17,
+      "failure_ratio": 0.0066,
+      "outage_seconds": 8.359
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "e1b6923 (Resilience Score v3, 2026-10-06T11:28:27Z)",
+    "before_commit": "29d493d (automatic orchestration, 2026-10-06T11:49:51Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-120438",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T12:04:38.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T11:59:23.000Z",
+      "2026-10-06T12:04:23.000Z"
+     ],
+     "requests": 3110,
+     "failed": 0,
+     "request_rate_rps": 10.37,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.372,
+      "start": "2026-10-06T12:04:41.388Z",
+      "end": "2026-10-06T12:04:49.760Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.372
+     },
+     "client_failures": {
+      "failed": 20,
+      "requests": 530,
+      "connection_error": 13,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T12:04:23.000Z",
+       "2026-10-06T12:05:09.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-9ps79",
+      "replacement_created": "2026-10-06T12:04:38.000Z",
+      "replacement_ready": "2026-10-06T12:04:49.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T11:59:23.000Z",
+       "2026-10-06T12:04:23.000Z"
+      ],
+      "requests": 3110,
+      "failed": 0,
+      "request_rate_rps": 10.37,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "29d493d (automatic orchestration, 2026-10-06T11:49:51Z)",
+    "before_commit": "b544e08 (web F1, 2026-10-06T12:08:32Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-checkout-121906",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T12:19:06.000Z",
+   "namespace": "shop",
+   "workload": "checkout",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T12:13:51.000Z",
+      "2026-10-06T12:18:51.000Z"
+     ],
+     "requests": 3113,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 0.0,
+      "start": null,
+      "end": null,
+      "pattern": "NONE",
+      "pattern_basis": "loadgen_outages_total increased by 0 in the window"
+     },
+     "client_failures": {
+      "failed": 0,
+      "requests": 444,
+      "connection_error": 0,
+      "timeout": 0,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T12:18:51.000Z",
+       "2026-10-06T12:19:27.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "checkout-5bd4c587b4-2nbvz",
+      "replacement_created": "2026-10-06T12:19:06.000Z",
+      "replacement_ready": "2026-10-06T12:19:07.000Z",
+      "created_to_ready_seconds": 1,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T12:13:51.000Z",
+       "2026-10-06T12:18:51.000Z"
+      ],
+      "requests": 3113,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 2.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "b544e08 (web F1, 2026-10-06T12:08:32Z)",
+    "before_commit": "30628f0 (web F2 builder, 2026-10-06T12:22:19Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-124207",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T12:42:07.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T12:36:52.000Z",
+      "2026-10-06T12:41:52.000Z"
+     ],
+     "requests": 3112,
+     "failed": 0,
+     "request_rate_rps": 10.37,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.359,
+      "start": "2026-10-06T12:42:10.290Z",
+      "end": "2026-10-06T12:42:18.649Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.359
+     },
+     "client_failures": {
+      "failed": 20,
+      "requests": 530,
+      "connection_error": 13,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T12:41:52.000Z",
+       "2026-10-06T12:42:38.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-dvwkk",
+      "replacement_created": "2026-10-06T12:42:07.000Z",
+      "replacement_ready": "2026-10-06T12:42:18.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T12:36:52.000Z",
+       "2026-10-06T12:41:52.000Z"
+      ],
+      "requests": 3112,
+      "failed": 0,
+      "request_rate_rps": 10.37,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "30628f0 (web F2 builder, 2026-10-06T12:22:19Z)",
+    "before_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-124428",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T12:44:28.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T12:39:13.000Z",
+      "2026-10-06T12:44:13.000Z"
+     ],
+     "requests": 3049,
+     "failed": 20,
+     "request_rate_rps": 10.16,
+     "failure_ratio": 0.0066,
+     "outage_seconds": 8.359
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.243,
+      "start": "2026-10-06T12:44:31.361Z",
+      "end": "2026-10-06T12:44:39.604Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.243
+     },
+     "client_failures": {
+      "failed": 19,
+      "requests": 530,
+      "connection_error": 13,
+      "timeout": 6,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T12:44:13.000Z",
+       "2026-10-06T12:44:58.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-lhp2p",
+      "replacement_created": "2026-10-06T12:44:28.000Z",
+      "replacement_ready": "2026-10-06T12:44:38.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T12:39:13.000Z",
+       "2026-10-06T12:44:13.000Z"
+      ],
+      "requests": 3049,
+      "failed": 20,
+      "request_rate_rps": 10.16,
+      "failure_ratio": 0.0066,
+      "outage_seconds": 8.359
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "30628f0 (web F2 builder, 2026-10-06T12:22:19Z)",
+    "before_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-124605",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T12:46:05.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T12:40:50.000Z",
+      "2026-10-06T12:45:50.000Z"
+     ],
+     "requests": 2986,
+     "failed": 39,
+     "request_rate_rps": 9.95,
+     "failure_ratio": 0.0131,
+     "outage_seconds": 16.602
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 7.353,
+      "start": "2026-10-06T12:46:07.884Z",
+      "end": "2026-10-06T12:46:15.237Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 7.353
+     },
+     "client_failures": {
+      "failed": 19,
+      "requests": 539,
+      "connection_error": 13,
+      "timeout": 6,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T12:45:50.000Z",
+       "2026-10-06T12:46:35.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-knl78",
+      "replacement_created": "2026-10-06T12:46:05.000Z",
+      "replacement_ready": "2026-10-06T12:46:15.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T12:40:50.000Z",
+       "2026-10-06T12:45:50.000Z"
+      ],
+      "requests": 2986,
+      "failed": 39,
+      "request_rate_rps": 9.95,
+      "failure_ratio": 0.0131,
+      "outage_seconds": 16.602
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "30628f0 (web F2 builder, 2026-10-06T12:22:19Z)",
+    "before_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-150501",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:05:01.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T14:59:46.000Z",
+      "2026-10-06T15:04:46.000Z"
+     ],
+     "requests": 3112,
+     "failed": 0,
+     "request_rate_rps": 10.37,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.346,
+      "start": "2026-10-06T15:05:03.929Z",
+      "end": "2026-10-06T15:05:12.275Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.346
+     },
+     "client_failures": {
+      "failed": 20,
+      "requests": 530,
+      "connection_error": 13,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:04:46.000Z",
+       "2026-10-06T15:05:31.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-pcwch",
+      "replacement_created": "2026-10-06T15:05:01.000Z",
+      "replacement_ready": "2026-10-06T15:05:11.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T14:59:46.000Z",
+       "2026-10-06T15:04:46.000Z"
+      ],
+      "requests": 3112,
+      "failed": 0,
+      "request_rate_rps": 10.37,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "before_commit": "45e0014 (web F4 history/reports, 2026-10-06T15:19:25Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-checkout-150501",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:05:01.000Z",
+   "namespace": "shop",
+   "workload": "checkout",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T14:59:46.000Z",
+      "2026-10-06T15:04:46.000Z"
+     ],
+     "requests": 3112,
+     "failed": 0,
+     "request_rate_rps": 10.37,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 0.0,
+      "start": null,
+      "end": null,
+      "pattern": "NONE",
+      "pattern_basis": "loadgen_outages_total increased by 0 in the window"
+     },
+     "client_failures": {
+      "failed": 0,
+      "requests": 592,
+      "connection_error": 0,
+      "timeout": 0,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:04:46.000Z",
+       "2026-10-06T15:05:22.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "checkout-5bd4c587b4-xjwtq",
+      "replacement_created": "2026-10-06T15:05:01.000Z",
+      "replacement_ready": "2026-10-06T15:05:02.000Z",
+      "created_to_ready_seconds": 1,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T14:59:46.000Z",
+       "2026-10-06T15:04:46.000Z"
+      ],
+      "requests": 3112,
+      "failed": 0,
+      "request_rate_rps": 10.37,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 2.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "before_commit": "45e0014 (web F4 history/reports, 2026-10-06T15:19:25Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-150641",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:06:41.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T15:01:26.000Z",
+      "2026-10-06T15:06:26.000Z"
+     ],
+     "requests": 3049,
+     "failed": 20,
+     "request_rate_rps": 10.16,
+     "failure_ratio": 0.0066,
+     "outage_seconds": 8.346
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 10.565,
+      "start": "2026-10-06T15:06:43.060Z",
+      "end": "2026-10-06T15:06:53.625Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 10.565
+     },
+     "client_failures": {
+      "failed": 24,
+      "requests": 512,
+      "connection_error": 15,
+      "timeout": 9,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:06:26.000Z",
+       "2026-10-06T15:07:12.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-hpqbg",
+      "replacement_created": "2026-10-06T15:06:41.000Z",
+      "replacement_ready": "2026-10-06T15:06:52.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T15:01:26.000Z",
+       "2026-10-06T15:06:26.000Z"
+      ],
+      "requests": 3049,
+      "failed": 20,
+      "request_rate_rps": 10.16,
+      "failure_ratio": 0.0066,
+      "outage_seconds": 8.346
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "before_commit": "45e0014 (web F4 history/reports, 2026-10-06T15:19:25Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-150812",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:08:12.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T15:02:57.000Z",
+      "2026-10-06T15:07:57.000Z"
+     ],
+     "requests": 2968,
+     "failed": 44,
+     "request_rate_rps": 9.89,
+     "failure_ratio": 0.0148,
+     "outage_seconds": 18.911
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 7.359,
+      "start": "2026-10-06T15:08:14.744Z",
+      "end": "2026-10-06T15:08:22.102Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 7.359
+     },
+     "client_failures": {
+      "failed": 19,
+      "requests": 539,
+      "connection_error": 13,
+      "timeout": 6,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:07:57.000Z",
+       "2026-10-06T15:08:42.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-4l89r",
+      "replacement_created": "2026-10-06T15:08:12.000Z",
+      "replacement_ready": "2026-10-06T15:08:22.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T15:02:57.000Z",
+       "2026-10-06T15:07:57.000Z"
+      ],
+      "requests": 2968,
+      "failed": 44,
+      "request_rate_rps": 9.89,
+      "failure_ratio": 0.0148,
+      "outage_seconds": 18.911
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "before_commit": "45e0014 (web F4 history/reports, 2026-10-06T15:19:25Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-151243",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:12:43.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T15:07:28.000Z",
+      "2026-10-06T15:12:28.000Z"
+     ],
+     "requests": 3058,
+     "failed": 19,
+     "request_rate_rps": 10.19,
+     "failure_ratio": 0.0062,
+     "outage_seconds": 7.359
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 7.257,
+      "start": "2026-10-06T15:12:46.216Z",
+      "end": "2026-10-06T15:12:53.473Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 7.257
+     },
+     "client_failures": {
+      "failed": 18,
+      "requests": 539,
+      "connection_error": 12,
+      "timeout": 6,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:12:28.000Z",
+       "2026-10-06T15:13:13.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-qzx8s",
+      "replacement_created": "2026-10-06T15:12:43.000Z",
+      "replacement_ready": "2026-10-06T15:12:53.000Z",
+      "created_to_ready_seconds": 10,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T15:07:28.000Z",
+       "2026-10-06T15:12:28.000Z"
+      ],
+      "requests": 3058,
+      "failed": 19,
+      "request_rate_rps": 10.19,
+      "failure_ratio": 0.0062,
+      "outage_seconds": 7.359
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "before_commit": "45e0014 (web F4 history/reports, 2026-10-06T15:19:25Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-151643",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:16:43.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T15:11:28.000Z",
+      "2026-10-06T15:16:28.000Z"
+     ],
+     "requests": 3059,
+     "failed": 18,
+     "request_rate_rps": 10.2,
+     "failure_ratio": 0.0059,
+     "outage_seconds": 7.257
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 9.356,
+      "start": "2026-10-06T15:16:45.013Z",
+      "end": "2026-10-06T15:16:54.369Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 9.356
+     },
+     "client_failures": {
+      "failed": 21,
+      "requests": 521,
+      "connection_error": 14,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:16:28.000Z",
+       "2026-10-06T15:17:14.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-xld2t",
+      "replacement_created": "2026-10-06T15:16:43.000Z",
+      "replacement_ready": "2026-10-06T15:16:54.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T15:11:28.000Z",
+       "2026-10-06T15:16:28.000Z"
+      ],
+      "requests": 3059,
+      "failed": 18,
+      "request_rate_rps": 10.2,
+      "failure_ratio": 0.0059,
+      "outage_seconds": 7.257
+     },
+     "kubernetes_sampled_min_available": 1.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "1306d68 (web F3 live room, 2026-10-06T12:56:01Z)",
+    "before_commit": "45e0014 (web F4 history/reports, 2026-10-06T15:19:25Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-fragile-153906",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:39:06.000Z",
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T15:33:51.000Z",
+      "2026-10-06T15:38:51.000Z"
+     ],
+     "requests": 3114,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 8.353,
+      "start": "2026-10-06T15:39:09.247Z",
+      "end": "2026-10-06T15:39:17.599Z",
+      "pattern": "CONTINUOUS",
+      "pattern_basis": "loadgen_outages_total increased by exactly 1 in the window",
+      "cross_check_counter_seconds": 8.353
+     },
+     "client_failures": {
+      "failed": 20,
+      "requests": 530,
+      "connection_error": 13,
+      "timeout": 7,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:38:51.000Z",
+       "2026-10-06T15:39:37.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "fragile-7d44884fd9-ltct7",
+      "replacement_created": "2026-10-06T15:39:06.000Z",
+      "replacement_ready": "2026-10-06T15:39:17.000Z",
+      "created_to_ready_seconds": 11,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T15:33:51.000Z",
+       "2026-10-06T15:38:51.000Z"
+      ],
+      "requests": 3114,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 0.0,
+     "kubernetes_samples_in_window": 6
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "730ea81 (DB 503 fix, 2026-10-06T15:29:48Z)",
+    "before_commit": "74d064c (F5 services, 2026-10-06T15:43:55Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  },
+  {
+   "record_id": "TEL-checkout-153911",
+   "evidence_category": "real_disruption_unattributed",
+   "attribution": "probable AutoResilience pod-delete run: single-pod replacement with unchanged pod template during development-verification windows; ChaosEngine already cleaned up by the orchestrator and DB record lost, so identity, mode and score are unknown",
+   "experiment_id": null,
+   "timestamp_utc": "2026-10-06T15:39:11.000Z",
+   "namespace": "shop",
+   "workload": "checkout",
+   "kind": "Deployment",
+   "fault": "pod deletion (inferred; consistent with pod-delete)",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": {
+    "stored": null,
+    "post_hoc": {
+     "window": [
+      "2026-10-06T15:33:56.000Z",
+      "2026-10-06T15:38:56.000Z"
+     ],
+     "requests": 3114,
+     "failed": 0,
+     "request_rate_rps": 10.38,
+     "failure_ratio": 0.0,
+     "outage_seconds": 0.0
+    }
+   },
+   "observation_evidence": {
+    "post_hoc_telemetry": {
+     "derivation": "POST-HOC from retained raw Prometheus samples during this audit; NOT the values AutoResilience stored for the run",
+     "client_outage": {
+      "seconds": 0.0,
+      "start": null,
+      "end": null,
+      "pattern": "NONE",
+      "pattern_basis": "loadgen_outages_total increased by 0 in the window"
+     },
+     "client_failures": {
+      "failed": 0,
+      "requests": 445,
+      "connection_error": 0,
+      "timeout": 0,
+      "http_error": 0,
+      "window": [
+       "2026-10-06T15:38:56.000Z",
+       "2026-10-06T15:39:32.000Z"
+      ],
+      "window_note": "fixed post-hoc window [replacement created - 15 s, replacement Ready + 20 s]; failure counts are window-robust, request totals are not comparable to the system's observation window"
+     },
+     "recovery": {
+      "replacement_pod": "checkout-5bd4c587b4-855pl",
+      "replacement_created": "2026-10-06T15:39:11.000Z",
+      "replacement_ready": "2026-10-06T15:39:12.000Z",
+      "created_to_ready_seconds": 1,
+      "source": "kube-state-metrics kube_pod_created / kube_pod_status_ready_time (1 s resolution)",
+      "note": "this is the system's time_to_recovery definition (replacement created -> Ready); the 4-sample stability criterion was not re-evaluated"
+     },
+     "pre_fault_client_baseline_300s": {
+      "window": [
+       "2026-10-06T15:33:56.000Z",
+       "2026-10-06T15:38:56.000Z"
+      ],
+      "requests": 3114,
+      "failed": 0,
+      "request_rate_rps": 10.38,
+      "failure_ratio": 0.0,
+      "outage_seconds": 0.0
+     },
+     "kubernetes_sampled_min_available": 2.0,
+     "kubernetes_samples_in_window": 5
+    }
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": {
+    "after_commit": "730ea81 (DB 503 fix, 2026-10-06T15:29:48Z)",
+    "before_commit": "74d064c (F5 services, 2026-10-06T15:43:55Z)",
+    "meaning": "run used the uncommitted working tree that became the 'before' commit"
+   },
+   "sources": [
+    "Prometheus raw samples (post hoc)"
+   ],
+   "notes": "replacement created -> Ready is the only recovery evidence"
+  }
+ ],
+ "documented_runs_without_raw_data": [
+  {
+   "record_id": "DOC-v1-checkout",
+   "evidence_category": "real_api_run_documented_only",
+   "attribution": "described in committed doc; no raw data or record retained",
+   "experiment_id": null,
+   "timestamp_utc": null,
+   "namespace": "shop",
+   "workload": "checkout",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "GRACEFUL (inferred)",
+   "affected_replicas": null,
+   "duration_seconds": 30,
+   "validation_result": null,
+   "baseline_evidence": null,
+   "observation_evidence": {
+    "documented": "replacement created and Ready within the same second (time_to_recovery_seconds = 0); min availability 2/2; 163 requests, 0 5xx (server-side); 0 restarts"
+   },
+   "litmus": {
+    "verdict": "Pass"
+   },
+   "final_state": null,
+   "score": {
+    "documented": {
+     "v1": 100.0,
+     "rating": "Excellent"
+    }
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": null,
+   "sources": [
+    "docs/scoring/resilience-score-v1.md ('Worked example (real run...)')"
+   ],
+   "notes": "before Prometheus restart at 10:47 UTC; no telemetry retained; pod_delete_mode: the pod_delete_mode option did not exist yet; the default deletion was graceful"
+  },
+  {
+   "record_id": "DOC-v2-checkout-graceful",
+   "evidence_category": "real_api_run_documented_only",
+   "attribution": "described in committed doc; no raw data or record retained",
+   "experiment_id": null,
+   "timestamp_utc": null,
+   "namespace": "shop",
+   "workload": "checkout",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "GRACEFUL",
+   "affected_replicas": null,
+   "duration_seconds": 30,
+   "validation_result": null,
+   "baseline_evidence": null,
+   "observation_evidence": {
+    "documented": "740 requests, 0 failed, p95 4.75 ms; 2/2 available; 0 server 5xx; replacement Ready in 1 s; deleted pod gone after ~4 s"
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": {
+    "documented": {
+     "v1": 100.0,
+     "v2": 100.0
+    }
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": null,
+   "sources": [
+    "docs/scoring/resilience-score-v2.md ('Observed on kind' and 'Graceful vs forced deletion')"
+   ],
+   "notes": "the doc's two GRACEFUL tables may describe the same run"
+  },
+  {
+   "record_id": "DOC-v2-checkout-force",
+   "evidence_category": "real_api_run_documented_only",
+   "attribution": "described in committed doc; no raw data or record retained",
+   "experiment_id": null,
+   "timestamp_utc": null,
+   "namespace": "shop",
+   "workload": "checkout",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": "FORCE",
+   "affected_replicas": null,
+   "duration_seconds": 30,
+   "validation_result": null,
+   "baseline_evidence": null,
+   "observation_evidence": {
+    "documented": "739 requests, 0 failed, p95 4.75 ms; 2/2 available; 0 server 5xx; replacement Ready in 1 s; deleted pod gone after 5 ms"
+   },
+   "litmus": null,
+   "final_state": null,
+   "score": {
+    "documented": {
+     "v2": 100.0
+    }
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": null,
+   "sources": [
+    "docs/scoring/resilience-score-v2.md ('Graceful vs forced deletion')"
+   ],
+   "notes": null
+  },
+  {
+   "record_id": "DOC-orch-auto",
+   "evidence_category": "real_api_run_documented_only",
+   "attribution": "described in committed doc; probably one of the 11:39-11:48 UTC fragile episodes (unverified)",
+   "experiment_id": null,
+   "timestamp_utc": null,
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": null,
+   "observation_evidence": {
+    "documented": "/run only (no /observe calls): COMPLETED in 101 s; engine and result deleted"
+   },
+   "litmus": null,
+   "final_state": "COMPLETED",
+   "score": {
+    "documented": {
+     "v3": 85.8
+    }
+   },
+   "component_scores": null,
+   "reasons": null,
+   "code_version": null,
+   "sources": [
+    "docs/orchestration.md ('Verified on kind')"
+   ],
+   "notes": null
+  },
+  {
+   "record_id": "DOC-orch-restart",
+   "evidence_category": "real_api_run_documented_only",
+   "attribution": "described in committed doc; probably one of the 11:39-11:48 UTC fragile episodes (unverified)",
+   "experiment_id": null,
+   "timestamp_utc": null,
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": null,
+   "observation_evidence": {
+    "documented": "API killed in OBSERVING, restarted 26 s later: resumed -> COMPLETED, still one engine, then cleaned up"
+   },
+   "litmus": null,
+   "final_state": "COMPLETED",
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": null,
+   "sources": [
+    "docs/orchestration.md ('Verified on kind')"
+   ],
+   "notes": null
+  },
+  {
+   "record_id": "DOC-orch-abort",
+   "evidence_category": "real_api_run_documented_only",
+   "attribution": "described in committed doc; probably one of the 11:39-11:48 UTC fragile episodes (unverified)",
+   "experiment_id": null,
+   "timestamp_utc": null,
+   "namespace": "resilience-sandbox",
+   "workload": "fragile",
+   "kind": "Deployment",
+   "fault": "pod-delete",
+   "pod_delete_mode": null,
+   "affected_replicas": null,
+   "duration_seconds": null,
+   "validation_result": null,
+   "baseline_evidence": null,
+   "observation_evidence": {
+    "documented": "aborted in OBSERVING: own engine engineState=stop -> Litmus stopped / Forcefully Aborted, then deleted"
+   },
+   "litmus": null,
+   "final_state": "ABORTED",
+   "score": null,
+   "component_scores": null,
+   "reasons": null,
+   "code_version": null,
+   "sources": [
+    "docs/orchestration.md ('Verified on kind')"
+   ],
+   "notes": null
+  }
+ ],
+ "manual_infrastructure_probes": [
+  {
+   "record_id": "PROBE-checkout-scale0",
+   "evidence_category": "manual_infrastructure_probe",
+   "namespace": "shop",
+   "workload": "checkout",
+   "description": "checkout scaled to 0 replicas for about 20 s, outside any experiment and not scored (instrument sensitivity check)",
+   "observed": "23 connection errors and 17 timeouts at the client",
+   "source": "docs/scoring/resilience-score-v2.md"
+  }
+ ],
+ "raw_client_outage_episodes": [
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T11:19:47.198Z",
+   "outage_end": "2026-10-06T11:19:55.557Z",
+   "outage_seconds_from_gauges": 8.358,
+   "outage_seconds_counter_increase": 8.358,
+   "counter_window": [
+    "2026-10-06T11:19:44.033Z",
+    "2026-10-06T11:19:59.034Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 7,
+    "success": 66
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T11:26:22.304Z",
+   "outage_end": "2026-10-06T11:26:32.782Z",
+   "outage_seconds_from_gauges": 10.479,
+   "outage_seconds_counter_increase": 10.479,
+   "counter_window": [
+    "2026-10-06T11:26:14.039Z",
+    "2026-10-06T11:26:44.041Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 15,
+    "timeout": 8,
+    "success": 191
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T11:39:28.980Z",
+   "outage_end": "2026-10-06T11:39:36.219Z",
+   "outage_seconds_from_gauges": 7.239,
+   "outage_seconds_counter_increase": 7.239,
+   "counter_window": [
+    "2026-10-06T11:39:14.065Z",
+    "2026-10-06T11:39:44.064Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 12,
+    "timeout": 6,
+    "success": 225
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T11:46:35.114Z",
+   "outage_end": "2026-10-06T11:46:43.474Z",
+   "outage_seconds_from_gauges": 8.359,
+   "outage_seconds_counter_increase": 8.359,
+   "counter_window": [
+    "2026-10-06T11:46:29.086Z",
+    "2026-10-06T11:46:44.082Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 7,
+    "success": 65
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T11:48:26.842Z",
+   "outage_end": "2026-10-06T11:48:35.299Z",
+   "outage_seconds_from_gauges": 8.457,
+   "outage_seconds_counter_increase": 8.457,
+   "counter_window": [
+    "2026-10-06T11:48:14.086Z",
+    "2026-10-06T11:48:44.085Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 14,
+    "timeout": 7,
+    "success": 213
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T12:04:41.388Z",
+   "outage_end": "2026-10-06T12:04:49.760Z",
+   "outage_seconds_from_gauges": 8.372,
+   "outage_seconds_counter_increase": 8.372,
+   "counter_window": [
+    "2026-10-06T12:04:29.109Z",
+    "2026-10-06T12:04:59.108Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 7,
+    "success": 213
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T12:42:10.290Z",
+   "outage_end": "2026-10-06T12:42:18.649Z",
+   "outage_seconds_from_gauges": 8.359,
+   "outage_seconds_counter_increase": 8.359,
+   "counter_window": [
+    "2026-10-06T12:41:59.153Z",
+    "2026-10-06T12:42:29.154Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 7,
+    "success": 214
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T12:44:31.361Z",
+   "outage_end": "2026-10-06T12:44:39.604Z",
+   "outage_seconds_from_gauges": 8.243,
+   "outage_seconds_counter_increase": 8.243,
+   "counter_window": [
+    "2026-10-06T12:44:29.156Z",
+    "2026-10-06T12:44:44.156Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 6,
+    "success": 66
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T12:46:07.884Z",
+   "outage_end": "2026-10-06T12:46:15.237Z",
+   "outage_seconds_from_gauges": 7.353,
+   "outage_seconds_counter_increase": 7.353,
+   "counter_window": [
+    "2026-10-06T12:45:59.159Z",
+    "2026-10-06T12:46:29.158Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 6,
+    "success": 224
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T15:05:03.929Z",
+   "outage_end": "2026-10-06T15:05:12.275Z",
+   "outage_seconds_from_gauges": 8.346,
+   "outage_seconds_counter_increase": 8.346,
+   "counter_window": [
+    "2026-10-06T15:04:49.830Z",
+    "2026-10-06T15:05:19.830Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 7,
+    "success": 214
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T15:06:43.060Z",
+   "outage_end": "2026-10-06T15:06:53.625Z",
+   "outage_seconds_from_gauges": 10.565,
+   "outage_seconds_counter_increase": 10.565,
+   "counter_window": [
+    "2026-10-06T15:06:34.832Z",
+    "2026-10-06T15:07:04.830Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 15,
+    "timeout": 9,
+    "success": 192
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T15:08:14.744Z",
+   "outage_end": "2026-10-06T15:08:22.102Z",
+   "outage_seconds_from_gauges": 7.359,
+   "outage_seconds_counter_increase": 7.359,
+   "counter_window": [
+    "2026-10-06T15:08:04.829Z",
+    "2026-10-06T15:08:34.830Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 6,
+    "success": 224
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T15:12:46.216Z",
+   "outage_end": "2026-10-06T15:12:53.473Z",
+   "outage_seconds_from_gauges": 7.257,
+   "outage_seconds_counter_increase": 7.257,
+   "counter_window": [
+    "2026-10-06T15:12:34.871Z",
+    "2026-10-06T15:13:04.872Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 12,
+    "timeout": 6,
+    "success": 225
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T15:16:45.013Z",
+   "outage_end": "2026-10-06T15:16:54.369Z",
+   "outage_seconds_from_gauges": 9.356,
+   "outage_seconds_counter_increase": 9.356,
+   "counter_window": [
+    "2026-10-06T15:16:34.873Z",
+    "2026-10-06T15:17:04.871Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 14,
+    "timeout": 7,
+    "success": 204
+   }
+  },
+  {
+   "target": "resilience-sandbox/fragile",
+   "outage_start": "2026-10-06T15:39:09.247Z",
+   "outage_end": "2026-10-06T15:39:17.599Z",
+   "outage_seconds_from_gauges": 8.353,
+   "outage_seconds_counter_increase": 8.353,
+   "counter_window": [
+    "2026-10-06T15:39:04.909Z",
+    "2026-10-06T15:39:19.911Z"
+   ],
+   "client_requests_in_counter_window": {
+    "http_error": 0,
+    "connection_error": 13,
+    "timeout": 7,
+    "success": 65
+   }
+  }
+ ],
+ "raw_litmus_engines": [
+  {
+   "engine": "ar-9d95d794-179d-43bf-8a24-c0f5481dfb4d",
+   "experiment_id": "9d95d794-179d-43bf-8a24-c0f5481dfb4d",
+   "mode_label": "GRACEFUL",
+   "engine_created": "2026-10-06T10:51:16Z",
+   "TOTAL_CHAOS_DURATION": "30",
+   "CHAOS_INTERVAL": "30",
+   "FORCE": "false",
+   "TARGET_PODS": "fragile-844c559bb8-zfhrj",
+   "appinfo": {
+    "appkind": "deployment",
+    "applabel": "app=fragile",
+    "appns": "resilience-sandbox"
+   },
+   "engineState": "stop",
+   "engineStatus": "completed",
+   "litmus_status": "Completed",
+   "verdict": "Pass",
+   "last_update": "2026-10-06T10:52:23Z",
+   "chaosServiceAccount": "autoresilience-chaos"
+  },
+  {
+   "engine": "ar-e89d2585-bf62-4fda-9066-3049b24be39a",
+   "experiment_id": "e89d2585-bf62-4fda-9066-3049b24be39a",
+   "mode_label": "FORCE",
+   "engine_created": "2026-10-06T10:52:48Z",
+   "TOTAL_CHAOS_DURATION": "30",
+   "CHAOS_INTERVAL": "30",
+   "FORCE": "true",
+   "TARGET_PODS": "fragile-844c559bb8-p98p7",
+   "appinfo": {
+    "appkind": "deployment",
+    "applabel": "app=fragile",
+    "appns": "resilience-sandbox"
+   },
+   "engineState": "stop",
+   "engineStatus": "completed",
+   "litmus_status": "Completed",
+   "verdict": "Pass",
+   "last_update": "2026-10-06T10:53:51Z",
+   "chaosServiceAccount": "autoresilience-chaos"
+  },
+  {
+   "engine": "ar-d406ca22-e116-4733-8af0-f4a736c6e966",
+   "experiment_id": "d406ca22-e116-4733-8af0-f4a736c6e966",
+   "mode_label": "GRACEFUL",
+   "engine_created": "2026-10-06T10:58:45Z",
+   "TOTAL_CHAOS_DURATION": "30",
+   "CHAOS_INTERVAL": "30",
+   "FORCE": "false",
+   "TARGET_PODS": "fragile-7d44884fd9-g2dc6",
+   "appinfo": {
+    "appkind": "deployment",
+    "applabel": "app=fragile",
+    "appns": "resilience-sandbox"
+   },
+   "engineState": "stop",
+   "engineStatus": "completed",
+   "litmus_status": "Completed",
+   "verdict": "Pass",
+   "last_update": "2026-10-06T10:59:49Z",
+   "chaosServiceAccount": "autoresilience-chaos"
+  },
+  {
+   "engine": "ar-4a44f687-f60d-4696-93f4-8c9bf1a9344d",
+   "experiment_id": "4a44f687-f60d-4696-93f4-8c9bf1a9344d",
+   "mode_label": "FORCE",
+   "engine_created": "2026-10-06T11:05:22Z",
+   "TOTAL_CHAOS_DURATION": "30",
+   "CHAOS_INTERVAL": "30",
+   "FORCE": "true",
+   "TARGET_PODS": "fragile-7d44884fd9-mpthd",
+   "appinfo": {
+    "appkind": "deployment",
+    "applabel": "app=fragile",
+    "appns": "resilience-sandbox"
+   },
+   "engineState": "stop",
+   "engineStatus": "completed",
+   "litmus_status": "Completed",
+   "verdict": "Pass",
+   "last_update": "2026-10-06T11:06:25Z",
+   "chaosServiceAccount": "autoresilience-chaos"
+  },
+  {
+   "engine": "ar-66d86b9a-9a7f-46aa-84db-e48d6e3c537c",
+   "experiment_id": "66d86b9a-9a7f-46aa-84db-e48d6e3c537c",
+   "mode_label": "GRACEFUL",
+   "engine_created": "2026-10-06T11:19:30Z",
+   "TOTAL_CHAOS_DURATION": "30",
+   "CHAOS_INTERVAL": "30",
+   "FORCE": "false",
+   "TARGET_PODS": "fragile-7d44884fd9-wmg28",
+   "appinfo": {
+    "appkind": "deployment",
+    "applabel": "app=fragile",
+    "appns": "resilience-sandbox"
+   },
+   "engineState": "stop",
+   "engineStatus": "completed",
+   "litmus_status": "Completed",
+   "verdict": "Pass",
+   "last_update": "2026-10-06T11:20:34Z",
+   "chaosServiceAccount": "autoresilience-chaos"
+  },
+  {
+   "engine": "ar-7ea2e0f7-eade-4d46-8734-d4a35e86b947",
+   "experiment_id": "7ea2e0f7-eade-4d46-8734-d4a35e86b947",
+   "mode_label": "FORCE",
+   "engine_created": "2026-10-06T11:26:07Z",
+   "TOTAL_CHAOS_DURATION": "30",
+   "CHAOS_INTERVAL": "30",
+   "FORCE": "true",
+   "TARGET_PODS": "fragile-7d44884fd9-z4hd8",
+   "appinfo": {
+    "appkind": "deployment",
+    "applabel": "app=fragile",
+    "appns": "resilience-sandbox"
+   },
+   "engineState": "stop",
+   "engineStatus": "completed",
+   "litmus_status": "Completed",
+   "verdict": "Pass",
+   "last_update": "2026-10-06T11:27:11Z",
+   "chaosServiceAccount": "autoresilience-chaos"
+  }
+ ]
+}
