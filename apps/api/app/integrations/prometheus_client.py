@@ -1,4 +1,4 @@
-"""Read-only Prometheus HTTP API client (instant queries only)."""
+"""Read-only Prometheus HTTP API client (GET /api/v1/query only)."""
 
 import math
 from dataclasses import dataclass
@@ -18,6 +18,14 @@ class Sample:
     value: float
 
 
+@dataclass(frozen=True)
+class Series:
+    """Raw scraped samples of one series: (unix timestamp, value), oldest first."""
+
+    labels: dict[str, str]
+    samples: list[tuple[float, float]]
+
+
 class PrometheusClient:
     def __init__(
         self,
@@ -31,6 +39,33 @@ class PrometheusClient:
 
     def query(self, promql: str, at: datetime) -> list[Sample]:
         """Evaluate an instant-vector query at a fixed time. NaN samples are dropped."""
+        data = self._query(promql, at, "vector")
+        samples = [
+            Sample(labels=r["metric"], value=float(r["value"][1]))
+            for r in data.get("result", [])
+        ]
+        return [s for s in samples if not math.isnan(s.value)]
+
+    def query_raw(self, promql: str, at: datetime) -> list[Series]:
+        """Evaluate a range selector (e.g. `metric[5m]`) and return the raw samples.
+
+        Unlike range queries, these are actual scrapes: no lookback filling, so data
+        gaps stay visible.
+        """
+        data = self._query(promql, at, "matrix")
+        return [
+            Series(
+                labels=r["metric"],
+                samples=[
+                    (float(ts), float(v))
+                    for ts, v in r["values"]
+                    if not math.isnan(float(v))
+                ],
+            )
+            for r in data.get("result", [])
+        ]
+
+    def _query(self, promql: str, at: datetime, result_type: str) -> dict[str, Any]:
         try:
             response = self._http.get(
                 "/api/v1/query", params={"query": promql, "time": at.timestamp()}
@@ -46,15 +81,12 @@ class PrometheusClient:
             )
 
         data = body.get("data") or {}
-        if data.get("resultType") != "vector":
+        if data.get("resultType") != result_type:
             raise PrometheusError(
-                f"Expected vector result, got {data.get('resultType')!r}"
+                f"Expected {result_type} result, got {data.get('resultType')!r}"
             )
-        samples = [
-            Sample(labels=r["metric"], value=float(r["value"][1]))
-            for r in data.get("result", [])
-        ]
-        return [s for s in samples if not math.isnan(s.value)]
+        result: dict[str, Any] = data
+        return result
 
     def query_value(self, promql: str, at: datetime) -> float | None:
         """Single-value query: None if empty, error if it unexpectedly returns several."""

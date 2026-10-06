@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # How long to wait for Litmus to actually delete the target pods.
     chaos_start_timeout_seconds: float = 120.0
     chaos_poll_interval_seconds: float = 2.0
+    # Observation / recovery (see services/orchestration/recovery.py for the rule).
+    observation_grace_seconds: float = 180.0
+    recovery_timeout_seconds: float = 300.0
+    recovery_stable_samples: int = 4
+    recovery_max_sample_gap_seconds: float = 40.0
+    recovery_error_ratio_tolerance: float = 0.01
     frontend_origin: str = "http://localhost:3000"
     # kubeconfig context for the target cluster; None uses the current context.
     kube_context: str | None = None

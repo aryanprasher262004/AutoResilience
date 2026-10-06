@@ -59,6 +59,8 @@ class Experiment(Base):
     baseline: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     # Fault injection record: Litmus engine identity, target pods, status, failure.
     chaos: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Observation/recovery evidence: Litmus outcome, recovery finding, impact, result.
+    observation: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow

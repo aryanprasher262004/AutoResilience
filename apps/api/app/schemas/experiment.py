@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -74,6 +75,25 @@ class ChaosRead(BaseModel):
     stop_error: str | None = None
 
 
+class ObservationResultRead(BaseModel):
+    status: str  # IN_PROGRESS | COMPLETED | UNKNOWN
+    reason_code: str | None = None
+    reason: str | None = None
+    cause: str | None = None  # platform | application | conflicting_evidence
+
+
+class ObservationRead(BaseModel):
+    rule: str
+    evaluations: int
+    updated_at: datetime
+    result: ObservationResultRead
+    litmus: dict[str, Any] | None = None
+    recovery: dict[str, Any] | None = None
+    impact: dict[str, Any] | None = None
+    target: dict[str, Any] | None = None
+    last_error: str | None = None
+
+
 class ExperimentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,5 +108,6 @@ class ExperimentRead(BaseModel):
     validation_result: ValidationResultRead | None
     baseline: BaselineRead | None
     chaos: ChaosRead | None
+    observation: ObservationRead | None
     created_at: datetime
     updated_at: datetime

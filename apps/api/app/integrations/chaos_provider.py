@@ -191,6 +191,25 @@ class LitmusChaosProvider:
             )
         return parse_engine_status(engine)
 
+    def get_result(self, namespace: str, name: str) -> dict[str, str | None]:
+        """Read the run's ChaosResult (<engine>-pod-delete): phase, verdict, failStep."""
+        with _translate_errors("read ChaosResult"):
+            result = self._custom().get_namespaced_custom_object(
+                LITMUS_GROUP,
+                LITMUS_VERSION,
+                namespace,
+                "chaosresults",
+                f"{name}-{EXPERIMENT_NAME}",
+                _request_timeout=self._timeout,
+            )
+        status = (result.get("status") or {}).get("experimentStatus") or {}
+        return {
+            "phase": status.get("phase"),
+            "verdict": status.get("verdict"),
+            "fail_step": status.get("failStep") or None,
+            "probe_success_percentage": status.get("probeSuccessPercentage"),
+        }
+
     def stop(self, namespace: str, name: str) -> None:
         """Ask Litmus to abort the run (engineState: stop)."""
         with _translate_errors("stop ChaosEngine"):

@@ -98,3 +98,32 @@ def test_failures_raise_prometheus_error(
 ) -> None:
     with pytest.raises(PrometheusError, match=message):
         client_for(handler).query("x", AT)
+
+
+def test_query_raw_returns_scraped_samples() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "status": "success",
+                "data": {
+                    "resultType": "matrix",
+                    "result": [
+                        {
+                            "metric": {"deployment": "checkout"},
+                            "values": [[100.0, "2"], [115.0, "NaN"], [130.0, "1"]],
+                        }
+                    ],
+                },
+            },
+        )
+
+    (series,) = client_for(handler).query_raw("x[1m]", AT)
+
+    assert series.labels == {"deployment": "checkout"}
+    assert series.samples == [(100.0, 2.0), (130.0, 1.0)]
+
+
+def test_query_raw_rejects_vector() -> None:
+    with pytest.raises(PrometheusError, match="Expected matrix result"):
+        client_for(lambda _: vector(({}, "1"))).query_raw("x", AT)

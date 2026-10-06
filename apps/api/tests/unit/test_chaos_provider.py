@@ -274,3 +274,34 @@ def test_status_failure_raises_provider_error(
     )
     with pytest.raises(ChaosProviderError, match="read ChaosEngine"):
         provider().get_status("shop", "ar-x")
+
+
+def test_get_result_reads_chaos_result(apis: tuple[MagicMock, MagicMock]) -> None:
+    custom, _ = apis
+    custom.get_namespaced_custom_object.return_value = {
+        "status": {
+            "experimentStatus": {
+                "phase": "Completed",
+                "verdict": "Fail",
+                "failStep": "[post-chaos]: Failed to verify that the AUT is running",
+                "probeSuccessPercentage": "0",
+            }
+        }
+    }
+
+    result = provider().get_result("shop", "ar-x")
+
+    assert result == {
+        "phase": "Completed",
+        "verdict": "Fail",
+        "fail_step": "[post-chaos]: Failed to verify that the AUT is running",
+        "probe_success_percentage": "0",
+    }
+    custom.get_namespaced_custom_object.assert_called_once_with(
+        "litmuschaos.io",
+        "v1alpha1",
+        "shop",
+        "chaosresults",
+        "ar-x-pod-delete",
+        _request_timeout=5,
+    )

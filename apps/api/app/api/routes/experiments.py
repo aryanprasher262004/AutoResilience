@@ -19,7 +19,12 @@ from app.integrations.prometheus_client import PrometheusClient
 from app.schemas.experiment import ExperimentCreate, ExperimentRead
 from app.services.orchestration.baseline import run_baseline
 from app.services.orchestration.injection import StartWait, run_injection
+from app.services.orchestration.observation import (
+    ObservationConfig,
+    advance_observation,
+)
 from app.services.orchestration.preflight import run_validation
+from app.services.orchestration.recovery import RecoveryRule
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
@@ -65,6 +70,23 @@ def get_start_wait() -> StartWait:
     )
 
 
+def get_observation_config() -> ObservationConfig:
+    settings = get_settings()
+    return ObservationConfig(
+        observation_grace_seconds=settings.observation_grace_seconds,
+        recovery_timeout_seconds=settings.recovery_timeout_seconds,
+        rule=RecoveryRule(
+            stable_samples=settings.recovery_stable_samples,
+            max_gap_seconds=settings.recovery_max_sample_gap_seconds,
+            error_ratio_tolerance=settings.recovery_error_ratio_tolerance,
+        ),
+    )
+
+
+def get_now() -> datetime:
+    return datetime.now(UTC)
+
+
 DbSession = Annotated[Session, Depends(get_db)]
 Policy = Annotated[SafetyPolicy, Depends(get_safety_policy)]
 Kubernetes = Annotated[KubernetesAdapter, Depends(get_kubernetes_adapter)]
@@ -72,6 +94,8 @@ Prometheus = Annotated[PrometheusClient, Depends(get_prometheus_client)]
 BaselineWindow = Annotated[int, Depends(get_baseline_window_seconds)]
 ChaosProvider = Annotated[LitmusChaosProvider, Depends(get_chaos_provider)]
 Wait = Annotated[StartWait, Depends(get_start_wait)]
+ObserveConfig = Annotated[ObservationConfig, Depends(get_observation_config)]
+Now = Annotated[datetime, Depends(get_now)]
 
 
 def _get_or_404(db: Session, experiment_id: uuid.UUID) -> Experiment:
@@ -170,6 +194,33 @@ def inject_fault(
     experiment = _get_or_404(db, experiment_id)
     try:
         run_injection(db, experiment, policy, kubernetes, chaos, wait)
+    except InvalidTransitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    db.refresh(experiment)
+    return experiment
+
+
+@router.post("/{experiment_id}/observe", response_model=ExperimentRead)
+def observe_experiment(
+    experiment_id: uuid.UUID,
+    db: DbSession,
+    chaos: ChaosProvider,
+    prometheus: Prometheus,
+    kubernetes: Kubernetes,
+    config: ObserveConfig,
+    now: Now,
+) -> Experiment:
+    """Advance observation by one bounded step (call repeatedly while in progress).
+
+    OBSERVING -> RECOVERING once Litmus finishes; RECOVERING -> COMPLETED when the
+    recovery rule holds; -> UNKNOWN (with reason and cause) when it cannot be
+    established. Read-only except stopping our own ChaosEngine on a Litmus timeout.
+    """
+    experiment = _get_or_404(db, experiment_id)
+    try:
+        advance_observation(db, experiment, chaos, prometheus, kubernetes, config, now)
     except InvalidTransitionError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
