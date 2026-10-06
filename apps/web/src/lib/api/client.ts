@@ -21,6 +21,8 @@ export class ApiError extends Error {
     readonly path: string,
     /** No usable API response: network failure, or a 5xx without a JSON body. */
     readonly unavailable = false,
+    /** Parsed response body, e.g. FastAPI 422 details with field locations. */
+    readonly body: unknown = undefined,
   ) {
     super(
       unavailable
@@ -29,6 +31,22 @@ export class ApiError extends Error {
         : `${status} ${detail}`,
     );
     this.name = "ApiError";
+  }
+
+  /** FastAPI 422 errors keyed by body path, e.g. "target.namespace" -> message. */
+  fieldErrors(): Record<string, string> {
+    if (this.status !== 422 || !this.body || typeof this.body !== "object") return {};
+    const detail = (this.body as { detail?: unknown }).detail;
+    if (!Array.isArray(detail)) return {};
+    const errors: Record<string, string> = {};
+    for (const item of detail) {
+      if (!item || typeof item !== "object") continue;
+      const { loc, msg } = item as { loc?: unknown; msg?: unknown };
+      if (!Array.isArray(loc) || typeof msg !== "string") continue;
+      const key = loc.filter((part) => part !== "body").join(".");
+      errors[key] ??= msg;
+    }
+    return errors;
   }
 }
 
@@ -69,7 +87,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // FastAPI errors are JSON ({"detail": ...}); a bare 5xx means the proxy or a
     // crashed process answered instead of the API.
     const unavailable = response.status >= 500 && (body === undefined || typeof body === "string");
-    throw new ApiError(response.status, detailOf(body, response.statusText), path, unavailable);
+    throw new ApiError(
+      response.status,
+      detailOf(body, response.statusText),
+      path,
+      unavailable,
+      body,
+    );
   }
   return body as T;
 }
@@ -92,6 +116,8 @@ export const api = {
         (version ? `?version=${encodeURIComponent(version)}` : ""),
     ),
   createExperiment: (payload: ExperimentCreate) => post<Experiment>("/experiments", payload),
+  validateExperiment: (id: string) =>
+    post<Experiment>(`/experiments/${encodeURIComponent(id)}/validate`),
   runExperiment: (id: string) => post<Experiment>(`/experiments/${encodeURIComponent(id)}/run`),
   abortExperiment: (id: string, payload: AbortRequest) =>
     post<Experiment>(`/experiments/${encodeURIComponent(id)}/abort`, payload),

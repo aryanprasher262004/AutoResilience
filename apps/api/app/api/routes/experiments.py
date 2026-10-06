@@ -309,10 +309,11 @@ def observe_experiment(
     status_code=status.HTTP_202_ACCEPTED,
 )
 def run_experiment(experiment_id: uuid.UUID, db: DbSession, now: Now) -> Experiment:
-    """Start the automatic lifecycle for a CREATED experiment (idempotent).
+    """Start the automatic lifecycle (idempotent).
 
-    The orchestrator then drives VALIDATING -> ... -> COMPLETED/UNKNOWN and cleans
-    up; follow it with GET /experiments/{id}.
+    Accepts a CREATED experiment, or one that passed POST /validate and has not
+    started (BASELINING without a baseline). The orchestrator then drives it to
+    COMPLETED/UNKNOWN and cleans up; follow it with GET /experiments/{id}.
     """
     with experiment_lock(experiment_id):
         experiment = _get_or_404(db, experiment_id)

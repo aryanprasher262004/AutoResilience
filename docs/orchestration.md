@@ -9,6 +9,7 @@ One call starts a run, and AutoResilience drives the whole lifecycle itself:
 ```
 POST /experiments            -> CREATED
 POST /experiments/{id}/run   -> marks it orchestration.mode = "auto"
+                                (CREATED, or already validated via /validate and not started)
    (reconciler)  VALIDATING -> BASELINING -> INJECTING -> OBSERVING -> RECOVERING
                  -> COMPLETED | UNKNOWN | VALIDATION_FAILED | INJECTION_FAILED | ABORTED
    (reconciler)  cleanup of the run's own ChaosEngine + ChaosResult
@@ -18,6 +19,10 @@ POST /experiments/{id}/abort -> {"reason": "..."}: stop its own engine, ABORTED
 
 The manual step endpoints (`/validate`, `/baseline`, `/inject`, `/observe`) still work for
 experiments that were not started with `/run`. For auto runs they return 409.
+
+The web builder uses `/validate` first, to show the server's safety result before anything
+runs, then `/run`. The orchestrator continues from BASELINING and keeps that validation result;
+injection still re-checks the cluster right before the fault.
 
 ## Decision: an in-process reconciler
 

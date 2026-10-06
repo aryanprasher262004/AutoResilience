@@ -1267,7 +1267,7 @@
     },
     "/experiments/{experiment_id}/run": {
       "post": {
-        "description": "Start the automatic lifecycle for a CREATED experiment (idempotent).\n\nThe orchestrator then drives VALIDATING -> ... -> COMPLETED/UNKNOWN and cleans\nup; follow it with GET /experiments/{id}.",
+        "description": "Start the automatic lifecycle (idempotent).\n\nAccepts a CREATED experiment, or one that passed POST /validate and has not\nstarted (BASELINING without a baseline). The orchestrator then drives it to\nCOMPLETED/UNKNOWN and cleans up; follow it with GET /experiments/{id}.",
         "operationId": "run_experiment_experiments__experiment_id__run_post",
         "parameters": [
           {

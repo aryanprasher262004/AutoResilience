@@ -260,11 +260,59 @@ def test_run_is_idempotent_and_requires_created(
     assert client.post(f"/experiments/{experiment_id}/run").status_code == 202
     assert get(client, experiment_id)["orchestration"]["requested_at"] == first
 
-    manual = client.post("/experiments", json=payload()).json()["id"]
-    client.post(f"/experiments/{manual}/validate")
-    response = client.post(f"/experiments/{manual}/run")
+    blocked = client.post(
+        "/experiments",
+        json=payload(
+            target={"namespace": "kube-system", "kind": "Deployment", "name": "x"}
+        ),
+    ).json()["id"]
+    assert client.post(f"/experiments/{blocked}/validate").json()["state"] == (
+        "VALIDATION_FAILED"
+    )
+    response = client.post(f"/experiments/{blocked}/run")
     assert response.status_code == 409
-    assert "Only CREATED" in response.json()["detail"]
+    assert "passed validation" in response.json()["detail"]
+
+
+def test_run_after_manual_validation_continues_from_baselining(
+    client: TestClient,
+    reconciler: Reconciler,
+    chaos: FakeChaos,
+    prometheus: FakePrometheus,
+    clock: Clock,
+) -> None:
+    """Builder flow: create -> /validate (shows the result) -> /run."""
+    experiment_id = client.post("/experiments", json=payload()).json()["id"]
+    validated = client.post(f"/experiments/{experiment_id}/validate").json()
+    assert validated["state"] == "BASELINING"
+
+    response = client.post(f"/experiments/{experiment_id}/run")
+
+    assert response.status_code == 202
+    orch = response.json()["orchestration"]
+    assert orch["mode"] == "auto"
+    assert orch["events"][0]["event"] == "auto run requested (already validated)"
+    assert "BASELINING" in orch["state_since"]
+    body = tick_until(reconciler, client, experiment_id, "OBSERVING", clock)
+    assert body["validation_result"] == validated["validation_result"]  # not re-run
+    fault_start = datetime.fromisoformat(body["chaos"]["created_at"]).timestamp()
+    prometheus.healthy_recovery(fault_start)
+    chaos.statuses, chaos.status_calls = [DONE], 0
+    clock.now = datetime.fromtimestamp(fault_start + 120, UTC)
+    reconciler.tick()
+    assert get(client, experiment_id)["state"] == "COMPLETED"
+    assert len(chaos.requests) == 1
+
+
+def test_run_refuses_experiments_already_in_progress(
+    client: TestClient, reconciler: Reconciler
+) -> None:
+    experiment_id = client.post("/experiments", json=payload()).json()["id"]
+    for step in ("validate", "baseline"):  # manual path -> INJECTING
+        client.post(f"/experiments/{experiment_id}/{step}")
+    assert get(client, experiment_id)["state"] == "INJECTING"
+
+    assert client.post(f"/experiments/{experiment_id}/run").status_code == 409
 
 
 @pytest.mark.parametrize("step", ["validate", "baseline", "inject", "observe"])

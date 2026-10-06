@@ -1,6 +1,6 @@
 import type { Tone } from "@/components/ui/badge";
 
-import type { ExperimentState } from "./api/types";
+import type { Experiment, ExperimentState } from "./api/types";
 
 type StateMeta = {
   label: string;
@@ -87,4 +87,23 @@ export const LIFECYCLE: ExperimentState[] = [
 
 export function isTerminal(state: ExperimentState): boolean {
   return STATE_META[state].terminal;
+}
+
+/**
+ * Presentation for a concrete experiment. A manually validated experiment waits in
+ * BASELINING without a baseline until someone runs it; nothing is baselining it, so
+ * say so instead of showing an in-progress state.
+ */
+export function presentState(e: Experiment): StateMeta & { state: ExperimentState } {
+  const auto = (e.orchestration as { mode?: string } | null)?.mode === "auto";
+  if (e.state === "BASELINING" && !auto && !e.baseline) {
+    return {
+      state: e.state,
+      label: "Validated · not started",
+      tone: "neutral",
+      terminal: false,
+      description: "Passed safety validation; waiting to be run",
+    };
+  }
+  return { state: e.state, ...STATE_META[e.state] };
 }

@@ -140,10 +140,11 @@ export interface paths {
         put?: never;
         /**
          * Run Experiment
-         * @description Start the automatic lifecycle for a CREATED experiment (idempotent).
+         * @description Start the automatic lifecycle (idempotent).
          *
-         *     The orchestrator then drives VALIDATING -> ... -> COMPLETED/UNKNOWN and cleans
-         *     up; follow it with GET /experiments/{id}.
+         *     Accepts a CREATED experiment, or one that passed POST /validate and has not
+         *     started (BASELINING without a baseline). The orchestrator then drives it to
+         *     COMPLETED/UNKNOWN and cleans up; follow it with GET /experiments/{id}.
          */
         post: operations["run_experiment_experiments__experiment_id__run_post"];
         delete?: never;

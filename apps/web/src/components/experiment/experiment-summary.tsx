@@ -9,11 +9,11 @@ import { Tabs } from "@/components/ui/tabs";
 import { ApiError } from "@/lib/api/client";
 import { useExperiment } from "@/lib/api/queries";
 import type { Experiment } from "@/lib/api/types";
-import { STATE_META } from "@/lib/experiment-state";
+import { presentState } from "@/lib/experiment-state";
 import { formatDateTime } from "@/lib/format";
 
 import { ScoreCell } from "./score-cell";
-import { StateBadge } from "./state-badge";
+import { ExperimentStateBadge } from "./state-badge";
 
 /** Why the experiment ended where it did, from whichever stage decided it. */
 function outcomeReason(e: Experiment): string | null {
@@ -63,10 +63,10 @@ export function ExperimentSummary({ id }: { id: string }) {
     <>
       <PageHeader
         title={e.name}
-        description={STATE_META[e.state].description}
+        description={presentState(e).description}
         meta={
           <>
-            <StateBadge state={e.state} />
+            <ExperimentStateBadge experiment={e} />
             <span className="font-mono text-xs text-faint">{e.id}</span>
           </>
         }

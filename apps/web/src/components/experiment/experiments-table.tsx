@@ -10,7 +10,7 @@ import { useExperiments } from "@/lib/api/queries";
 import { formatDateTime, formatRelative, shortId } from "@/lib/format";
 
 import { ScoreCell } from "./score-cell";
-import { StateBadge } from "./state-badge";
+import { ExperimentStateBadge } from "./state-badge";
 
 export function ExperimentsTable() {
   const { data, isPending, isError, error, refetch } = useExperiments();
@@ -66,7 +66,7 @@ export function ExperimentsTable() {
                   </div>
                 </TD>
                 <TD>
-                  <StateBadge state={e.state} />
+                  <ExperimentStateBadge experiment={e} />
                 </TD>
                 <TD className="text-right">
                   <ScoreCell score={e.score} />

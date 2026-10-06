@@ -110,20 +110,36 @@ def is_auto(experiment: Experiment) -> bool:
 
 
 def request_auto_run(db: Session, experiment: Experiment, now: datetime) -> None:
-    """Hand a CREATED experiment to the orchestrator (idempotent)."""
+    """Hand an experiment to the orchestrator (idempotent).
+
+    Accepts CREATED (the orchestrator validates it) or an experiment that already
+    passed POST /validate and is waiting in BASELINING with no baseline yet (the
+    orchestrator continues from there; injection still re-checks the cluster).
+    """
     if is_auto(experiment):
         return
-    if experiment.state is not S.CREATED:
+    validated = (
+        experiment.state is S.BASELINING
+        and bool((experiment.validation_result or {}).get("passed"))
+        and experiment.baseline is None
+    )
+    if experiment.state is not S.CREATED and not validated:
         raise OrchestrationError(
-            f"Only CREATED experiments can be started automatically "
-            f"(state is {experiment.state})"
+            "Only CREATED experiments, or experiments that passed validation and "
+            f"have not started, can be run (state is {experiment.state})"
         )
     at = now.isoformat()
     experiment.orchestration = {
         "mode": "auto",
         "requested_at": at,
-        "state_since": {S.CREATED.value: at},
-        "events": [{"at": at, "event": "auto run requested"}],
+        "state_since": {experiment.state.value: at},
+        "events": [
+            {
+                "at": at,
+                "event": "auto run requested"
+                + (" (already validated)" if validated else ""),
+            }
+        ],
         "result": None,
         "abort": None,
         "cleanup": None,
