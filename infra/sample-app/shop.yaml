@@ -1,9 +1,10 @@
 # Sample "shop" microservices used as chaos targets in local development.
 # Replica counts are chosen so blast-radius checks have both passing and failing cases:
 #   frontend 3, checkout 2, cart-redis 1 (single replica: any pod fault leaves 0 healthy).
-# Only checkout (podinfo) exposes HTTP request metrics (http_requests_total{status});
-# loadgen sends it steady traffic so request/error rates are real, not zero-by-default.
-# frontend (nginx) and cart-redis expose no request metrics.
+# Only checkout (podinfo) exposes server-side request metrics (http_requests_total{status}).
+# loadgen sends real traffic to checkout and frontend and exports the client's view
+# (loadgen_requests_total{target_namespace,target_workload,outcome}).
+# cart-redis has neither.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -119,7 +120,10 @@ spec:
   selector: {app: cart-redis}
   ports: [{port: 6379}]
 ---
-# Steady synthetic traffic (~2 req/s) to checkout so its request metrics have data.
+# Client-side load generator (infra/sample-app/loadgen/loadgen.py, mounted from the
+# loadgen-script ConfigMap that scripts/dev-cluster.sh creates). Sends 10 req/s per
+# target over a new connection each time and exports what the client experienced
+# (success / http_error / connection_error / timeout, latency) on :9100/metrics.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -133,13 +137,27 @@ spec:
   template:
     metadata:
       labels: {app: loadgen}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: /metrics
     spec:
       containers:
-        - name: curl
-          image: curlimages/curl:8.15.0
-          command: ["/bin/sh", "-c"]
-          args:
-            - while true; do curl -s -o /dev/null --max-time 2 http://checkout/; sleep 0.5; done
+        - name: loadgen
+          image: python:3.12.11-alpine3.22
+          command: ["python", "-u", "/app/loadgen.py"]
+          env:
+            - {name: TARGETS, value: "shop/checkout=http://checkout/;shop/frontend=http://frontend/"}
+            - {name: INTERVAL_SECONDS, value: "0.1"}
+            - {name: TIMEOUT_SECONDS, value: "1"}
+          ports: [{name: metrics, containerPort: 9100}]
+          readinessProbe:
+            httpGet: {path: /metrics, port: 9100}
+          volumeMounts:
+            - {name: script, mountPath: /app}
           resources:
-            requests: {cpu: 5m, memory: 8Mi}
-            limits: {memory: 32Mi}
+            requests: {cpu: 20m, memory: 24Mi}
+            limits: {memory: 64Mi}
+      volumes:
+        - name: script
+          configMap: {name: loadgen-script}

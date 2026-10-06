@@ -17,6 +17,13 @@ if ! kind get clusters | grep -qx "${CLUSTER}"; then
 fi
 
 kubectl --context "${CONTEXT}" apply -f "${ROOT}/infra/sample-app/shop.yaml"
+kubectl --context "${CONTEXT}" -n shop create configmap loadgen-script \
+  --from-file=loadgen.py="${ROOT}/infra/sample-app/loadgen/loadgen.py" \
+  --dry-run=client -o yaml | kubectl --context "${CONTEXT}" apply -f -
+# Restart loadgen only when the script changed (checksum annotation).
+SCRIPT_SUM=$(shasum -a 256 "${ROOT}/infra/sample-app/loadgen/loadgen.py" | cut -c1-16)
+kubectl --context "${CONTEXT}" -n shop patch deployment loadgen --type merge -p \
+  "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"autoresilience.io/script-sha\":\"${SCRIPT_SUM}\"}}}}}" >/dev/null
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null
 helm repo update prometheus-community >/dev/null
@@ -30,6 +37,7 @@ helm upgrade --install prometheus prometheus-community/prometheus \
 # LitmusChaos: operator + CRDs only. Images are pulled inside the kind node up front
 # so the first fault doesn't wait on a ~400MB go-runner pull (kind load fails on
 # Docker Desktop multi-arch images, hence crictl).
+docker exec "${CLUSTER}-control-plane" crictl pull python:3.12.11-alpine3.22 >/dev/null
 for image in chaos-operator chaos-runner go-runner; do
   docker exec "${CLUSTER}-control-plane" crictl pull \
     "litmuschaos.docker.scarf.sh/litmuschaos/${image}:${LITMUS_VERSION}" >/dev/null
