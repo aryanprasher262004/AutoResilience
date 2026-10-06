@@ -166,5 +166,53 @@ def test_prometheus_down_fails_every_group() -> None:
     baseline = capture(prometheus)
 
     assert baseline["status"] == "FAILED"
-    assert len(baseline["failure_reasons"]) == 3
+    assert (
+        len(baseline["failure_reasons"]) == 4
+    )  # availability, restarts, requests, client
     assert all("connection refused" in r for r in baseline["failure_reasons"])
+
+
+def test_client_group_records_client_view() -> None:
+    client = capture(FakePrometheus())["client"]
+
+    assert client["status"] == "OK"
+    assert client["values"] == {
+        "client_rate_rps": 9.9,
+        "client_failure_rate_rps": 0.0,
+        "client_failure_ratio": 0.0,
+        "client_latency_p95_seconds": 0.0048,
+    }
+    assert "p95 4.8 ms" in client["message"]
+
+
+def test_client_failures_in_baseline() -> None:
+    prometheus = FakePrometheus()
+    prometheus.values["client_failure_rate_rps"] = 0.099
+
+    assert capture(prometheus)["client"]["values"]["client_failure_ratio"] == 0.01
+
+
+def test_target_without_client_metrics_is_unavailable_not_failed() -> None:
+    prometheus = FakePrometheus()
+    prometheus.values["client_series"] = None
+
+    baseline = capture(prometheus)
+
+    assert baseline["status"] == "CAPTURED"
+    assert baseline["client"]["status"] == "UNAVAILABLE"
+
+
+def test_client_query_error_fails_baseline() -> None:
+    prometheus = FakePrometheus()
+    prometheus.values["client_rate_rps"] = PrometheusError("Prometheus unreachable: x")
+
+    baseline = capture(prometheus)
+
+    assert baseline["status"] == "FAILED"
+    assert baseline["client"]["status"] == "ERROR"
+
+
+def test_client_queries_use_loadgen_labels() -> None:
+    q = baseline_queries(CHECKOUT, 300)
+    assert 'target_namespace="shop",target_workload="checkout"' in q["client_series"]
+    assert 'outcome!="success"' in q["client_failure_rate_rps"]

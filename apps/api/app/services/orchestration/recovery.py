@@ -15,10 +15,13 @@ A target counts as recovered only when all of these hold:
 """
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from itertools import pairwise
+from typing import Any
 
 from app.domain.experiment import ExperimentTarget, WorkloadKind
-from app.services.orchestration.baseline import pod_name_regex
+from app.integrations.prometheus_client import Series
+from app.services.orchestration.baseline import client_selector, pod_name_regex
 
 
 @dataclass(frozen=True)
@@ -91,7 +94,93 @@ def observation_queries(
         ),
         "requests_in_window": f"sum(increase({requests}{w}))",
         "errors_in_window": f"sum(increase({errors}{w}))",
+        # Raw counter samples, reaching back past the fault start so the last
+        # scrape before the fault is included as the starting point.
+        "client_raw": (
+            f"loadgen_requests_total{{{client_selector(target)}}}"
+            f"[{window_seconds + CLIENT_LOOKBACK_SECONDS}s]"
+        ),
+        "client_latency_p95": (
+            "histogram_quantile(0.95, sum by (le) (rate("
+            f"loadgen_request_duration_seconds_bucket{{{client_selector(target)}}}{w})))"
+        ),
     }
+
+
+CLIENT_LOOKBACK_SECONDS = 60
+CLIENT_OUTCOMES = ("success", "http_error", "connection_error", "timeout")
+CLIENT_FAILURES = ("http_error", "connection_error", "timeout")
+
+
+def _counter_increase(samples: list[tuple[float, float]]) -> float:
+    """Exact increase between raw counter samples (no extrapolation; resets handled)."""
+    total = 0.0
+    for (_, a), (_, b) in pairwise(samples):
+        total += b - a if b >= a else b
+    return total
+
+
+def client_window_counts(series: list[Series], fault_start: float) -> dict[str, Any]:
+    """What the client experienced from the last scrape before the fault onwards.
+
+    Counts are exact differences of the client's counters between scrapes, so a
+    failure lasting one second is counted even though scrapes are 15s apart. Each
+    scrape interval in which failures occurred is listed (15s timing resolution).
+    """
+    by_outcome = {s.labels.get("outcome", ""): sorted(s.samples) for s in series}
+
+    def from_fault(samples: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        before = [i for i, (t, _) in enumerate(samples) if t <= fault_start]
+        return samples[before[-1] :] if before else samples
+
+    trimmed = {o: from_fault(by_outcome.get(o, [])) for o in CLIENT_OUTCOMES}
+    counts = {o: round(_counter_increase(trimmed[o])) for o in CLIENT_OUTCOMES}
+    total = sum(counts.values())
+    failed = sum(counts[o] for o in CLIENT_FAILURES)
+
+    # Per scrape interval: failures that happened between consecutive scrapes.
+    points: dict[float, dict[str, float]] = {}
+    for outcome in CLIENT_FAILURES:
+        for t, v in trimmed[outcome]:
+            points.setdefault(t, {})[outcome] = v
+    times = sorted(points)
+    intervals = []
+    for a, b in pairwise(times):
+        delta = {
+            o: (
+                points[b][o] - points[a][o]
+                if points[b][o] >= points[a][o]
+                else points[b][o]
+            )
+            for o in CLIENT_FAILURES
+            if o in points[a] and o in points[b]
+        }
+        n = round(sum(delta.values()))
+        if n > 0:
+            intervals.append(
+                {
+                    "from": _iso(a),
+                    "to": _iso(b),
+                    "failed": n,
+                    "by_outcome": {o: round(v) for o, v in delta.items() if v},
+                }
+            )
+    all_times = sorted({t for samples in trimmed.values() for t, _ in samples})
+    return {
+        "status": "OK",
+        "requests": total,
+        **counts,
+        "failed": failed,
+        "failure_ratio": round(failed / total, 4) if total else None,
+        "counted_from": _iso(all_times[0]) if all_times else None,
+        "counted_to": _iso(all_times[-1]) if all_times else None,
+        "starts_before_fault": bool(all_times) and all_times[0] <= fault_start,
+        "failure_intervals": intervals,
+    }
+
+
+def _iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts, UTC).isoformat()
 
 
 def window_request_queries(target: ExperimentTarget, seconds: int) -> dict[str, str]:

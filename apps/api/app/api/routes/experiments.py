@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ from app.services.orchestration.observation import (
 )
 from app.services.orchestration.preflight import run_validation
 from app.services.orchestration.recovery import RecoveryRule
+from app.services.scoring.resilience_score import SUPPORTED_VERSIONS, score_experiment
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
@@ -136,10 +137,15 @@ def get_experiment(experiment_id: uuid.UUID, db: DbSession) -> Experiment:
 
 
 @router.get("/{experiment_id}/score", response_model=ScoreRead)
-def get_experiment_score(experiment_id: uuid.UUID, db: DbSession) -> dict[str, Any]:
+def get_experiment_score(
+    experiment_id: uuid.UUID,
+    db: DbSession,
+    version: Annotated[str | None, Query(pattern="^v[0-9]+$")] = None,
+) -> dict[str, Any]:
     """The persisted Resilience Score (or the reason it was not scored).
 
-    404 until the experiment has finished (COMPLETED or UNKNOWN).
+    `?version=v1` recomputes that methodology from the same stored evidence
+    (deterministic; not persisted). 404 until the experiment has finished.
     """
     experiment = _get_or_404(db, experiment_id)
     if experiment.score is None:
@@ -147,7 +153,16 @@ def get_experiment_score(experiment_id: uuid.UUID, db: DbSession) -> dict[str, A
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No score: experiment is {experiment.state} (scored when finished)",
         )
-    return experiment.score
+    if version is None or version == experiment.score.get("version"):
+        return experiment.score
+    if version not in SUPPORTED_VERSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown scoring version {version}; supported: {list(SUPPORTED_VERSIONS)}",
+        )
+    return score_experiment(
+        experiment.state, experiment.baseline, experiment.observation, version=version
+    )
 
 
 @router.post("/{experiment_id}/validate", response_model=ExperimentRead)

@@ -31,6 +31,7 @@ from app.services.orchestration.recovery import (
     PodTimes,
     RecoveryFinding,
     RecoveryRule,
+    client_window_counts,
     error_check,
     find_recovery,
     observation_queries,
@@ -308,6 +309,17 @@ def _measure(
     requests = metrics.query_value(q["requests_in_window"], now)
     errors = metrics.query_value(q["errors_in_window"], now)
     restarts = metrics.query_value(q["restarts_in_window"], now)
+    client_series = metrics.query_raw(q["client_raw"], now)
+    if client_series:
+        client = client_window_counts(client_series, fault_start)
+        client["latency_p95_seconds"] = metrics.query_value(
+            q["client_latency_p95"], now
+        )
+    else:
+        client = {
+            "status": "UNAVAILABLE",
+            "reason": "No client-side load generator series for this target",
+        }
     impact = {
         "window_seconds": window,
         "availability_samples": len(after),
@@ -316,6 +328,7 @@ def _measure(
         "restarts_in_window": int(restarts) if restarts is not None else None,
         "requests_in_window": round(requests, 2) if requests is not None else None,
         "errors_in_window": round(errors or 0.0, 2) if requests is not None else None,
+        "client": client,
         "replacement_pods": [
             {
                 "pod": p.name,

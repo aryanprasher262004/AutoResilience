@@ -1,5 +1,7 @@
-"""Resilience Score v1. Expected values are computed by hand from the documented
-weights (35/25/20/10/10) and thresholds (docs/scoring/resilience-score-v1.md)."""
+"""Resilience Score v1 (pinned with version="v1" so v1 stays reproducible after v2).
+
+Expected values are computed by hand from the documented weights (35/25/20/10/10)
+and thresholds (docs/scoring/resilience-score-v1.md)."""
 
 from typing import Any
 
@@ -84,7 +86,7 @@ APP_UNKNOWN = {
 
 def score(state: str = "COMPLETED", **kwargs: Any) -> dict[str, Any]:
     b = kwargs.pop("baseline", None) or baseline()
-    return score_experiment(state, b, observation(**kwargs))
+    return score_experiment(state, b, observation(**kwargs), version="v1")
 
 
 def component(result: dict[str, Any], name: str) -> dict[str, Any]:
@@ -304,7 +306,10 @@ def test_unfinished_or_other_states_are_not_scored(state: str) -> None:
 
 def test_incomplete_evidence_is_not_scored() -> None:
     assert score(ttr=None)["status"] == "NOT_SCORED"
-    assert score_experiment("COMPLETED", baseline(), None)["status"] == "NOT_SCORED"
+    assert (
+        score_experiment("COMPLETED", baseline(), None, version="v1")["status"]
+        == "NOT_SCORED"
+    )
 
 
 # --- invariants -------------------------------------------------------------------

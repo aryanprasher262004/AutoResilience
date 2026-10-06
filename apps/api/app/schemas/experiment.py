@@ -57,6 +57,8 @@ class BaselineRead(BaseModel):
     availability: MetricGroupRead
     restarts: MetricGroupRead
     requests: MetricGroupRead
+    # Absent on baselines captured before client-side measurement existed.
+    client: MetricGroupRead | None = None
     failure_reasons: list[str]
 
 

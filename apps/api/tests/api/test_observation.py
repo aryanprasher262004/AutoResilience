@@ -392,10 +392,11 @@ def test_completed_experiment_is_scored_and_retrievable(
     score = response.json()
     assert score == body["score"]
     assert score["score"] == 100.0  # recovered in 2s, no dip/restarts/errors, Pass
+    assert score["version"] == "v2"
     assert {c["name"] for c in score["components"]} == {
         "recovery_time",
         "availability",
-        "error_ratio",
+        "request_failures",
         "restarts",
         "litmus_verdict",
     }
@@ -452,3 +453,78 @@ def test_score_not_available_before_finish(client: TestClient) -> None:
 
 def test_score_unknown_experiment_404(client: TestClient) -> None:
     assert client.get(f"/experiments/{uuid.uuid4()}/score").status_code == 404
+
+
+# --- client-side evidence and v2 scoring --------------------------------------
+
+
+@pytest.mark.usefixtures("litmus_done")
+def test_client_disruption_is_recorded_and_penalized(
+    client: TestClient, prometheus: FakePrometheus, clock: Clock
+) -> None:
+    experiment_id, start = observing(client)
+    prometheus.healthy_recovery(start.timestamp())
+    # Second scrape interval after the fault: 9 connection errors, 3 timeouts.
+    prometheus.client_counters(
+        start.timestamp(), {2: {"connection_error": 9, "timeout": 3}}
+    )
+    at(clock, start, 120)
+
+    body = observe(client, experiment_id)
+
+    assert body["state"] == "COMPLETED"
+    seen = body["observation"]["impact"]["client"]
+    assert seen["status"] == "OK"
+    assert (seen["connection_error"], seen["timeout"], seen["http_error"]) == (9, 3, 0)
+    assert seen["failed"] == 12
+    assert seen["latency_p95_seconds"] == 0.006
+    assert len(seen["failure_intervals"]) == 1
+    score = client.get(f"/experiments/{experiment_id}/score").json()
+    failures = next(c for c in score["components"] if c["name"] == "request_failures")
+    assert failures["raw"]["source"] == "client"
+    assert failures["raw"]["connection_error"] == 9
+    assert failures["normalized"] < 1
+    assert "9 connection error, 3 timeout" in failures["reason"]
+    assert score["score"] < 100
+    assert "request_failures -" in score["explanation"]
+
+
+@pytest.mark.usefixtures("litmus_done")
+def test_v1_can_be_recomputed_from_the_same_evidence(
+    client: TestClient, prometheus: FakePrometheus, clock: Clock
+) -> None:
+    experiment_id, start = observing(client)
+    prometheus.healthy_recovery(start.timestamp())
+    prometheus.client_counters(start.timestamp(), {2: {"connection_error": 30}})
+    at(clock, start, 120)
+    observe(client, experiment_id)
+
+    v2 = client.get(f"/experiments/{experiment_id}/score").json()
+    v1 = client.get(f"/experiments/{experiment_id}/score?version=v1").json()
+
+    assert (v1["version"], v2["version"]) == ("v1", "v2")
+    assert v1["score"] == 100.0  # server/K8s evidence saw nothing
+    assert v2["score"] < v1["score"]  # the client did
+    assert (
+        client.get(f"/experiments/{experiment_id}/score?version=v9").status_code == 422
+    )
+
+
+@pytest.mark.usefixtures("litmus_done")
+def test_target_without_client_metrics_still_scores(
+    client: TestClient, prometheus: FakePrometheus, clock: Clock
+) -> None:
+    prometheus.values["client_series"] = None  # baseline: client UNAVAILABLE
+    experiment_id, start = observing(client)
+    prometheus.healthy_recovery(start.timestamp())
+    at(clock, start, 120)
+
+    body = observe(client, experiment_id)
+
+    assert body["observation"]["impact"]["client"]["status"] == "UNAVAILABLE"
+    failures = next(
+        c for c in body["score"]["components"] if c["name"] == "request_failures"
+    )
+    assert failures["raw"]["source"] == "server"
+    assert "server-side fallback: no client-side baseline" in failures["reason"]
+    assert body["score"]["score"] == 100.0

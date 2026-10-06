@@ -155,6 +155,10 @@ HEALTHY_BASELINE: dict[str, float | None] = {
     "request_series": 2,
     "request_rate_rps": 1.5,
     "error_rate_rps": None,  # no 5xx series recorded
+    "client_series": 4,
+    "client_rate_rps": 9.9,
+    "client_failure_rate_rps": None,  # no failures recorded
+    "client_latency_p95_seconds": 0.0048,
 }
 
 
@@ -188,7 +192,10 @@ class FakePrometheus:
             "requests": 100.0,
             "errors": None,
             "restarts": 0.0,
+            "client_p95": 0.006,
         }
+        # Client-side loadgen counter series (see client_counters()).
+        self.client: list[Series] = []
 
     def query_value(self, promql: str, at: datetime) -> float | None:
         self.queries.append((promql, at))
@@ -218,18 +225,46 @@ class FakePrometheus:
         self.queries.append((promql, at))
         if self.error is not None:
             raise PrometheusError(self.error)
+        if "loadgen_requests_total" in promql:
+            return self.client
         assert "replicas_available" in promql or "replicas_ready" in promql
         if not self.availability:
             return []
         return [Series({}, [s for s in self.availability if s[0] <= at.timestamp()])]
 
     def _observation_value(self, promql: str) -> float | None:
+        if "loadgen_request_duration_seconds" in promql:
+            return self.window["client_p95"]
         if "restarts_total" in promql:
             return self.window["restarts"]
         if 'status=~"5.."' in promql:
             return self.window["errors"]
         assert "http_requests_total" in promql, promql
         return self.window["requests"]
+
+    def client_counters(
+        self, fault_start: float, failures_at: dict[int, dict[str, int]] | None = None
+    ) -> None:
+        """Loadgen counters scraped every 15s from 15s before the fault: 150 requests
+        per interval; `failures_at` maps a scrape index to failures in that interval."""
+        failures_at = failures_at or {}
+        totals = {
+            "success": 1000.0,
+            "http_error": 0.0,
+            "connection_error": 0.0,
+            "timeout": 0.0,
+        }
+        points: dict[str, list[tuple[float, float]]] = {o: [] for o in totals}
+        for i in range(10):
+            ts = fault_start - 15 + 15 * i
+            if i:
+                failed = failures_at.get(i, {})
+                totals["success"] += 150 - sum(failed.values())
+                for outcome, n in failed.items():
+                    totals[outcome] += n
+            for outcome, value in totals.items():
+                points[outcome].append((ts, value))
+        self.client = [Series({"outcome": o}, samples) for o, samples in points.items()]
 
     def healthy_recovery(self, fault_start: float, desired: int = 2) -> None:
         """Replacement created 5s and Ready 7s after fault start, then steady samples."""

@@ -1,8 +1,10 @@
 """Steady-state baseline for an experiment target, captured from Prometheus.
 
 Deliberately small: workload availability and container restarts (kube-state-metrics,
-always present) plus request/error rate when the target's pods expose the
-http_requests_total{status} counter. All queries are evaluated at one timestamp.
+always present), server-side request/error rate when the target's pods expose the
+http_requests_total{status} counter, and the client-side view when the load
+generator targets this workload (loadgen_requests_total{outcome}). All queries are
+evaluated at one timestamp.
 """
 
 from collections.abc import Callable
@@ -52,6 +54,11 @@ def pod_name_regex(target: ExperimentTarget) -> str:
     return f"{target.name}-[0-9]+"
 
 
+def client_selector(target: ExperimentTarget) -> str:
+    """Load generator series for this workload (infra/sample-app/loadgen)."""
+    return f'target_namespace="{target.namespace}",target_workload="{target.name}"'
+
+
 def baseline_queries(target: ExperimentTarget, window_seconds: int) -> dict[str, str]:
     ns = target.namespace
     w = f"[{window_seconds}s]"
@@ -67,6 +74,13 @@ def baseline_queries(target: ExperimentTarget, window_seconds: int) -> dict[str,
     restarts = f"kube_pod_container_status_restarts_total{{{pods}}}"
     requests = f"http_requests_total{{{pods}}}"
     errors = f'http_requests_total{{{pods},status=~"5.."}}'
+    client = f"loadgen_requests_total{{{client_selector(target)}}}"
+    client_failed = (
+        f'loadgen_requests_total{{{client_selector(target)},outcome!="success"}}'
+    )
+    client_latency = (
+        f"loadgen_request_duration_seconds_bucket{{{client_selector(target)}}}"
+    )
     return {
         "desired_replicas": desired,
         "available_replicas_avg": f"avg_over_time({available}{w})",
@@ -79,6 +93,12 @@ def baseline_queries(target: ExperimentTarget, window_seconds: int) -> dict[str,
         "request_series": f"count({requests})",
         "request_rate_rps": f"sum(rate({requests}{w}))",
         "error_rate_rps": f"sum(rate({errors}{w}))",
+        "client_series": f"count({client})",
+        "client_rate_rps": f"sum(rate({client}{w}))",
+        "client_failure_rate_rps": f"sum(rate({client_failed}{w}))",
+        "client_latency_p95_seconds": (
+            f"histogram_quantile(0.95, sum by (le) (rate({client_latency}{w})))"
+        ),
     }
 
 
@@ -94,14 +114,17 @@ def capture_baseline(
         "availability": _group(_availability, value),
         "restarts": _group(_restarts, value),
         "requests": _group(_requests, value),
+        "client": _group(_client, value),
     }
     required_ok = all(
         groups[g]["status"] == MetricStatus.OK for g in ("availability", "restarts")
     )
-    requests_ok = groups["requests"]["status"] != MetricStatus.ERROR
+    optional_ok = all(
+        groups[g]["status"] != MetricStatus.ERROR for g in ("requests", "client")
+    )
     return {
         "status": BaselineStatus.CAPTURED
-        if required_ok and requests_ok
+        if required_ok and optional_ok
         else BaselineStatus.FAILED,
         "captured_at": at.isoformat(),
         "window_seconds": window_seconds,
@@ -194,6 +217,31 @@ def _requests(value: ValueFn) -> GroupResult:
             "request_rate_rps": _round(rate),
             "error_rate_rps": _round(errors),
             "error_ratio": ratio,
+        },
+    )
+
+
+def _client(value: ValueFn) -> GroupResult:
+    if value("client_series") is None:
+        return (
+            MetricStatus.UNAVAILABLE,
+            "No client-side load generator series for this target",
+            {},
+        )
+    rate = value("client_rate_rps") or 0.0
+    failures = value("client_failure_rate_rps") or 0.0
+    ratio = _round(failures / rate) if rate > 0 else None
+    p95 = value("client_latency_p95_seconds")
+    return (
+        MetricStatus.OK,
+        f"client {rate:.2f} req/s, {failures:.3f} failed/s"
+        + (f" (failure ratio {ratio})" if ratio is not None else " (no traffic)")
+        + (f", p95 {p95 * 1000:.1f} ms" if p95 is not None else ""),
+        {
+            "client_rate_rps": _round(rate),
+            "client_failure_rate_rps": _round(failures),
+            "client_failure_ratio": ratio,
+            "client_latency_p95_seconds": _round(p95) if p95 is not None else None,
         },
     )
 

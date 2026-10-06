@@ -1,7 +1,13 @@
-"""Resilience Score v1: persisted experiment evidence -> explainable 0-100 score.
+"""Resilience Score: persisted experiment evidence -> explainable 0-100 score.
 
 Pure and deterministic: reads only the stored baseline and observation evidence
-(no cluster/Prometheus access, no LLM). Methodology: docs/scoring/resilience-score-v1.md.
+(no cluster/Prometheus access, no LLM). Methodology: docs/scoring/.
+
+Versions (every stored score records its version; older versions stay reproducible):
+  v1  error_ratio from server-side 5xx (weight 20), availability 25.
+  v2  request_failures from the client-side load generator when available
+      (connection errors, timeouts and HTTP 5xx as the client saw them), falling
+      back to server-side 5xx; weight 30. availability reduced to 15.
 
 score = 100 * sum(weight_i * normalized_i) / sum(weight_i over applicable components)
 
@@ -14,7 +20,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
-SCORING_VERSION = "v1"
+CURRENT_VERSION = "v2"
 
 
 class ScoreStatus(StrEnum):
@@ -29,10 +35,19 @@ class ComponentStatus(StrEnum):
 
 
 @dataclass(frozen=True)
-class Weights:
+class WeightsV1:
     recovery_time: float = 35
     availability: float = 25
     error_ratio: float = 20
+    restarts: float = 10
+    litmus_verdict: float = 10
+
+
+@dataclass(frozen=True)
+class WeightsV2:
+    recovery_time: float = 35
+    availability: float = 15
+    request_failures: float = 30
     restarts: float = 10
     litmus_verdict: float = 10
 
@@ -43,8 +58,9 @@ class Thresholds:
     # zero at `slow`, linear in between.
     recovery_fast_seconds: float = 10
     recovery_slow_seconds: float = 120
-    # Increase of the 5xx ratio over baseline (absolute): full marks up to
-    # `tolerated`, zero at `severe`, linear in between.
+    # Increase of the failure ratio over baseline (absolute): full marks up to
+    # `tolerated`, zero at `severe`, linear in between. v1: server 5xx ratio;
+    # v2: client failure ratio (or server 5xx as fallback).
     error_ratio_tolerated_increase: float = 0.001
     error_ratio_severe_increase: float = 0.05
     # Container restarts in the fault window: 1 restart halves, 2+ zero.
@@ -53,7 +69,8 @@ class Thresholds:
     not_recovered_cap: float = 40
 
 
-WEIGHTS = Weights()
+WEIGHTS_V1 = WeightsV1()
+WEIGHTS_V2 = WeightsV2()
 THRESHOLDS = Thresholds()
 RATING_BANDS = ((90, "Excellent"), (75, "Good"), (50, "Fair"), (0, "Poor"))
 
@@ -81,7 +98,7 @@ def _linear_down(value: float, full_at: float, zero_at: float) -> float:
 
 
 def recovery_component(
-    recovered: bool, recovery: dict[str, Any], t: Thresholds
+    recovered: bool, recovery: dict[str, Any], t: Thresholds, weight: float
 ) -> Component:
     seconds = recovery.get("time_to_recovery_seconds")
     raw = {"recovered": recovered, "time_to_recovery_seconds": seconds}
@@ -91,7 +108,7 @@ def recovery_component(
             ComponentStatus.SCORED,
             raw,
             0.0,
-            WEIGHTS.recovery_time,
+            weight,
             "Target did not satisfy the recovery rule within the timeout",
         )
     assert seconds is not None  # guaranteed by score_experiment
@@ -101,13 +118,15 @@ def recovery_component(
         ComponentStatus.SCORED,
         raw,
         score,
-        WEIGHTS.recovery_time,
+        weight,
         f"Recovered in {seconds:g}s (replacement created -> Ready, 1s resolution; "
         f"full marks <= {t.recovery_fast_seconds:g}s, zero >= {t.recovery_slow_seconds:g}s)",
     )
 
 
-def availability_component(desired: int, impact: dict[str, Any]) -> Component:
+def availability_component(
+    desired: int, impact: dict[str, Any], weight: float
+) -> Component:
     minimum = impact.get("min_available_replicas")
     samples = impact.get("availability_samples")
     raw = {
@@ -121,7 +140,7 @@ def availability_component(desired: int, impact: dict[str, Any]) -> Component:
             ComponentStatus.NOT_APPLICABLE,
             raw,
             None,
-            WEIGHTS.availability,
+            weight,
             "No availability samples during the fault window",
         )
     score = round(max(0.0, min(1.0, minimum / desired)), 4)
@@ -131,7 +150,7 @@ def availability_component(desired: int, impact: dict[str, Any]) -> Component:
         ComponentStatus.SCORED,
         raw,
         score,
-        WEIGHTS.availability,
+        weight,
         (
             f"Lowest observed availability {minimum}/{desired} replicas"
             + (f" ({lost} lost)" if lost > 0 else " (no dip observed)")
@@ -141,7 +160,11 @@ def availability_component(desired: int, impact: dict[str, Any]) -> Component:
 
 
 def error_ratio_component(
-    baseline_requests: dict[str, Any], impact: dict[str, Any], t: Thresholds
+    baseline_requests: dict[str, Any],
+    impact: dict[str, Any],
+    t: Thresholds,
+    weight: float,
+    name: str = "error_ratio",
 ) -> Component:
     values = baseline_requests.get("values") or {}
     baseline_ratio = values.get("error_ratio")
@@ -154,21 +177,21 @@ def error_ratio_component(
     }
     if baseline_requests.get("status") != "OK" or not values.get("request_rate_rps"):
         return Component(
-            "error_ratio",
+            name,
             ComponentStatus.NOT_APPLICABLE,
             raw,
             None,
-            WEIGHTS.error_ratio,
+            weight,
             "Target exposes no request metrics (or had no baseline traffic); "
             "excluded and weights re-normalized",
         )
     if not requests:
         return Component(
-            "error_ratio",
+            name,
             ComponentStatus.SCORED,
             raw,
             0.0,
-            WEIGHTS.error_ratio,
+            weight,
             "Baseline had traffic but no requests were recorded during the fault window",
         )
     ratio = round((errors or 0.0) / requests, 4)
@@ -178,11 +201,11 @@ def error_ratio_component(
         increase, t.error_ratio_tolerated_increase, t.error_ratio_severe_increase
     )
     return Component(
-        "error_ratio",
+        name,
         ComponentStatus.SCORED,
         raw,
         score,
-        WEIGHTS.error_ratio,
+        weight,
         f"Server-side 5xx ratio {ratio} vs baseline {baseline_ratio or 0} "
         f"(+{increase}; full marks <= +{t.error_ratio_tolerated_increase:g}, "
         f"zero >= +{t.error_ratio_severe_increase:g})",
@@ -190,7 +213,10 @@ def error_ratio_component(
 
 
 def restarts_component(
-    baseline_restarts: dict[str, Any], impact: dict[str, Any], t: Thresholds
+    baseline_restarts: dict[str, Any],
+    impact: dict[str, Any],
+    t: Thresholds,
+    weight: float,
 ) -> Component:
     restarts = impact.get("restarts_in_window")
     raw = {
@@ -205,7 +231,7 @@ def restarts_component(
             ComponentStatus.NOT_APPLICABLE,
             raw,
             None,
-            WEIGHTS.restarts,
+            weight,
             "No restart data for the fault window",
         )
     score = round(max(0.0, 1 - restarts / t.restarts_zero_at), 4)
@@ -214,13 +240,13 @@ def restarts_component(
         ComponentStatus.SCORED,
         raw,
         score,
-        WEIGHTS.restarts,
+        weight,
         f"{restarts} container restart(s) during the fault window "
         f"(zero marks at >= {t.restarts_zero_at})",
     )
 
 
-def litmus_component(litmus: dict[str, Any]) -> Component:
+def litmus_component(litmus: dict[str, Any], weight: float) -> Component:
     verdict = litmus.get("verdict")
     passed = verdict == "Pass"
     return Component(
@@ -231,17 +257,135 @@ def litmus_component(litmus: dict[str, Any]) -> Component:
             "fail_step": (litmus.get("chaos_result") or {}).get("fail_step"),
         },
         1.0 if passed else 0.0,
-        WEIGHTS.litmus_verdict,
+        weight,
         "Litmus verdict Pass" if passed else f"Litmus verdict {verdict}",
     )
+
+
+def request_failures_component(
+    baseline: dict[str, Any], impact: dict[str, Any], t: Thresholds, weight: float
+) -> Component:
+    """v2: what the client experienced; server-side 5xx only as a fallback."""
+    name = "request_failures"
+    base = baseline.get("client") or {}
+    base_values = base.get("values") or {}
+    client = impact.get("client") or {}
+    fallback_note = ""
+    if base.get("status") == "OK" and base_values.get("client_rate_rps"):
+        if client.get("status") == "OK" and client.get("requests"):
+            return _client_failures(name, base_values, client, t, weight)
+        fallback_note = (
+            "client load generator recorded no requests during the fault window "
+            "(measurement gap, not a target failure)"
+        )
+    else:
+        fallback_note = "no client-side baseline for this target"
+
+    server = error_ratio_component(
+        baseline.get("requests") or {}, impact, t, weight, name
+    )
+    raw = {
+        "source": "server" if server.status is ComponentStatus.SCORED else None,
+        **server.raw,
+    }
+    return Component(
+        name,
+        server.status,
+        raw,
+        server.normalized,
+        weight,
+        f"{server.reason} [server-side fallback: {fallback_note}]",
+    )
+
+
+def _client_failures(
+    name: str,
+    base_values: dict[str, Any],
+    client: dict[str, Any],
+    t: Thresholds,
+    weight: float,
+) -> Component:
+    baseline_ratio = base_values.get("client_failure_ratio") or 0.0
+    ratio = client.get("failure_ratio") or 0.0
+    increase = round(max(0.0, ratio - baseline_ratio), 4)
+    raw = {
+        "source": "client",
+        "requests": client.get("requests"),
+        "failed": client.get("failed"),
+        "http_error": client.get("http_error"),
+        "connection_error": client.get("connection_error"),
+        "timeout": client.get("timeout"),
+        "fault_failure_ratio": ratio,
+        "baseline_failure_ratio": baseline_ratio,
+        "increase": increase,
+        "failure_intervals": len(client.get("failure_intervals") or []),
+        "counted_from": client.get("counted_from"),
+        "counted_to": client.get("counted_to"),
+    }
+    score = _linear_down(
+        increase, t.error_ratio_tolerated_increase, t.error_ratio_severe_increase
+    )
+    kinds = ", ".join(
+        f"{client.get(o)} {o.replace('_', ' ')}"
+        for o in ("connection_error", "timeout", "http_error")
+        if client.get(o)
+    )
+    reason = (
+        f"Client saw {client.get('failed')}/{client.get('requests')} requests fail"
+        + (f" ({kinds})" if kinds else "")
+        + f": ratio {ratio} vs baseline {baseline_ratio} (+{increase}; full marks <= "
+        f"+{t.error_ratio_tolerated_increase:g}, zero >= +{t.error_ratio_severe_increase:g})"
+    )
+    if not client.get("starts_before_fault"):
+        reason += (
+            "; counting started after the fault began, early failures may be missed"
+        )
+    return Component(name, ComponentStatus.SCORED, raw, score, weight, reason)
 
 
 # --- overall ------------------------------------------------------------------
 
 
-def _not_scored(reason: str, state: str, result: dict[str, Any]) -> dict[str, Any]:
+def _components(
+    version: str,
+    recovered: bool,
+    baseline: dict[str, Any],
+    observation: dict[str, Any],
+    t: Thresholds,
+) -> tuple[list[Component], dict[str, float]]:
+    desired = int(baseline["availability"]["values"]["desired_replicas"])
+    impact, recovery = observation["impact"], observation["recovery"]
+    litmus = observation.get("litmus") or {}
+    restarts_baseline = baseline.get("restarts") or {}
+    if version == "v1":
+        w1 = WEIGHTS_V1
+        return [
+            recovery_component(recovered, recovery, t, w1.recovery_time),
+            availability_component(desired, impact, w1.availability),
+            error_ratio_component(
+                baseline.get("requests") or {}, impact, t, w1.error_ratio
+            ),
+            restarts_component(restarts_baseline, impact, t, w1.restarts),
+            litmus_component(litmus, w1.litmus_verdict),
+        ], asdict(w1)
+    w2 = WEIGHTS_V2
+    return [
+        recovery_component(recovered, recovery, t, w2.recovery_time),
+        availability_component(desired, impact, w2.availability),
+        request_failures_component(baseline, impact, t, w2.request_failures),
+        restarts_component(restarts_baseline, impact, t, w2.restarts),
+        litmus_component(litmus, w2.litmus_verdict),
+    ], asdict(w2)
+
+
+SUPPORTED_VERSIONS = ("v1", "v2")
+
+
+def _not_scored(
+    version: str, reason: str, state: str, result: dict[str, Any]
+) -> dict[str, Any]:
     return {
-        "version": SCORING_VERSION,
+        "version": version,
         "status": ScoreStatus.NOT_SCORED,
         "score": None,
         "rating": None,
@@ -257,14 +401,21 @@ def score_experiment(
     baseline: dict[str, Any] | None,
     observation: dict[str, Any] | None,
     thresholds: Thresholds = THRESHOLDS,
+    version: str = CURRENT_VERSION,
 ) -> dict[str, Any]:
+    if version not in SUPPORTED_VERSIONS:
+        raise ValueError(f"Unknown scoring version {version!r}")
     result = (observation or {}).get("result") or {}
     if state not in ("COMPLETED", "UNKNOWN") or not baseline or not observation:
         return _not_scored(
-            f"Experiment is {state}; only finished runs are scored", state, result
+            version,
+            f"Experiment is {state}; only finished runs are scored",
+            state,
+            result,
         )
     if state == "UNKNOWN" and result.get("cause") != "application":
         return _not_scored(
+            version,
             f"Not scored: outcome undetermined ({result.get('reason_code')}, cause "
             f"{result.get('cause')}). Platform or conflicting evidence says nothing "
             "reliable about the target's resilience.",
@@ -278,20 +429,11 @@ def score_experiment(
         or not recovery
         or (recovered and recovery.get("time_to_recovery_seconds") is None)
     ):
-        return _not_scored("Observation evidence incomplete", state, result)
+        return _not_scored(version, "Observation evidence incomplete", state, result)
 
-    desired = int(baseline["availability"]["values"]["desired_replicas"])
-    components = [
-        recovery_component(recovered, observation["recovery"], thresholds),
-        availability_component(desired, observation["impact"]),
-        error_ratio_component(
-            baseline.get("requests") or {}, observation["impact"], thresholds
-        ),
-        restarts_component(
-            baseline.get("restarts") or {}, observation["impact"], thresholds
-        ),
-        litmus_component(observation.get("litmus") or {}),
-    ]
+    components, weights = _components(
+        version, recovered, baseline, observation, thresholds
+    )
     applicable = [c for c in components if c.status is ComponentStatus.SCORED]
     total_weight = sum(c.weight for c in applicable)
 
@@ -348,14 +490,14 @@ def score_experiment(
         )
 
     return {
-        "version": SCORING_VERSION,
+        "version": version,
         "status": ScoreStatus.SCORED if recovered else ScoreStatus.SCORED_NOT_RECOVERED,
         "score": score,
         "rating": rating,
         "explanation": explanation,
         "components": breakdown,
         "cap_applied": cap,
-        "weights": asdict(WEIGHTS),
+        "weights": weights,
         "thresholds": asdict(thresholds),
         "inputs": {"state": state, "result": result},
     }

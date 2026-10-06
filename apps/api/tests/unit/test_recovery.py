@@ -1,10 +1,12 @@
 import pytest
 
 from app.domain.experiment import ExperimentTarget, WorkloadKind
+from app.integrations.prometheus_client import Series
 from app.services.orchestration.recovery import (
     PodTimes,
     RecoveryFinding,
     RecoveryRule,
+    client_window_counts,
     error_check,
     find_recovery,
     observation_queries,
@@ -136,4 +138,91 @@ def test_observation_queries_cover_the_window() -> None:
         'kube_deployment_status_replicas_available{namespace="shop",deployment="checkout"}[120s]'
     )
     assert q["pod_ready_time"].startswith("last_over_time(kube_pod_status_ready_time{")
-    assert all("[120s]" in v for v in q.values())
+    assert q["client_raw"].endswith(
+        "[180s]"
+    )  # window + lookback for the pre-fault scrape
+    assert all("[120s]" in v for k, v in q.items() if k != "client_raw")
+
+
+# --- client-side counts ---------------------------------------------------------
+
+
+def client_series(
+    points: list[tuple[float, dict[str, float]]],
+) -> list[Series]:
+    outcomes = ("success", "http_error", "connection_error", "timeout")
+    return [
+        Series({"outcome": o}, [(t, values.get(o, 0.0)) for t, values in points])
+        for o in outcomes
+    ]
+
+
+def test_client_counts_start_at_last_scrape_before_fault() -> None:
+    series = client_series(
+        [
+            (T0 - 20, {"success": 500}),  # ignored: an earlier scrape
+            (T0 - 5, {"success": 650}),  # starting point
+            (T0 + 10, {"success": 790, "connection_error": 3, "timeout": 2}),
+            (T0 + 25, {"success": 940, "connection_error": 3, "timeout": 2}),
+        ]
+    )
+
+    counts = client_window_counts(series, T0)
+
+    assert counts["requests"] == 295
+    assert counts["success"] == 290
+    assert counts["connection_error"] == 3
+    assert counts["timeout"] == 2
+    assert counts["http_error"] == 0
+    assert counts["failed"] == 5
+    assert counts["failure_ratio"] == 0.0169
+    assert counts["starts_before_fault"] is True
+    assert counts["failure_intervals"] == [
+        {
+            "from": "1970-01-12T13:46:35+00:00",
+            "to": "1970-01-12T13:46:50+00:00",
+            "failed": 5,
+            "by_outcome": {"connection_error": 3, "timeout": 2},
+        }
+    ]
+
+
+def test_client_counts_successful_traffic_only() -> None:
+    series = client_series([(T0 - 5, {"success": 10}), (T0 + 10, {"success": 160})])
+
+    counts = client_window_counts(series, T0)
+
+    assert (counts["requests"], counts["failed"], counts["failure_ratio"]) == (
+        150,
+        0,
+        0.0,
+    )
+    assert counts["failure_intervals"] == []
+
+
+def test_client_http_errors_counted() -> None:
+    series = client_series(
+        [(T0 - 5, {"success": 0}), (T0 + 10, {"success": 100, "http_error": 50})]
+    )
+    counts = client_window_counts(series, T0)
+    assert counts["http_error"] == 50
+    assert counts["failure_ratio"] == 0.3333
+
+
+def test_client_counter_reset_is_handled() -> None:
+    # loadgen restarted between scrapes: counters drop and start again.
+    series = client_series(
+        [
+            (T0 - 5, {"success": 900}),
+            (T0 + 10, {"success": 1000}),
+            (T0 + 25, {"success": 40}),
+        ]
+    )
+    assert client_window_counts(series, T0)["success"] == 140
+
+
+def test_client_counts_without_pre_fault_sample_are_flagged() -> None:
+    series = client_series([(T0 + 10, {"success": 100}), (T0 + 25, {"success": 250})])
+    counts = client_window_counts(series, T0)
+    assert counts["starts_before_fault"] is False
+    assert counts["requests"] == 150
