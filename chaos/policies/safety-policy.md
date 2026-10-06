@@ -93,7 +93,14 @@ client failures. The difference between the two v2 scores comes mostly from the 
 availability component: whether a scrape happened to land inside the gap. That component is
 noisy for outages shorter than the scrape interval.
 
+## Abort and cleanup
+
+`POST /experiments/{id}/abort` stops only the experiment's own recorded engine
+(`engineState: stop`). Finished runs' engines and ChaosResults are deleted by the
+orchestrator only after re-reading the engine and verifying the `managed-by` and
+`experiment-id` labels (see `docs/orchestration.md`). The verdict is persisted first.
+
 ## Not yet covered
 
-No live abort during `OBSERVING` (`services/safety/live_monitor.py`), and no automatic
-cleanup of completed ChaosEngine/ChaosResult objects (kept as evidence).
+No *automatic* abort on live safety signals during `OBSERVING`
+(`services/safety/live_monitor.py`); aborting is an explicit operator action.
