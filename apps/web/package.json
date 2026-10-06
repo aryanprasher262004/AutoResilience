@@ -6,25 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "api:types": "openapi-typescript ../../packages/contracts/openapi.json -o src/lib/api/schema.ts"
   },
   "dependencies": {
-    "@tanstack/react-query": "latest",
-    "next": "16.3.1",
+    "@tanstack/react-query": "5.104.1",
+    "next": "16.3.8",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "react-hook-form": "latest",
-    "recharts": "latest",
-    "zod": "latest"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "msw": "latest",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.1",
+    "eslint-config-next": "16.3.8",
+    "openapi-typescript": "7.13.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

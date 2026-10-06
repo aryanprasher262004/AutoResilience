@@ -1,0 +1,1434 @@
+{
+  "components": {
+    "schemas": {
+      "AbortRequest": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AbortRequest",
+        "type": "object"
+      },
+      "BaselineRead": {
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/MetricGroupRead"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricGroupRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failure_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failure Reasons",
+            "type": "array"
+          },
+          "requests": {
+            "$ref": "#/components/schemas/MetricGroupRead"
+          },
+          "restarts": {
+            "$ref": "#/components/schemas/MetricGroupRead"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BaselineStatus"
+          },
+          "window_seconds": {
+            "title": "Window Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "captured_at",
+          "window_seconds",
+          "availability",
+          "restarts",
+          "requests",
+          "failure_reasons"
+        ],
+        "title": "BaselineRead",
+        "type": "object"
+      },
+      "BaselineStatus": {
+        "enum": [
+          "CAPTURED",
+          "FAILED"
+        ],
+        "title": "BaselineStatus",
+        "type": "string"
+      },
+      "ChaosRead": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "engine_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine Name"
+          },
+          "experiment": {
+            "title": "Experiment",
+            "type": "string"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "injected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Injected At"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namespace"
+          },
+          "pod_delete_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PodDeleteMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "safety_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety Policy"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "stop_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Error"
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped"
+          },
+          "target_pods": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Pods",
+            "type": "array"
+          }
+        },
+        "required": [
+          "provider",
+          "experiment"
+        ],
+        "title": "ChaosRead",
+        "type": "object"
+      },
+      "CheckStatus": {
+        "enum": [
+          "PASSED",
+          "FAILED",
+          "ERROR",
+          "SKIPPED"
+        ],
+        "title": "CheckStatus",
+        "type": "string"
+      },
+      "ExperimentCreate": {
+        "properties": {
+          "affected_replicas": {
+            "exclusiveMinimum": 0.0,
+            "title": "Affected Replicas",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "duration_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "Duration Seconds",
+            "type": "integer"
+          },
+          "fault_type": {
+            "$ref": "#/components/schemas/FaultType"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pod_delete_mode": {
+            "$ref": "#/components/schemas/PodDeleteMode",
+            "default": "GRACEFUL"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ExperimentTargetSchema"
+          }
+        },
+        "required": [
+          "name",
+          "target",
+          "fault_type",
+          "duration_seconds",
+          "affected_replicas"
+        ],
+        "title": "ExperimentCreate",
+        "type": "object"
+      },
+      "ExperimentRead": {
+        "properties": {
+          "affected_replicas": {
+            "title": "Affected Replicas",
+            "type": "integer"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BaselineRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chaos": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChaosRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "duration_seconds": {
+            "title": "Duration Seconds",
+            "type": "integer"
+          },
+          "fault_type": {
+            "$ref": "#/components/schemas/FaultType"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservationRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "orchestration": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orchestration"
+          },
+          "pod_delete_mode": {
+            "$ref": "#/components/schemas/PodDeleteMode"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ExperimentState"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ExperimentTargetSchema"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "validation_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidationResultRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "state",
+          "target",
+          "fault_type",
+          "duration_seconds",
+          "affected_replicas",
+          "pod_delete_mode",
+          "validation_result",
+          "baseline",
+          "chaos",
+          "observation",
+          "score",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExperimentRead",
+        "type": "object"
+      },
+      "ExperimentState": {
+        "enum": [
+          "CREATED",
+          "VALIDATING",
+          "BASELINING",
+          "INJECTING",
+          "OBSERVING",
+          "RECOVERING",
+          "COMPLETED",
+          "VALIDATION_FAILED",
+          "INJECTION_FAILED",
+          "ABORTED",
+          "UNKNOWN"
+        ],
+        "title": "ExperimentState",
+        "type": "string"
+      },
+      "ExperimentTargetSchema": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/WorkloadKind"
+          },
+          "name": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "title": "Namespace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "kind",
+          "name"
+        ],
+        "title": "ExperimentTargetSchema",
+        "type": "object"
+      },
+      "FaultType": {
+        "enum": [
+          "pod-delete",
+          "pod-cpu-hog",
+          "pod-memory-hog",
+          "pod-network-latency"
+        ],
+        "title": "FaultType",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "MetricGroupRead": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MetricStatus"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "values"
+        ],
+        "title": "MetricGroupRead",
+        "type": "object"
+      },
+      "MetricStatus": {
+        "enum": [
+          "OK",
+          "UNAVAILABLE",
+          "ERROR"
+        ],
+        "title": "MetricStatus",
+        "type": "string"
+      },
+      "ObservationRead": {
+        "properties": {
+          "evaluations": {
+            "title": "Evaluations",
+            "type": "integer"
+          },
+          "impact": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "litmus": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Litmus"
+          },
+          "recovery": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ObservationResultRead"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "evaluations",
+          "updated_at",
+          "result"
+        ],
+        "title": "ObservationRead",
+        "type": "object"
+      },
+      "ObservationResultRead": {
+        "properties": {
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ObservationResultRead",
+        "type": "object"
+      },
+      "PodDeleteMode": {
+        "description": "How pod-delete removes pods (maps to the vetted experiment's FORCE env).\n\nGRACEFUL: default Kubernetes deletion; the pod's terminationGracePeriodSeconds\n          applies (SIGTERM, then SIGKILL after the grace period).\nFORCE:    deletion with gracePeriodSeconds=0; containers are killed at once.",
+        "enum": [
+          "GRACEFUL",
+          "FORCE"
+        ],
+        "title": "PodDeleteMode",
+        "type": "string"
+      },
+      "ScoreComponentRead": {
+        "properties": {
+          "contribution": {
+            "title": "Contribution",
+            "type": "number"
+          },
+          "effective_weight": {
+            "title": "Effective Weight",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "normalized": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized"
+          },
+          "raw": {
+            "additionalProperties": true,
+            "title": "Raw",
+            "type": "object"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "raw",
+          "normalized",
+          "weight",
+          "effective_weight",
+          "contribution",
+          "reason"
+        ],
+        "title": "ScoreComponentRead",
+        "type": "object"
+      },
+      "ScoreRead": {
+        "properties": {
+          "cap_applied": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Applied"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreComponentRead"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "title": "Inputs",
+            "type": "object"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "thresholds": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thresholds"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "weights": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weights"
+          }
+        },
+        "required": [
+          "version",
+          "status",
+          "score",
+          "rating",
+          "explanation",
+          "components",
+          "inputs"
+        ],
+        "title": "ScoreRead",
+        "type": "object"
+      },
+      "ValidationCheckRead": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "message"
+        ],
+        "title": "ValidationCheckRead",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "ValidationResultRead": {
+        "properties": {
+          "cluster_checks": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationCheckRead"
+            },
+            "title": "Cluster Checks",
+            "type": "array"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "policy": {
+            "additionalProperties": true,
+            "title": "Policy",
+            "type": "object"
+          },
+          "policy_selection": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Selection"
+          },
+          "static_checks": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationCheckRead"
+            },
+            "title": "Static Checks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passed",
+          "static_checks",
+          "cluster_checks",
+          "policy"
+        ],
+        "title": "ValidationResultRead",
+        "type": "object"
+      },
+      "WorkloadKind": {
+        "enum": [
+          "Deployment",
+          "StatefulSet"
+        ],
+        "title": "WorkloadKind",
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "title": "AutoResilience API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/experiments": {
+      "get": {
+        "operationId": "list_experiments_experiments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentRead"
+                  },
+                  "title": "Response List Experiments Experiments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Experiments",
+        "tags": [
+          "experiments"
+        ]
+      },
+      "post": {
+        "operationId": "create_experiment_experiments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Experiment",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}": {
+      "get": {
+        "operationId": "get_experiment_experiments__experiment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Experiment",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}/abort": {
+      "post": {
+        "description": "Stop an active experiment: its own ChaosEngine only, then ABORTED.",
+        "operationId": "abort_experiments__experiment_id__abort_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbortRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Abort",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}/baseline": {
+      "post": {
+        "description": "Capture a steady-state baseline from Prometheus.\n\nSuccess moves BASELINING -> INJECTING; a failed capture is recorded and the\nexperiment stays in BASELINING so it can be retried. No fault is injected.",
+        "operationId": "capture_experiment_baseline_experiments__experiment_id__baseline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Capture Experiment Baseline",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}/inject": {
+      "post": {
+        "description": "Start the pod-delete fault via LitmusChaos (INJECTING experiments only).\n\nBlocks until the target pods are confirmed deleted (-> OBSERVING) or the start\nfails/times out (-> INJECTION_FAILED, ChaosEngine stopped).",
+        "operationId": "inject_fault_experiments__experiment_id__inject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inject Fault",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}/observe": {
+      "post": {
+        "description": "Advance observation by one bounded step (call repeatedly while in progress).\n\nOBSERVING -> RECOVERING once Litmus finishes; RECOVERING -> COMPLETED when the\nrecovery rule holds; -> UNKNOWN (with reason and cause) when it cannot be\nestablished. Read-only except stopping our own ChaosEngine on a Litmus timeout.",
+        "operationId": "observe_experiment_experiments__experiment_id__observe_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Observe Experiment",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}/run": {
+      "post": {
+        "description": "Start the automatic lifecycle for a CREATED experiment (idempotent).\n\nThe orchestrator then drives VALIDATING -> ... -> COMPLETED/UNKNOWN and cleans\nup; follow it with GET /experiments/{id}.",
+        "operationId": "run_experiment_experiments__experiment_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Experiment",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}/score": {
+      "get": {
+        "description": "The persisted Resilience Score (or the reason it was not scored).\n\n`?version=v1` recomputes that methodology from the same stored evidence\n(deterministic; not persisted). 404 until the experiment has finished.",
+        "operationId": "get_experiment_score_experiments__experiment_id__score_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^v[0-9]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Experiment Score",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/experiments/{experiment_id}/validate": {
+      "post": {
+        "description": "Run static then cluster safety checks.\n\nThe outcome is the resulting state (BASELINING / VALIDATION_FAILED), not the HTTP status.",
+        "operationId": "validate_experiment_experiments__experiment_id__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Experiment",
+        "tags": [
+          "experiments"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check"
+      }
+    }
+  }
+}
