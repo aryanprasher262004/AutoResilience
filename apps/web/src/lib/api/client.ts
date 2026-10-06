@@ -6,11 +6,24 @@
  */
 import type {
   AbortRequest,
+  DashboardSummary,
   Experiment,
   ExperimentCreate,
+  ExperimentPage,
   Health,
+  HistoryQuery,
   Score,
 } from "./types";
+
+function toSearch(query: HistoryQuery): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === "" || (Array.isArray(value) && !value.length)) continue;
+    for (const v of Array.isArray(value) ? value : [value]) params.append(key, String(v));
+  }
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
 
 export const API_BASE_PATH = "/api/backend";
 
@@ -109,6 +122,8 @@ function post<T>(path: string, payload?: unknown): Promise<T> {
 export const api = {
   health: () => request<Health>("/health"),
   listExperiments: () => request<Experiment[]>("/experiments"),
+  history: (query: HistoryQuery) => request<ExperimentPage>(`/experiments/history${toSearch(query)}`),
+  dashboard: () => request<DashboardSummary>("/dashboard/summary"),
   getExperiment: (id: string) => request<Experiment>(`/experiments/${encodeURIComponent(id)}`),
   getScore: (id: string, version?: string) =>
     request<Score>(

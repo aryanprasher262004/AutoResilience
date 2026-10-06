@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { Experiment, ExperimentState } from "@/lib/api/types";
+import type { Experiment, ExperimentState, ExperimentSummary } from "@/lib/api/types";
 import { STATE_META, presentState } from "@/lib/experiment-state";
 
 export function StateBadge({ state }: { state: ExperimentState }) {
@@ -12,7 +12,7 @@ export function StateBadge({ state }: { state: ExperimentState }) {
 }
 
 /** Badge for a concrete experiment (accounts for validated-but-not-started). */
-export function ExperimentStateBadge({ experiment }: { experiment: Experiment }) {
+export function ExperimentStateBadge({ experiment }: { experiment: Experiment | ExperimentSummary }) {
   const meta = presentState(experiment);
   return (
     <Badge tone={meta.tone} dot title={`${meta.state}: ${meta.description}`}>

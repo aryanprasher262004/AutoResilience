@@ -43,7 +43,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const creating = pathname === "/experiments/new";
   return (
-    <aside className="sticky top-0 flex h-dvh w-14 shrink-0 flex-col border-r border-line bg-surface lg:w-56">
+    <aside className="sticky top-0 flex h-dvh w-14 shrink-0 flex-col border-r border-line bg-surface lg:w-56 print:hidden">
       <Link
         href="/"
         className="flex h-12 items-center gap-2 border-b border-line px-4 text-fg"

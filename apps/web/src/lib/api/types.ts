@@ -20,6 +20,22 @@ export type Observation = Schemas["ObservationRead"];
 export type Score = Schemas["ScoreRead"];
 export type ScoreComponent = Schemas["ScoreComponentRead"];
 export type AbortRequest = Schemas["AbortRequest"];
+export type ExperimentSummary = Schemas["ExperimentSummary"];
+export type ExperimentPage = Schemas["ExperimentPage"];
+export type DashboardSummary = Schemas["DashboardSummary"];
+export type ScorePoint = Schemas["ScorePoint"];
+
+/** Query parameters of GET /experiments/history (mirrors the OpenAPI operation). */
+export type HistoryQuery = {
+  q?: string;
+  state?: ExperimentState[];
+  fault_type?: FaultType[];
+  namespace?: string[];
+  sort?: "created_at" | "updated_at" | "name" | "score";
+  order?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+};
 
 /** GET /health (the route has no response model). */
 export type Health = { status: string };

@@ -1,6 +1,6 @@
 import type { Tone } from "@/components/ui/badge";
 
-import type { Experiment, ExperimentState } from "./api/types";
+import type { Experiment, ExperimentState, ExperimentSummary } from "./api/types";
 
 type StateMeta = {
   label: string;
@@ -94,9 +94,11 @@ export function isTerminal(state: ExperimentState): boolean {
  * BASELINING without a baseline until someone runs it; nothing is baselining it, so
  * say so instead of showing an in-progress state.
  */
-export function presentState(e: Experiment): StateMeta & { state: ExperimentState } {
-  const auto = (e.orchestration as { mode?: string } | null)?.mode === "auto";
-  if (e.state === "BASELINING" && !auto && !e.baseline) {
+export function presentState(e: Experiment | ExperimentSummary): StateMeta & { state: ExperimentState } {
+  const summary = "has_baseline" in e;
+  const auto = summary ? e.auto : (e.orchestration as { mode?: string } | null)?.mode === "auto";
+  const hasBaseline = summary ? e.has_baseline : Boolean(e.baseline);
+  if (e.state === "BASELINING" && !auto && !hasBaseline) {
     return {
       state: e.state,
       label: "Validated · not started",

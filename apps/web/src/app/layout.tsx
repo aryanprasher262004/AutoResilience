@@ -24,7 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Sidebar />
             <div className="flex min-w-0 flex-1 flex-col">
               <TopBar />
-              <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-6">{children}</main>
+              <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-6 print:max-w-none print:p-0">{children}</main>
             </div>
           </div>
         </Providers>

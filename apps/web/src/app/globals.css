@@ -42,3 +42,22 @@
     @apply bg-accent/30;
   }
 }
+
+/* Reports print on white: browsers drop dark backgrounds, so swap the tokens. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  :root {
+    color-scheme: light;
+    --color-canvas: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-2: #f4f5f7;
+    --color-surface-3: #eceef2;
+    --color-line: #dfe2e8;
+    --color-line-strong: #c9ced8;
+    --color-fg: #111827;
+    --color-muted: #3f4757;
+    --color-faint: #6b7385;
+  }
+}

@@ -9,11 +9,9 @@ import { API_BASE_PATH } from "@/lib/api/client";
 
 export const metadata: Metadata = { title: "Settings" };
 
-// Read per request so the page reports the server's actual configuration.
-export const dynamic = "force-dynamic";
-
 export default function SettingsPage() {
-  const upstream = process.env.AUTORESILIENCE_API_URL ?? "http://localhost:8000 (default)";
+  // The rewrite target baked in at build time (next.config.ts), i.e. where requests really go.
+  const upstream = process.env.AUTORESILIENCE_API_PROXY_TARGET ?? "unknown";
   return (
     <>
       <PageHeader title="Settings" description="How this console reaches the AutoResilience API." />
@@ -25,7 +23,7 @@ export default function SettingsPage() {
               items={[
                 { label: "Browser endpoint", value: <code className="font-mono">{API_BASE_PATH}</code> },
                 {
-                  label: "Proxied to (AUTORESILIENCE_API_URL)",
+                  label: "Proxied to (AUTORESILIENCE_API_URL at build time)",
                   value: <code className="font-mono">{upstream}</code>,
                 },
                 { label: "Status", value: <ApiStatus /> },

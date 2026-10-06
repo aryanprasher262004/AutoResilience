@@ -27,7 +27,7 @@ export function TopBar() {
     })),
   ];
   return (
-    <header className="sticky top-0 z-10 flex h-12 items-center border-b border-line bg-canvas/90 px-6 backdrop-blur">
+    <header className="sticky top-0 z-10 flex h-12 items-center border-b border-line bg-canvas/90 px-6 backdrop-blur print:hidden">
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-xs">
         {crumbs.map((crumb, i) => {
           const last = i === crumbs.length - 1;
