@@ -1,0 +1,127 @@
+# Validation only (no deployment). Every job mirrors a local command; see docs/ci.md.
+# Needs no kind cluster, Docker Desktop or LitmusChaos: the API tests use in-memory
+# SQLite and fakes for Kubernetes, Prometheus and Litmus. Only the migration job needs
+# a real PostgreSQL, provided as a service container.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "24"
+
+jobs:
+  backend:
+    name: Backend · ruff, mypy, pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - run: uv sync --frozen
+      - run: uv run --frozen ruff check .
+      - run: uv run --frozen mypy .
+      - run: uv run --frozen pytest -q
+
+  migrations:
+    name: Backend · migrations on PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autoresilience
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d autoresilience"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/autoresilience
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - run: uv sync --frozen
+      - name: Apply all migrations
+        run: uv run --frozen alembic upgrade head
+      - name: Models and migrations agree
+        run: uv run --frozen alembic check
+
+  frontend:
+    name: Frontend · lint, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  contract:
+    name: API contract in sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: uv sync --frozen
+        working-directory: apps/api
+      - run: npm ci
+        working-directory: apps/web
+      - run: ./scripts/gen-api-contracts.sh
+      - name: Fail if the committed contract is stale
+        run: |
+          if ! git diff --exit-code -- packages/contracts/openapi.json apps/web/src/lib/api/schema.ts; then
+            echo "::error::API contract is out of date. Run scripts/gen-api-contracts.sh and commit packages/contracts/openapi.json and apps/web/src/lib/api/schema.ts."
+            exit 1
+          fi
