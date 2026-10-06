@@ -245,6 +245,116 @@
         "title": "CheckStatus",
         "type": "string"
       },
+      "DashboardSummary": {
+        "properties": {
+          "by_state": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By State",
+            "type": "object"
+          },
+          "client_outage_seconds": {
+            "$ref": "#/components/schemas/Distribution"
+          },
+          "namespaces": {
+            "items": {
+              "$ref": "#/components/schemas/NamespaceStats"
+            },
+            "title": "Namespaces",
+            "type": "array"
+          },
+          "outcomes": {
+            "$ref": "#/components/schemas/OutcomeCounts"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/ExperimentSummary"
+            },
+            "title": "Recent",
+            "type": "array"
+          },
+          "recovery_time_seconds": {
+            "$ref": "#/components/schemas/Distribution"
+          },
+          "score_history": {
+            "items": {
+              "$ref": "#/components/schemas/ScorePoint"
+            },
+            "title": "Score History",
+            "type": "array"
+          },
+          "scores": {
+            "$ref": "#/components/schemas/ScoreStats"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "by_state",
+          "outcomes",
+          "scores",
+          "recovery_time_seconds",
+          "client_outage_seconds",
+          "score_history",
+          "namespaces",
+          "recent"
+        ],
+        "title": "DashboardSummary",
+        "type": "object"
+      },
+      "Distribution": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          }
+        },
+        "required": [
+          "count",
+          "median",
+          "minimum",
+          "maximum"
+        ],
+        "title": "Distribution",
+        "type": "object"
+      },
       "ExperimentCreate": {
         "properties": {
           "affected_replicas": {
@@ -294,6 +404,37 @@
           "affected_replicas"
         ],
         "title": "ExperimentCreate",
+        "type": "object"
+      },
+      "ExperimentPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExperimentSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ExperimentPage",
         "type": "object"
       },
       "ExperimentRead": {
@@ -449,6 +590,121 @@
         "title": "ExperimentState",
         "type": "string"
       },
+      "ExperimentSummary": {
+        "description": "Slim experiment row for history lists and dashboards (no evidence JSON).",
+        "properties": {
+          "affected_replicas": {
+            "title": "Affected Replicas",
+            "type": "integer"
+          },
+          "auto": {
+            "title": "Auto",
+            "type": "boolean"
+          },
+          "client_outage_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Outage Seconds"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "title": "Duration Seconds",
+            "type": "integer"
+          },
+          "fault_type": {
+            "$ref": "#/components/schemas/FaultType"
+          },
+          "has_baseline": {
+            "title": "Has Baseline",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "outcome_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Reason"
+          },
+          "pod_delete_mode": {
+            "$ref": "#/components/schemas/PodDeleteMode"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ExperimentState"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ExperimentTargetSchema"
+          },
+          "time_to_recovery_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time To Recovery Seconds"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "target",
+          "fault_type",
+          "pod_delete_mode",
+          "affected_replicas",
+          "duration_seconds",
+          "state",
+          "auto",
+          "has_baseline",
+          "score",
+          "time_to_recovery_seconds",
+          "client_outage_seconds",
+          "outcome_reason",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExperimentSummary",
+        "type": "object"
+      },
       "ExperimentTargetSchema": {
         "properties": {
           "kind": {
@@ -543,6 +799,35 @@
         ],
         "title": "MetricStatus",
         "type": "string"
+      },
+      "NamespaceStats": {
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "last_activity": {
+            "format": "date-time",
+            "title": "Last Activity",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "namespace",
+          "total",
+          "completed",
+          "last_activity"
+        ],
+        "title": "NamespaceStats",
+        "type": "object"
       },
       "ObservationRead": {
         "properties": {
@@ -677,6 +962,39 @@
         "title": "ObservationResultRead",
         "type": "object"
       },
+      "OutcomeCounts": {
+        "properties": {
+          "aborted": {
+            "title": "Aborted",
+            "type": "integer"
+          },
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "undetermined": {
+            "title": "Undetermined",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "completed",
+          "failed",
+          "aborted",
+          "undetermined"
+        ],
+        "title": "OutcomeCounts",
+        "type": "object"
+      },
       "PodDeleteMode": {
         "description": "How pod-delete removes pods (maps to the vetted experiment's FORCE env).\n\nGRACEFUL: default Kubernetes deletion; the pod's terminationGracePeriodSeconds\n          applies (SIGTERM, then SIGKILL after the grace period).\nFORCE:    deletion with gracePeriodSeconds=0; containers are killed at once.",
         "enum": [
@@ -740,6 +1058,58 @@
           "reason"
         ],
         "title": "ScoreComponentRead",
+        "type": "object"
+      },
+      "ScorePoint": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "experiment_id": {
+            "format": "uuid",
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "workload": {
+            "title": "Workload",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "name",
+          "namespace",
+          "workload",
+          "at",
+          "score",
+          "rating"
+        ],
+        "title": "ScorePoint",
         "type": "object"
       },
       "ScoreRead": {
@@ -843,6 +1213,125 @@
           "inputs"
         ],
         "title": "ScoreRead",
+        "type": "object"
+      },
+      "ScoreStats": {
+        "properties": {
+          "average": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average"
+          },
+          "by_rating": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Rating",
+            "type": "object"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "not_recovered": {
+            "title": "Not Recovered",
+            "type": "integer"
+          },
+          "not_scored": {
+            "title": "Not Scored",
+            "type": "integer"
+          },
+          "other_versions": {
+            "title": "Other Versions",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "count",
+          "average",
+          "minimum",
+          "maximum",
+          "by_rating",
+          "not_recovered",
+          "not_scored",
+          "other_versions"
+        ],
+        "title": "ScoreStats",
+        "type": "object"
+      },
+      "ScoreSummary": {
+        "properties": {
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "score",
+          "rating",
+          "status",
+          "version"
+        ],
+        "title": "ScoreSummary",
         "type": "object"
       },
       "ValidationCheckRead": {
@@ -972,6 +1461,28 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/dashboard/summary": {
+      "get": {
+        "description": "Counts, score/recovery statistics and recent runs from persisted experiments.",
+        "operationId": "get_dashboard_summary_dashboard_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Dashboard Summary",
+        "tags": [
+          "history"
+        ]
+      }
+    },
     "/experiments": {
       "get": {
         "operationId": "list_experiments_experiments_get",
@@ -1033,6 +1544,167 @@
         "summary": "Create Experiment",
         "tags": [
           "experiments"
+        ]
+      }
+    },
+    "/experiments/history": {
+      "get": {
+        "description": "Filtered, sorted, paginated experiment summaries (no evidence payloads).\n\nRepeat `state`, `fault_type` or `namespace` to match any of several values;\n`q` matches name, workload or namespace (case-insensitive substring).",
+        "operationId": "experiment_history_experiments_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentState"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fault_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/FaultType"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Fault Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "namespace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Namespace"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "created_at",
+              "enum": [
+                "created_at",
+                "updated_at",
+                "name",
+                "score"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Experiment History",
+        "tags": [
+          "history"
         ]
       }
     },

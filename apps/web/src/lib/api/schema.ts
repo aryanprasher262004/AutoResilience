@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dashboard Summary
+         * @description Counts, score/recovery statistics and recent runs from persisted experiments.
+         */
+        get: operations["get_dashboard_summary_dashboard_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/experiments": {
         parameters: {
             query?: never;
@@ -16,6 +36,29 @@ export interface paths {
         put?: never;
         /** Create Experiment */
         post: operations["create_experiment_experiments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/experiments/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Experiment History
+         * @description Filtered, sorted, paginated experiment summaries (no evidence payloads).
+         *
+         *     Repeat `state`, `fault_type` or `namespace` to match any of several values;
+         *     `q` matches name, workload or namespace (case-insensitive substring).
+         */
+        get: operations["experiment_history_experiments_history_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -286,6 +329,36 @@ export interface components {
          * @enum {string}
          */
         CheckStatus: "PASSED" | "FAILED" | "ERROR" | "SKIPPED";
+        /** DashboardSummary */
+        DashboardSummary: {
+            /** By State */
+            by_state: {
+                [key: string]: number;
+            };
+            client_outage_seconds: components["schemas"]["Distribution"];
+            /** Namespaces */
+            namespaces: components["schemas"]["NamespaceStats"][];
+            outcomes: components["schemas"]["OutcomeCounts"];
+            /** Recent */
+            recent: components["schemas"]["ExperimentSummary"][];
+            recovery_time_seconds: components["schemas"]["Distribution"];
+            /** Score History */
+            score_history: components["schemas"]["ScorePoint"][];
+            scores: components["schemas"]["ScoreStats"];
+            /** Total */
+            total: number;
+        };
+        /** Distribution */
+        Distribution: {
+            /** Count */
+            count: number;
+            /** Maximum */
+            maximum: number | null;
+            /** Median */
+            median: number | null;
+            /** Minimum */
+            minimum: number | null;
+        };
         /** ExperimentCreate */
         ExperimentCreate: {
             /** Affected Replicas */
@@ -300,6 +373,17 @@ export interface components {
             /** @default GRACEFUL */
             pod_delete_mode: components["schemas"]["PodDeleteMode"];
             target: components["schemas"]["ExperimentTargetSchema"];
+        };
+        /** ExperimentPage */
+        ExperimentPage: {
+            /** Items */
+            items: components["schemas"]["ExperimentSummary"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
         };
         /** ExperimentRead */
         ExperimentRead: {
@@ -345,6 +429,48 @@ export interface components {
          * @enum {string}
          */
         ExperimentState: "CREATED" | "VALIDATING" | "BASELINING" | "INJECTING" | "OBSERVING" | "RECOVERING" | "COMPLETED" | "VALIDATION_FAILED" | "INJECTION_FAILED" | "ABORTED" | "UNKNOWN";
+        /**
+         * ExperimentSummary
+         * @description Slim experiment row for history lists and dashboards (no evidence JSON).
+         */
+        ExperimentSummary: {
+            /** Affected Replicas */
+            affected_replicas: number;
+            /** Auto */
+            auto: boolean;
+            /** Client Outage Seconds */
+            client_outage_seconds: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Duration Seconds */
+            duration_seconds: number;
+            fault_type: components["schemas"]["FaultType"];
+            /** Has Baseline */
+            has_baseline: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Outcome Reason */
+            outcome_reason: string | null;
+            pod_delete_mode: components["schemas"]["PodDeleteMode"];
+            score: components["schemas"]["ScoreSummary"] | null;
+            state: components["schemas"]["ExperimentState"];
+            target: components["schemas"]["ExperimentTargetSchema"];
+            /** Time To Recovery Seconds */
+            time_to_recovery_seconds: number | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** ExperimentTargetSchema */
         ExperimentTargetSchema: {
             kind: components["schemas"]["WorkloadKind"];
@@ -378,6 +504,20 @@ export interface components {
          * @enum {string}
          */
         MetricStatus: "OK" | "UNAVAILABLE" | "ERROR";
+        /** NamespaceStats */
+        NamespaceStats: {
+            /** Completed */
+            completed: number;
+            /**
+             * Last Activity
+             * Format: date-time
+             */
+            last_activity: string;
+            /** Namespace */
+            namespace: string;
+            /** Total */
+            total: number;
+        };
         /** ObservationRead */
         ObservationRead: {
             /** Evaluations */
@@ -420,6 +560,19 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** OutcomeCounts */
+        OutcomeCounts: {
+            /** Aborted */
+            aborted: number;
+            /** Active */
+            active: number;
+            /** Completed */
+            completed: number;
+            /** Failed */
+            failed: number;
+            /** Undetermined */
+            undetermined: number;
+        };
         /**
          * PodDeleteMode
          * @description How pod-delete removes pods (maps to the vetted experiment's FORCE env).
@@ -451,6 +604,29 @@ export interface components {
             /** Weight */
             weight: number;
         };
+        /** ScorePoint */
+        ScorePoint: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Experiment Id
+             * Format: uuid
+             */
+            experiment_id: string;
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string;
+            /** Rating */
+            rating: string | null;
+            /** Score */
+            score: number;
+            /** Workload */
+            workload: string;
+        };
         /** ScoreRead */
         ScoreRead: {
             /** Cap Applied */
@@ -481,6 +657,40 @@ export interface components {
             weights?: {
                 [key: string]: number;
             } | null;
+        };
+        /** ScoreStats */
+        ScoreStats: {
+            /** Average */
+            average: number | null;
+            /** By Rating */
+            by_rating: {
+                [key: string]: number;
+            };
+            /** Count */
+            count: number;
+            /** Maximum */
+            maximum: number | null;
+            /** Minimum */
+            minimum: number | null;
+            /** Not Recovered */
+            not_recovered: number;
+            /** Not Scored */
+            not_scored: number;
+            /** Other Versions */
+            other_versions: number;
+            /** Version */
+            version: string;
+        };
+        /** ScoreSummary */
+        ScoreSummary: {
+            /** Rating */
+            rating: string | null;
+            /** Score */
+            score: number | null;
+            /** Status */
+            status: string;
+            /** Version */
+            version: string;
         };
         /** ValidationCheckRead */
         ValidationCheckRead: {
@@ -534,6 +744,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_dashboard_summary_dashboard_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummary"];
+                };
+            };
+        };
+    };
     list_experiments_experiments_get: {
         parameters: {
             query?: never;
@@ -574,6 +804,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExperimentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    experiment_history_experiments_history_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                state?: components["schemas"]["ExperimentState"][] | null;
+                fault_type?: components["schemas"]["FaultType"][] | null;
+                namespace?: string[] | null;
+                sort?: "created_at" | "updated_at" | "name" | "score";
+                order?: "asc" | "desc";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperimentPage"];
                 };
             };
             /** @description Validation Error */
