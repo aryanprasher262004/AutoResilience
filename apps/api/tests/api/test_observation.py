@@ -370,3 +370,85 @@ def test_observe_after_completion_is_rejected(
 
 def test_observe_unknown_experiment_returns_404(client: TestClient) -> None:
     assert client.post(f"/experiments/{uuid.uuid4()}/observe").status_code == 404
+
+
+# --- scoring on completion ------------------------------------------------------
+
+
+@pytest.mark.usefixtures("litmus_done")
+def test_completed_experiment_is_scored_and_retrievable(
+    client: TestClient, db_session: Session, prometheus: FakePrometheus, clock: Clock
+) -> None:
+    experiment_id, start = observing(client)
+    prometheus.healthy_recovery(start.timestamp())
+    at(clock, start, 120)
+
+    body = observe(client, experiment_id)
+
+    assert body["state"] == "COMPLETED"
+    assert body["score"]["status"] == "SCORED"
+    response = client.get(f"/experiments/{experiment_id}/score")
+    assert response.status_code == 200
+    score = response.json()
+    assert score == body["score"]
+    assert score["score"] == 100.0  # recovered in 2s, no dip/restarts/errors, Pass
+    assert {c["name"] for c in score["components"]} == {
+        "recovery_time",
+        "availability",
+        "error_ratio",
+        "restarts",
+        "litmus_verdict",
+    }
+    stored = db_session.get(Experiment, uuid.UUID(experiment_id))
+    assert stored is not None
+    assert stored.score is not None
+    assert stored.score["score"] == 100.0
+
+
+def test_platform_unknown_gets_not_scored(
+    client: TestClient, chaos: FakeChaos, clock: Clock
+) -> None:
+    experiment_id, start = observing(client)
+    chaos.statuses, chaos.status_calls = [fault(FaultPhase.RUNNING)], 0
+    at(clock, start, 60 + 181)
+
+    body = observe(client, experiment_id)
+
+    assert body["state"] == "UNKNOWN"
+    score = client.get(f"/experiments/{experiment_id}/score").json()
+    assert score["status"] == "NOT_SCORED"
+    assert score["score"] is None
+    assert "LITMUS_TIMEOUT" in score["explanation"]
+
+
+@pytest.mark.usefixtures("litmus_done")
+def test_application_unknown_gets_capped_score(
+    client: TestClient, prometheus: FakePrometheus, clock: Clock
+) -> None:
+    experiment_id, start = observing(client)
+    prometheus.healthy_recovery(start.timestamp())
+    prometheus.availability = [(t, 1.0) for t, _ in prometheus.availability]
+    at(clock, start, 60)
+    observe(client, experiment_id)
+    at(clock, start, 60 + 301)
+
+    body = observe(client, experiment_id)
+
+    assert body["state"] == "UNKNOWN"
+    assert body["observation"]["result"]["cause"] == "application"
+    score = client.get(f"/experiments/{experiment_id}/score").json()
+    assert score["status"] == "SCORED_NOT_RECOVERED"
+    assert score["score"] <= 40
+
+
+def test_score_not_available_before_finish(client: TestClient) -> None:
+    experiment_id, _ = observing(client)
+
+    response = client.get(f"/experiments/{experiment_id}/score")
+
+    assert response.status_code == 404
+    assert "OBSERVING" in response.json()["detail"]
+
+
+def test_score_unknown_experiment_404(client: TestClient) -> None:
+    assert client.get(f"/experiments/{uuid.uuid4()}/score").status_code == 404

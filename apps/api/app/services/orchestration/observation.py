@@ -36,6 +36,7 @@ from app.services.orchestration.recovery import (
     observation_queries,
     window_request_queries,
 )
+from app.services.scoring.resilience_score import score_experiment
 
 
 class Chaos(Protocol):
@@ -122,6 +123,11 @@ def advance_observation(
             "cause": exc.cause,
         }
     experiment.observation = record  # new dict each call: SQLAlchemy sees the change
+    if experiment.state in (ExperimentState.COMPLETED, ExperimentState.UNKNOWN):
+        # Scored in the same transaction as the final state (or recorded NOT_SCORED).
+        experiment.score = score_experiment(
+            experiment.state, experiment.baseline, record
+        )
     db.commit()
 
 

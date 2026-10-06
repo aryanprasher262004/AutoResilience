@@ -94,6 +94,30 @@ class ObservationRead(BaseModel):
     last_error: str | None = None
 
 
+class ScoreComponentRead(BaseModel):
+    name: str
+    status: str  # SCORED | NOT_APPLICABLE
+    raw: dict[str, Any]
+    normalized: float | None
+    weight: float
+    effective_weight: float
+    contribution: float
+    reason: str
+
+
+class ScoreRead(BaseModel):
+    version: str
+    status: str  # SCORED | SCORED_NOT_RECOVERED | NOT_SCORED
+    score: float | None
+    rating: str | None
+    explanation: str
+    components: list[ScoreComponentRead]
+    cap_applied: dict[str, float] | None = None
+    weights: dict[str, float] | None = None
+    thresholds: dict[str, float] | None = None
+    inputs: dict[str, Any]
+
+
 class ExperimentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -109,5 +133,6 @@ class ExperimentRead(BaseModel):
     baseline: BaselineRead | None
     chaos: ChaosRead | None
     observation: ObservationRead | None
+    score: ScoreRead | None
     created_at: datetime
     updated_at: datetime

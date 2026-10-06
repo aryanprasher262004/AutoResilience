@@ -2,7 +2,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -16,7 +16,7 @@ from app.domain.state_machine import InvalidTransitionError
 from app.integrations.chaos_provider import LitmusChaosProvider
 from app.integrations.kubernetes_adapter import KubernetesAdapter
 from app.integrations.prometheus_client import PrometheusClient
-from app.schemas.experiment import ExperimentCreate, ExperimentRead
+from app.schemas.experiment import ExperimentCreate, ExperimentRead, ScoreRead
 from app.services.orchestration.baseline import run_baseline
 from app.services.orchestration.injection import StartWait, run_injection
 from app.services.orchestration.observation import (
@@ -133,6 +133,21 @@ def list_experiments(db: DbSession) -> list[Experiment]:
 @router.get("/{experiment_id}", response_model=ExperimentRead)
 def get_experiment(experiment_id: uuid.UUID, db: DbSession) -> Experiment:
     return _get_or_404(db, experiment_id)
+
+
+@router.get("/{experiment_id}/score", response_model=ScoreRead)
+def get_experiment_score(experiment_id: uuid.UUID, db: DbSession) -> dict[str, Any]:
+    """The persisted Resilience Score (or the reason it was not scored).
+
+    404 until the experiment has finished (COMPLETED or UNKNOWN).
+    """
+    experiment = _get_or_404(db, experiment_id)
+    if experiment.score is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No score: experiment is {experiment.state} (scored when finished)",
+        )
+    return experiment.score
 
 
 @router.post("/{experiment_id}/validate", response_model=ExperimentRead)
