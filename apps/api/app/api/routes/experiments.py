@@ -17,12 +17,24 @@ from app.domain.state_machine import InvalidTransitionError
 from app.integrations.chaos_provider import LitmusChaosProvider
 from app.integrations.kubernetes_adapter import KubernetesAdapter
 from app.integrations.prometheus_client import PrometheusClient
-from app.schemas.experiment import ExperimentCreate, ExperimentRead, ScoreRead
+from app.schemas.experiment import (
+    AbortRequest,
+    ExperimentCreate,
+    ExperimentRead,
+    ScoreRead,
+)
 from app.services.orchestration.baseline import run_baseline
 from app.services.orchestration.injection import StartWait, run_injection
 from app.services.orchestration.observation import (
     ObservationConfig,
     advance_observation,
+)
+from app.services.orchestration.orchestrator import (
+    OrchestrationError,
+    abort_experiment,
+    experiment_lock,
+    is_auto,
+    request_auto_run,
 )
 from app.services.orchestration.preflight import run_validation
 from app.services.orchestration.recovery import RecoveryRule
@@ -102,6 +114,15 @@ ChaosProvider = Annotated[LitmusChaosProvider, Depends(get_chaos_provider)]
 Wait = Annotated[StartWait, Depends(get_start_wait)]
 ObserveConfig = Annotated[ObservationConfig, Depends(get_observation_config)]
 Now = Annotated[datetime, Depends(get_now)]
+
+
+def _manual_only(experiment: Experiment) -> None:
+    if is_auto(experiment):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Experiment is driven by the orchestrator (POST /run); "
+            "use GET to follow it or POST /abort to stop it",
+        )
 
 
 def _get_or_404(db: Session, experiment_id: uuid.UUID) -> Experiment:
@@ -184,6 +205,7 @@ def validate_experiment(
     The outcome is the resulting state (BASELINING / VALIDATION_FAILED), not the HTTP status.
     """
     experiment = _get_or_404(db, experiment_id)
+    _manual_only(experiment)
     try:
         run_validation(
             db, experiment, policies(experiment.target_namespace), kubernetes
@@ -209,6 +231,7 @@ def capture_experiment_baseline(
     experiment stays in BASELINING so it can be retried. No fault is injected.
     """
     experiment = _get_or_404(db, experiment_id)
+    _manual_only(experiment)
     try:
         run_baseline(db, experiment, prometheus, window_seconds, datetime.now(UTC))
     except InvalidTransitionError as exc:
@@ -234,6 +257,7 @@ def inject_fault(
     fails/times out (-> INJECTION_FAILED, ChaosEngine stopped).
     """
     experiment = _get_or_404(db, experiment_id)
+    _manual_only(experiment)
     try:
         run_injection(
             db,
@@ -268,6 +292,7 @@ def observe_experiment(
     established. Read-only except stopping our own ChaosEngine on a Litmus timeout.
     """
     experiment = _get_or_404(db, experiment_id)
+    _manual_only(experiment)
     try:
         advance_observation(db, experiment, chaos, prometheus, kubernetes, config, now)
     except InvalidTransitionError as exc:
@@ -276,3 +301,50 @@ def observe_experiment(
         ) from exc
     db.refresh(experiment)
     return experiment
+
+
+@router.post(
+    "/{experiment_id}/run",
+    response_model=ExperimentRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def run_experiment(experiment_id: uuid.UUID, db: DbSession, now: Now) -> Experiment:
+    """Start the automatic lifecycle for a CREATED experiment (idempotent).
+
+    The orchestrator then drives VALIDATING -> ... -> COMPLETED/UNKNOWN and cleans
+    up; follow it with GET /experiments/{id}.
+    """
+    with experiment_lock(experiment_id):
+        experiment = _get_or_404(db, experiment_id)
+        db.refresh(experiment)
+        try:
+            request_auto_run(db, experiment, now)
+        except OrchestrationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
+        db.refresh(experiment)
+        return experiment
+
+
+@router.post("/{experiment_id}/abort", response_model=ExperimentRead)
+def abort(
+    experiment_id: uuid.UUID,
+    payload: AbortRequest,
+    db: DbSession,
+    chaos: ChaosProvider,
+    now: Now,
+) -> Experiment:
+    """Stop an active experiment: its own ChaosEngine only, then ABORTED."""
+    with experiment_lock(experiment_id):
+        experiment = _get_or_404(db, experiment_id)
+        db.refresh(experiment)
+        try:
+            abort_experiment(db, experiment, chaos, payload.reason, now)
+        except InvalidTransitionError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Experiment is {experiment.state}; nothing to abort",
+            ) from exc
+        db.refresh(experiment)
+        return experiment

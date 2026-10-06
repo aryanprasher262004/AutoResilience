@@ -14,6 +14,10 @@ DNS_LABEL = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 DNS_SUBDOMAIN = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 
 
+class AbortRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class ExperimentTargetSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -143,5 +147,7 @@ class ExperimentRead(BaseModel):
     chaos: ChaosRead | None
     observation: ObservationRead | None
     score: ScoreRead | None
+    # Automatic orchestration: mode, timeline (events), abort and cleanup records.
+    orchestration: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime

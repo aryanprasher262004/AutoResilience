@@ -2,7 +2,11 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Experiment
 from app.domain.safety_policy import SafetyPolicy, policy_selection
-from app.domain.state_machine import ExperimentState, transition
+from app.domain.state_machine import (
+    ExperimentState,
+    InvalidTransitionError,
+    transition,
+)
 from app.integrations.kubernetes_adapter import (
     ClusterUnavailableError,
     KubernetesAdapter,
@@ -29,7 +33,18 @@ def run_validation(
     """
     experiment.state = transition(experiment.state, ExperimentState.VALIDATING)
     db.commit()
+    complete_validation(db, experiment, policy, kubernetes)
 
+
+def complete_validation(
+    db: Session,
+    experiment: Experiment,
+    policy: SafetyPolicy,
+    kubernetes: KubernetesAdapter,
+) -> None:
+    """VALIDATING -> BASELINING | VALIDATION_FAILED (also resumes after a restart)."""
+    if experiment.state is not ExperimentState.VALIDATING:
+        raise InvalidTransitionError(experiment.state, ExperimentState.BASELINING)
     spec = experiment.spec
     static_checks = evaluate_static(spec, policy)
     if not all(c.passed for c in static_checks):

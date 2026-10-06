@@ -1,5 +1,11 @@
+import os
+
+# The background reconciler must not start in tests; tests drive Reconciler.tick().
+os.environ["ORCHESTRATOR_ENABLED"] = "false"
+
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,6 +27,9 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.domain.experiment import ExperimentTarget, WorkloadKind
 from app.integrations.chaos_provider import (
+    EXPERIMENT_ID_LABEL,
+    MANAGED_BY_LABEL,
+    ChaosEngineExistsError,
     ChaosProviderError,
     FaultPhase,
     FaultStatus,
@@ -106,12 +115,41 @@ class FakeChaos:
             "probe_success_percentage": "100",
         }
         self.result_error: str | None = None
+        # Simulated cluster: (namespace, engine) -> labels. Tests may add unrelated ones.
+        self.engines: dict[tuple[str, str], dict[str, str]] = {}
+        self.deleted_calls: list[tuple[str, str, str]] = []
+        self.delete_error: str | None = None
 
     def start_pod_delete(self, request: PodDeleteRequest) -> str:
         if self.start_error is not None:
             raise ChaosProviderError(self.start_error)
+        name = engine_name(request.experiment_id)
+        key = (request.target.namespace, name)
+        if key in self.engines:
+            raise ChaosEngineExistsError(f"ChaosEngine {key[0]}/{name} already exists")
         self.requests.append(request)
-        return engine_name(request.experiment_id)
+        self.engines[key] = {
+            **MANAGED_BY_LABEL,
+            EXPERIMENT_ID_LABEL: request.experiment_id,
+        }
+        return name
+
+    def delete_owned(
+        self, namespace: str, name: str, experiment_id: str
+    ) -> dict[str, Any]:
+        """Same ownership rule as LitmusChaosProvider.delete_owned."""
+        if self.delete_error is not None:
+            raise ChaosProviderError(self.delete_error)
+        self.deleted_calls.append((namespace, name, experiment_id))
+        if name != engine_name(experiment_id):
+            raise ChaosProviderError("not this experiment's engine")
+        labels = self.engines.get((namespace, name))
+        if labels is None:
+            return {"engine": "absent", "result": "absent"}
+        if labels.get(EXPERIMENT_ID_LABEL) != experiment_id:
+            raise ChaosProviderError("not owned; not deleting")
+        del self.engines[(namespace, name)]
+        return {"engine": "deleted", "result": "deleted"}
 
     def get_status(self, namespace: str, name: str) -> FaultStatus:
         self.status_calls += 1

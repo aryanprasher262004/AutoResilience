@@ -8,6 +8,7 @@ from urllib3.exceptions import MaxRetryError
 from app.domain.experiment import ExperimentTarget, PodDeleteMode, WorkloadKind
 from app.integrations import chaos_provider
 from app.integrations.chaos_provider import (
+    ChaosEngineExistsError,
     ChaosProviderError,
     FaultPhase,
     LitmusChaosProvider,
@@ -208,7 +209,7 @@ def test_start_requires_prepared_namespace(
 @pytest.mark.parametrize(
     ("error", "message"),
     [
-        (ApiException(status=409, reason="AlreadyExists"), "API error 409"),
+        (ApiException(status=409, reason="AlreadyExists"), "already exists"),
         (ApiException(status=403, reason="Forbidden"), "API error 403"),
         (MaxRetryError(None, "/apis", "refused"), "unreachable"),  # type: ignore[arg-type]
     ],
@@ -219,7 +220,7 @@ def test_create_failures_raise_provider_error(
     custom, _ = apis
     custom.create_namespaced_custom_object.side_effect = error
 
-    with pytest.raises(ChaosProviderError, match=f"create ChaosEngine.*{message}"):
+    with pytest.raises(ChaosProviderError, match=message):
         provider().start_pod_delete(request())
 
 
@@ -338,3 +339,99 @@ def test_force_mode_keeps_namespace_guard() -> None:
     target = ExperimentTarget("kube-system", WorkloadKind.DEPLOYMENT, "coredns")
     with pytest.raises(ChaosProviderError, match="Refusing to inject"):
         build_pod_delete_engine(request(target=target, mode=PodDeleteMode.FORCE))
+
+
+# --- owned cleanup -------------------------------------------------------------------
+
+
+def owned_engine(experiment_id: str = EXP_ID) -> dict[str, Any]:
+    return {
+        "metadata": {
+            "labels": {
+                "app.kubernetes.io/managed-by": "autoresilience",
+                "autoresilience.io/experiment-id": experiment_id,
+            }
+        }
+    }
+
+
+def test_delete_owned_deletes_engine_and_result(
+    apis: tuple[MagicMock, MagicMock],
+) -> None:
+    custom, _ = apis
+    custom.get_namespaced_custom_object.side_effect = [
+        owned_engine(),
+        {"kind": "ChaosResult"},
+    ]
+
+    outcome = provider().delete_owned("shop", f"ar-{EXP_ID}", EXP_ID)
+
+    assert outcome == {"engine": "deleted", "result": "deleted"}
+    deleted = [
+        c.args[3:5] for c in custom.delete_namespaced_custom_object.call_args_list
+    ]
+    assert deleted == [
+        ("chaosengines", f"ar-{EXP_ID}"),
+        ("chaosresults", f"ar-{EXP_ID}-pod-delete"),
+    ]
+
+
+def test_delete_owned_refuses_foreign_engine(apis: tuple[MagicMock, MagicMock]) -> None:
+    custom, _ = apis
+    custom.get_namespaced_custom_object.return_value = owned_engine("another-run")
+
+    with pytest.raises(ChaosProviderError, match="not owned"):
+        provider().delete_owned("shop", f"ar-{EXP_ID}", EXP_ID)
+    custom.delete_namespaced_custom_object.assert_not_called()
+
+
+def test_delete_owned_refuses_unlabelled_engine(
+    apis: tuple[MagicMock, MagicMock],
+) -> None:
+    custom, _ = apis
+    custom.get_namespaced_custom_object.return_value = {"metadata": {"labels": {}}}
+
+    with pytest.raises(ChaosProviderError, match="not owned"):
+        provider().delete_owned("shop", f"ar-{EXP_ID}", EXP_ID)
+    custom.delete_namespaced_custom_object.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("namespace", "name", "message"),
+    [
+        ("kube-system", f"ar-{EXP_ID}", "Refusing to clean up"),
+        ("shop", "ar-other", "does not belong"),
+        ("shop", "hand-made-engine", "does not belong"),
+    ],
+)
+def test_delete_owned_refuses_before_any_api_call(
+    apis: tuple[MagicMock, MagicMock], namespace: str, name: str, message: str
+) -> None:
+    custom, _ = apis
+    with pytest.raises(ChaosProviderError, match=message):
+        provider().delete_owned(namespace, name, EXP_ID)
+    assert custom.method_calls == []
+
+
+def test_delete_owned_absent_objects_are_fine(
+    apis: tuple[MagicMock, MagicMock],
+) -> None:
+    custom, _ = apis
+    custom.get_namespaced_custom_object.side_effect = ApiException(
+        status=404, reason="NF"
+    )
+
+    assert provider().delete_owned("shop", f"ar-{EXP_ID}", EXP_ID) == {
+        "engine": "absent",
+        "result": "absent",
+    }
+    custom.delete_namespaced_custom_object.assert_not_called()
+
+
+def test_start_reports_existing_engine(apis: tuple[MagicMock, MagicMock]) -> None:
+    custom, _ = apis
+    custom.create_namespaced_custom_object.side_effect = ApiException(
+        status=409, reason="AlreadyExists"
+    )
+    with pytest.raises(ChaosEngineExistsError, match="already exists"):
+        provider().start_pod_delete(request())

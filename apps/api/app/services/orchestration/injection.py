@@ -23,10 +23,12 @@ from app.domain.state_machine import (
     transition,
 )
 from app.integrations.chaos_provider import (
+    ChaosEngineExistsError,
     ChaosProviderError,
     FaultPhase,
     FaultStatus,
     PodDeleteRequest,
+    engine_name,
 )
 from app.integrations.kubernetes_adapter import ClusterUnavailableError, WorkloadStatus
 from app.services.orchestration.baseline import BaselineStatus
@@ -67,25 +69,136 @@ def run_injection(
     chaos: Chaos,
     wait: StartWait,
 ) -> None:
-    """Raises InvalidTransitionError (before any change) if not in INJECTING."""
+    """Blocking injection for the manual /inject endpoint: start, then poll until
+    the target pods are gone (-> OBSERVING) or it fails/times out.
+
+    Raises InvalidTransitionError (before any change) if not in INJECTING.
+    """
     if not can_transition(experiment.state, ExperimentState.OBSERVING):
         raise InvalidTransitionError(experiment.state, ExperimentState.OBSERVING)
+    if not start_injection(db, experiment, policy, kubernetes, chaos):
+        return
+    for attempt in range(wait.max_polls):
+        if attempt:
+            wait.sleep(wait.poll_interval_seconds)
+        last = attempt == wait.max_polls - 1
+        if advance_injection(
+            db, experiment, kubernetes, chaos, wait.timeout_seconds, force_deadline=last
+        ):
+            return
 
+
+def start_injection(
+    db: Session,
+    experiment: Experiment,
+    policy: SafetyPolicy,
+    kubernetes: Cluster,
+    chaos: Chaos,
+    now: datetime | None = None,
+) -> bool:
+    """Create the ChaosEngine and persist its identity; the state stays INJECTING.
+
+    Returns False (and moves to INJECTION_FAILED) if it could not be started. Never
+    creates a second engine: if one is already recorded it returns True untouched.
+    """
+    if experiment.state is not ExperimentState.INJECTING:
+        raise InvalidTransitionError(experiment.state, ExperimentState.OBSERVING)
+    if (experiment.chaos or {}).get("engine_name"):
+        return True
     try:
         request = _prepare(experiment, policy, kubernetes)
-        _start_and_confirm(
-            db, experiment, request, kubernetes, chaos, wait, policy.name
-        )
+        try:
+            engine = chaos.start_pod_delete(request)
+        except ChaosEngineExistsError as exc:
+            # Deterministic name ar-<id>: an engine from an interrupted earlier attempt.
+            # Never run twice; stop it and fail explicitly.
+            existing = engine_name(str(experiment.id))
+            record = {"engine_name": existing, "namespace": request.target.namespace}
+            _stop_quietly(chaos, request.target.namespace, existing, record)
+            experiment.chaos = {
+                "provider": "litmus",
+                "experiment": "pod-delete",
+                **record,
+            }
+            raise _InjectionFailed(
+                f"{exc}; an earlier attempt may have been interrupted, so it was "
+                "stopped rather than run twice"
+            ) from exc
+        except ChaosProviderError as exc:
+            raise _InjectionFailed(str(exc)) from exc
     except _InjectionFailed as exc:
-        record = dict(
-            experiment.chaos or {"provider": "litmus", "experiment": "pod-delete"}
-        )
-        record["failure_reason"] = str(exc)
+        _fail(db, experiment, str(exc))
+        return False
+
+    experiment.chaos = {
+        "provider": "litmus",
+        "experiment": "pod-delete",
+        "pod_delete_mode": request.mode.value,
+        "safety_policy": policy.name,
+        "engine_name": engine,
+        "namespace": request.target.namespace,
+        "target_pods": list(request.target_pods),
+        "duration_seconds": request.duration_seconds,
+        "created_at": (now or datetime.now(UTC)).isoformat(),
+        "injected_at": None,
+        "status": None,
+        "failure_reason": None,
+    }
+    db.commit()
+    return True
+
+
+def advance_injection(
+    db: Session,
+    experiment: Experiment,
+    kubernetes: Cluster,
+    chaos: Chaos,
+    timeout_seconds: float,
+    now: datetime | None = None,
+    force_deadline: bool = False,
+) -> bool:
+    """One poll of a started injection. Returns True once the state left INJECTING.
+
+    OBSERVING once Litmus runs and the target pods are gone; INJECTION_FAILED (engine
+    stopped) if Litmus fails, status cannot be read, or `timeout_seconds` after the
+    engine was created the pods are still there.
+    """
+    record = dict(experiment.chaos or {})
+    namespace, engine = record["namespace"], record["engine_name"]
+    now = now or datetime.now(UTC)
+    created = datetime.fromisoformat(record["created_at"])
+    timed_out = force_deadline or (now - created).total_seconds() > timeout_seconds
+    try:
+        confirmed = _poll_deletion(record, kubernetes, chaos)
+        if not confirmed and timed_out:
+            raise _InjectionFailed(
+                f"Target pods not deleted within {timeout_seconds:g}s "
+                f"(last Litmus status: {record['status']})"
+            )
+    except _InjectionFailed as exc:
+        _stop_quietly(chaos, namespace, engine, record)
         experiment.chaos = record
-        experiment.state = transition(
-            experiment.state, ExperimentState.INJECTION_FAILED
-        )
+        _fail(db, experiment, str(exc))
+        return True
+    if not confirmed:
+        experiment.chaos = record
         db.commit()
+        return False
+    record["injected_at"] = now.isoformat()
+    experiment.chaos = record
+    experiment.state = transition(experiment.state, ExperimentState.OBSERVING)
+    db.commit()
+    return True
+
+
+def _fail(db: Session, experiment: Experiment, reason: str) -> None:
+    record = dict(
+        experiment.chaos or {"provider": "litmus", "experiment": "pod-delete"}
+    )
+    record["failure_reason"] = reason
+    experiment.chaos = record
+    experiment.state = transition(experiment.state, ExperimentState.INJECTION_FAILED)
+    db.commit()
 
 
 def _prepare(
@@ -129,92 +242,32 @@ def _prepare(
     )
 
 
-def _start_and_confirm(
-    db: Session,
-    experiment: Experiment,
-    request: PodDeleteRequest,
-    kubernetes: Cluster,
-    chaos: Chaos,
-    wait: StartWait,
-    policy_name: str,
-) -> None:
-    namespace = request.target.namespace
+def _poll_deletion(record: dict[str, Any], kubernetes: Cluster, chaos: Chaos) -> bool:
+    """True once Litmus runs and every target pod is gone or terminating."""
+    namespace, engine = record["namespace"], record["engine_name"]
     try:
-        engine = chaos.start_pod_delete(request)
+        status = chaos.get_status(namespace, engine)
     except ChaosProviderError as exc:
         raise _InjectionFailed(str(exc)) from exc
-
-    record: dict[str, Any] = {
-        "provider": "litmus",
-        "experiment": "pod-delete",
-        "pod_delete_mode": request.mode.value,
-        "safety_policy": policy_name,
-        "engine_name": engine,
-        "namespace": namespace,
-        "target_pods": list(request.target_pods),
-        "duration_seconds": request.duration_seconds,
-        "created_at": datetime.now(UTC).isoformat(),
-        "injected_at": None,
-        "status": None,
-        "failure_reason": None,
-    }
-    # Persist the engine identity immediately, before waiting on it. Always assign
-    # copies: SQLAlchemy only writes JSON columns when the assigned value changes.
-    experiment.chaos = dict(record)
-    db.commit()
-
+    record["status"] = status.to_dict()
+    if status.phase is FaultPhase.FAILED:
+        raise _InjectionFailed(
+            f"Litmus reported failure (engine={status.engine_status}, "
+            f"experiment={status.experiment_status}, verdict={status.verdict})"
+        )
+    if status.phase not in (FaultPhase.RUNNING, FaultPhase.COMPLETED):
+        return False
     try:
-        _wait_for_deletion(record, request, kubernetes, chaos, wait)
-    except _InjectionFailed:
-        _stop_quietly(chaos, namespace, engine, record)
-        experiment.chaos = dict(record)
-        raise
-
-    record["injected_at"] = datetime.now(UTC).isoformat()
-    experiment.chaos = dict(record)
-    experiment.state = transition(experiment.state, ExperimentState.OBSERVING)
-    db.commit()
-
-
-def _wait_for_deletion(
-    record: dict[str, Any],
-    request: PodDeleteRequest,
-    kubernetes: Cluster,
-    chaos: Chaos,
-    wait: StartWait,
-) -> None:
-    namespace, engine = request.target.namespace, record["engine_name"]
-    targets = list(request.target_pods)
-    for attempt in range(wait.max_polls):
-        if attempt:
-            wait.sleep(wait.poll_interval_seconds)
-        try:
-            status = chaos.get_status(namespace, engine)
-        except ChaosProviderError as exc:
-            raise _InjectionFailed(str(exc)) from exc
-        record["status"] = status.to_dict()
-        if status.phase is FaultPhase.FAILED:
-            raise _InjectionFailed(
-                f"Litmus reported failure (engine={status.engine_status}, "
-                f"experiment={status.experiment_status}, verdict={status.verdict})"
-            )
-        if status.phase in (FaultPhase.RUNNING, FaultPhase.COMPLETED):
-            try:
-                still_live = kubernetes.live_pod_names(namespace, targets)
-            except ClusterUnavailableError as exc:
-                raise _InjectionFailed(
-                    f"Could not confirm pod deletion: {exc}"
-                ) from exc
-            if not still_live:
-                return
-            if status.phase is FaultPhase.COMPLETED:
-                raise _InjectionFailed(
-                    f"Litmus completed but target pods still exist: {sorted(still_live)}"
-                )
-    raise _InjectionFailed(
-        f"Target pods not deleted within {wait.timeout_seconds:g}s "
-        f"(last Litmus status: {record['status']})"
-    )
+        still_live = kubernetes.live_pod_names(namespace, list(record["target_pods"]))
+    except ClusterUnavailableError as exc:
+        raise _InjectionFailed(f"Could not confirm pod deletion: {exc}") from exc
+    if not still_live:
+        return True
+    if status.phase is FaultPhase.COMPLETED:
+        raise _InjectionFailed(
+            f"Litmus completed but target pods still exist: {sorted(still_live)}"
+        )
+    return False
 
 
 def _stop_quietly(

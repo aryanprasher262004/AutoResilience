@@ -37,6 +37,10 @@ class ChaosProviderError(Exception):
     """The fault could not be created, inspected or stopped."""
 
 
+class ChaosEngineExistsError(ChaosProviderError):
+    """An engine with this experiment's (deterministic) name already exists."""
+
+
 class FaultPhase(StrEnum):
     PENDING = "PENDING"  # engine accepted, experiment pod not running yet
     RUNNING = "RUNNING"
@@ -181,14 +185,22 @@ class LitmusChaosProvider:
         namespace = request.target.namespace
         with _translate_errors("create ChaosEngine"):
             self._require_chaos_setup(namespace)
-            self._custom().create_namespaced_custom_object(
-                LITMUS_GROUP,
-                LITMUS_VERSION,
-                namespace,
-                "chaosengines",
-                engine,
-                _request_timeout=self._timeout,
-            )
+            try:
+                self._custom().create_namespaced_custom_object(
+                    LITMUS_GROUP,
+                    LITMUS_VERSION,
+                    namespace,
+                    "chaosengines",
+                    engine,
+                    _request_timeout=self._timeout,
+                )
+            except ApiException as exc:
+                if exc.status == 409:
+                    raise ChaosEngineExistsError(
+                        f"ChaosEngine {namespace}/{engine['metadata']['name']} "
+                        "already exists"
+                    ) from exc
+                raise
         name: str = engine["metadata"]["name"]
         return name
 
@@ -235,6 +247,68 @@ class LitmusChaosProvider:
                 {"spec": {"engineState": "stop"}},
                 _request_timeout=self._timeout,
             )
+
+    def delete_owned(
+        self, namespace: str, name: str, experiment_id: str
+    ) -> dict[str, Any]:
+        """Delete this experiment's ChaosEngine and ChaosResult, nothing else.
+
+        The engine is re-read first and must carry our managed-by label and this
+        experiment's id; otherwise nothing is deleted. Missing objects count as done.
+        """
+        if namespace in SYSTEM_NAMESPACES:
+            raise ChaosProviderError(f"Refusing to clean up in namespace '{namespace}'")
+        if name != engine_name(experiment_id):
+            raise ChaosProviderError(
+                f"Engine {name} does not belong to {experiment_id}"
+            )
+        outcome: dict[str, Any] = {"engine": "absent", "result": "absent"}
+        with _translate_errors("clean up ChaosEngine"):
+            engine = self._get_or_none("chaosengines", namespace, name)
+            if engine is not None:
+                labels = (engine.get("metadata") or {}).get("labels") or {}
+                expected = {**MANAGED_BY_LABEL, EXPERIMENT_ID_LABEL: experiment_id}
+                if any(labels.get(k) != v for k, v in expected.items()):
+                    raise ChaosProviderError(
+                        f"ChaosEngine {namespace}/{name} is not owned by experiment "
+                        f"{experiment_id}; not deleting"
+                    )
+                self._delete_or_ignore("chaosengines", namespace, name)
+                outcome["engine"] = "deleted"
+            result_name = f"{name}-{EXPERIMENT_NAME}"
+            if self._get_or_none("chaosresults", namespace, result_name) is not None:
+                self._delete_or_ignore("chaosresults", namespace, result_name)
+                outcome["result"] = "deleted"
+        return outcome
+
+    def _get_or_none(self, plural: str, namespace: str, name: str) -> Any:
+        try:
+            return self._custom().get_namespaced_custom_object(
+                LITMUS_GROUP,
+                LITMUS_VERSION,
+                namespace,
+                plural,
+                name,
+                _request_timeout=self._timeout,
+            )
+        except ApiException as exc:
+            if exc.status == 404:
+                return None
+            raise
+
+    def _delete_or_ignore(self, plural: str, namespace: str, name: str) -> None:
+        try:
+            self._custom().delete_namespaced_custom_object(
+                LITMUS_GROUP,
+                LITMUS_VERSION,
+                namespace,
+                plural,
+                name,
+                _request_timeout=self._timeout,
+            )
+        except ApiException as exc:
+            if exc.status != 404:
+                raise
 
     def _require_chaos_setup(self, namespace: str) -> None:
         try:

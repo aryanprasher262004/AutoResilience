@@ -69,6 +69,8 @@ class Experiment(Base):
     observation: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     # Resilience score (services/scoring), computed when the experiment finishes.
     score: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Automatic orchestration: mode, timeline, abort and cleanup records.
+    orchestration: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
