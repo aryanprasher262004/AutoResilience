@@ -78,6 +78,24 @@ A separate sensitivity check, outside any experiment and not scored, scaled `che
 replicas for about 20 s. The client recorded 23 connection errors and 17 timeouts. The
 instrument does report client-visible failures when they really occur.
 
+### Graceful vs forced deletion (`pod_delete_mode`)
+
+The mode is context in the score (`inputs.fault`, explanation); it never changes the number by
+itself. Real runs on kind, `shop/checkout`, 30 s each:
+
+| | GRACEFUL | FORCE |
+|---|---|---|
+| Deleted pod lifecycle | Terminating, then gone after ~4 s (podinfo exits on SIGTERM) | Terminating, then gone after **5 ms** |
+| Replacement created → Ready | 1 s | 1 s |
+| Kubernetes availability / server 5xx | 2/2, 0 | 2/2, 0 |
+| Client | 740 requests, 0 failed, p95 4.75 ms | 739 requests, 0 failed, p95 4.75 ms |
+| v2 score | 100.0 | 100.0 |
+
+Forced deletion changes what Kubernetes does but not what this client saw. Deleting the pod
+object removes its endpoint before the kubelet kills the container, so new per-request
+connections at 10 req/s were already routed to the surviving replica. Equal scores are the
+correct outcome of identical evidence.
+
 ## Limitations
 
 - **Sequential client:** one sequential client per target at 10 req/s. During timeouts, each

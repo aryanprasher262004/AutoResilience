@@ -21,8 +21,18 @@ values live in `apps/api/app/domain/safety_policy.py`; this is the chaos-side vi
 
 Built only from typed fields (no user YAML): `appinfo` = validated namespace, workload
 selector and kind; `TARGET_PODS` = the chosen pods; `TOTAL_CHAOS_DURATION` =
-`CHAOS_INTERVAL` = `duration_seconds` (exactly one deletion round); `FORCE=false`
-(graceful delete). Named `ar-<experiment id>`, labelled
+`CHAOS_INTERVAL` = `duration_seconds` (exactly one deletion round); `FORCE` from the
+experiment's validated `pod_delete_mode`:
+
+| `pod_delete_mode` | `FORCE` | Kubernetes deletion (litmus-go 3.31 `pod-delete`) |
+|---|---|---|
+| `GRACEFUL` (default) | `false` | `DeleteOptions{}`: the pod's `terminationGracePeriodSeconds` applies (SIGTERM first) |
+| `FORCE` | `true` | `DeleteOptions{GracePeriodSeconds: 0}`: containers killed immediately |
+
+Only these two values are accepted (422 otherwise); no other Litmus option is exposed. The
+mode is labelled on the engine (`autoresilience.io/pod-delete-mode`) and recorded in
+`experiments.chaos` and the score's `inputs.fault`. Both modes keep the same target, blast
+radius, namespace guard and RBAC. Named `ar-<experiment id>`, labelled
 `app.kubernetes.io/managed-by=autoresilience`. Runs as `autoresilience-chaos`, whose
 Role only allows deleting pods in its own namespace.
 
