@@ -1,0 +1,9 @@
+{
+  "name": "autoresilience",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/site",
+    "packages/ui"
+  ]
+}

@@ -3,7 +3,7 @@
 Next.js 16 (App Router) + React 19 + Tailwind v4 + TanStack Query.
 
 ```bash
-npm install
+npm ci               # at the repository root: one lockfile for all workspaces
 npm run dev          # http://localhost:3000 (expects the API on :8000)
 npm run lint
 npm run typecheck    # next typegen && tsc --noEmit

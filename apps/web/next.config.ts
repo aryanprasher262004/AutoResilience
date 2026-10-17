@@ -6,6 +6,7 @@ import type { NextConfig } from "next";
 const apiUrl = process.env.AUTORESILIENCE_API_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@autoresilience/ui"],
   // Exposes the proxy target actually baked into this build (shown on /settings).
   env: { AUTORESILIENCE_API_PROXY_TARGET: apiUrl },
   async rewrites() {

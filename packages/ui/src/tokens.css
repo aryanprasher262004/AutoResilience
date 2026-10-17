@@ -1,0 +1,31 @@
+/* Shared by apps/web and apps/site. Consumers `@import "tailwindcss"` first, then this file.
+   @source makes Tailwind scan the shared primitives for the classes they use. */
+@source "./";
+
+/* AutoResilience design tokens. Dark, low-glare console palette; status colours are
+   reserved for meaning (state, health), never decoration. */
+@theme {
+  --color-canvas: #0a0e19;
+  --color-surface: #0e1424;
+  --color-surface-2: #131a2c;
+  --color-surface-3: #19223a;
+  --color-line: #1d263d;
+  --color-line-strong: #2a3552;
+  --color-fg: #e4e8f1;
+  --color-muted: #939fb6;
+  --color-faint: #616d87;
+  --color-accent: #4f8bff;
+  --color-accent-strong: #3b75ea;
+  --color-success: #3dcc8e;
+  --color-danger: #f0606c;
+  --color-warning: #f0b543;
+  --color-fault: #f08a45;
+  --color-info: #5ea8ff;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}

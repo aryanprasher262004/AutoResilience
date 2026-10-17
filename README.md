@@ -45,6 +45,8 @@ Only `pod-delete` is supported. Other fault types are rejected by validation.
 |---|---|
 | `apps/api` | FastAPI backend (Python 3.12, `uv`): lifecycle, safety, orchestration, evidence, scoring, tests |
 | `apps/web` | Next.js 16 console (React 19, TanStack Query), tests (Vitest) |
+| `apps/site` | Public website: static export, no backend, never talks to the API (`apps/site/README.md`) |
+| `packages/ui` | Design tokens and primitives shared by the console and the site |
 | `infra/` | kind cluster config, sample workloads (`shop`, `resilience-sandbox`), load generator |
 | `chaos/` | LitmusChaos values, the vetted `pod-delete` experiment, RBAC, safety contract |
 | `monitoring/prometheus/` | Prometheus values and the PromQL contract |
@@ -129,14 +131,14 @@ the API running while experiments are active. If it restarts, runs resume from t
 ### 2.4 Web console
 
 ```bash
-cd apps/web
-npm ci
-npm run dev        # http://localhost:3000 (expects the API on :8000)
+npm ci                         # from the repository root (npm workspaces)
+npm run dev --workspace web    # http://localhost:3000 (expects the API on :8000)
 ```
 
 For a production build:
 
 ```bash
+cd apps/web
 AUTORESILIENCE_API_URL=http://localhost:8000 npm run build && npm run start
 ```
 
@@ -262,7 +264,7 @@ uv run pytest          # 431 tests, in-memory SQLite + fakes (no cluster needed)
 uv run ruff check .
 uv run mypy .
 
-# Frontend
+# Frontend (after `npm ci` at the root)
 cd apps/web
 npm test               # 39 Vitest tests
 npm run lint

@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+@import "@autoresilience/ui/tokens.css";
+
+/* Site-only additions. The site shares the console tokens; cyan marks the healthy request
+   path in the topology illustration and nothing else. */
+@theme {
+  --color-signal: #4cc9e0;
+  /* Lighter than the console's faint (#616d87, 3.7:1): the site sets body copy in it,
+     so it must meet WCAG AA (≥ 4.5:1 on every surface used). */
+  --color-faint: #7a86a0;
+  --text-display: clamp(2.5rem, 5.4vw, 4.25rem);
+  --text-display--line-height: 1.04;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    scroll-padding-top: 6rem;
+  }
+  body {
+    @apply bg-canvas text-fg font-sans text-base antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  ::selection {
+    @apply bg-accent/30;
+  }
+}
+
+/* Faint measurement grid behind the hero; masked so it never competes with text. */
+.hero-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-line) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-line) 55%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 30%, transparent 75%);
+}
+
+/* --- Motion -------------------------------------------------------------------------
+   Everything below is progressive enhancement: without support, or with reduced motion,
+   content is simply shown in its final state. */
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+    .pan {
+      animation: pan linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+  }
+
+  /* Topology illustration: one pod-delete and recovery, looping every 12s. */
+  .topo-deleted {
+    animation: topo-deleted 12s ease-in-out infinite;
+  }
+  .topo-replacement {
+    animation: topo-replacement 12s ease-in-out infinite;
+  }
+  .topo-fault {
+    animation: topo-fault 12s ease-in-out infinite;
+  }
+  .topo-edge-degraded {
+    animation: topo-edge 12s linear infinite;
+  }
+  .topo-phase {
+    animation: topo-phase 12s step-end infinite;
+    animation-delay: calc(var(--phase) * 2s);
+  }
+  .topo-score {
+    animation: topo-score 12s ease-in-out infinite;
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pan {
+  from {
+    transform: translateX(-1.5%);
+  }
+  to {
+    transform: translateX(1.5%);
+  }
+}
+
+/* Timeline (12s): 0-4 steady, 4 fault, 4-6 pod gone, 6-8 replacement starting, 8+ steady. */
+@keyframes topo-deleted {
+  0%, 33% { opacity: 1; }
+  38%, 100% { opacity: 0; }
+}
+@keyframes topo-replacement {
+  0%, 50% { opacity: 0; }
+  58% { opacity: 0.55; }
+  68%, 92% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes topo-fault {
+  0%, 30% { opacity: 0; }
+  34%, 46% { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
+@keyframes topo-edge {
+  0%, 33% { stroke: var(--color-signal); stroke-dasharray: none; }
+  34%, 62% { stroke: var(--color-fault); stroke-dasharray: 3 5; }
+  63%, 100% { stroke: var(--color-signal); stroke-dasharray: none; }
+}
+@keyframes topo-phase {
+  0% { fill: var(--color-fg); }
+  16.6%, 100% { fill: var(--color-faint); }
+}
+@keyframes topo-score {
+  0%, 75% { opacity: 0; }
+  82%, 96% { opacity: 1; }
+  100% { opacity: 0; }
+}

@@ -81,9 +81,6 @@ jobs:
     name: Frontend · lint, typecheck, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/web
     env:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -92,28 +89,47 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
+      # npm workspaces: one lockfile at the root for apps/web, apps/site and packages/ui.
       - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run build
+      - run: npm run lint --workspace web
+      - run: npm run typecheck --workspace web
+      - run: npm run build --workspace web
 
   frontend-tests:
     name: Frontend · tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm test
+      - run: npm test --workspace web
+
+  site:
+    name: Site · lint, typecheck, tests, static export
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run lint --workspace site
+      - run: npm run typecheck --workspace site
+      - run: npm test --workspace site
+      - run: npm run build --workspace site
+      - name: Static export only, no engine access, accessibility basics
+        run: npm run check --workspace site
 
   recordings:
     name: Recorded evidence · schema and recordings
@@ -150,11 +166,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: uv sync --frozen
         working-directory: apps/api
       - run: npm ci
-        working-directory: apps/web
       - run: ./scripts/gen-api-contracts.sh
       - name: Fail if the committed contract is stale
         run: |

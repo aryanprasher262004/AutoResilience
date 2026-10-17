@@ -1,0 +1,36 @@
+{
+  "name": "site",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "check": "node scripts/check-static.mjs",
+    "preview": "node scripts/preview.mjs"
+  },
+  "dependencies": {
+    "@autoresilience/ui": "0.0.0",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "happy-dom": "20.14.5",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vite": "8.3.3",
+    "vitest": "4.1.11"
+  }
+}
