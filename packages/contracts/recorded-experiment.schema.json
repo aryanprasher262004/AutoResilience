@@ -1,0 +1,1691 @@
+{
+  "$defs": {
+    "Baseline": {
+      "additionalProperties": false,
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/MetricGroup"
+        },
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        },
+        "client": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetricGroup"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requests": {
+          "$ref": "#/$defs/MetricGroup"
+        },
+        "restarts": {
+          "$ref": "#/$defs/MetricGroup"
+        },
+        "status": {
+          "const": "CAPTURED",
+          "title": "Status",
+          "type": "string"
+        },
+        "window_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Window Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "captured_at",
+        "window_seconds",
+        "availability",
+        "restarts",
+        "requests",
+        "client"
+      ],
+      "title": "Baseline",
+      "type": "object"
+    },
+    "ChaosResult": {
+      "additionalProperties": false,
+      "properties": {
+        "fail_step": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fail Step"
+        },
+        "phase": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Phase"
+        },
+        "probe_success_percentage": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Probe Success Percentage"
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verdict"
+        }
+      },
+      "required": [
+        "phase",
+        "verdict",
+        "fail_step",
+        "probe_success_percentage"
+      ],
+      "title": "ChaosResult",
+      "type": "object"
+    },
+    "Check": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "static",
+            "cluster"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "status": {
+          "const": "PASSED",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "name",
+        "status"
+      ],
+      "title": "Check",
+      "type": "object"
+    },
+    "ClientImpact": {
+      "additionalProperties": false,
+      "properties": {
+        "connection_error": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Connection Error"
+        },
+        "counted_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Counted From"
+        },
+        "counted_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Counted To"
+        },
+        "failed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Failed"
+        },
+        "failure_intervals": {
+          "items": {
+            "$ref": "#/$defs/FailureInterval"
+          },
+          "title": "Failure Intervals",
+          "type": "array"
+        },
+        "failure_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Failure Ratio"
+        },
+        "http_error": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Http Error"
+        },
+        "latency_p95_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latency P95 Seconds"
+        },
+        "outage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClientOutage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requests": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Requests"
+        },
+        "starts_before_fault": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Starts Before Fault"
+        },
+        "status": {
+          "enum": [
+            "OK",
+            "UNAVAILABLE"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "success": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Success"
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Timeout"
+        }
+      },
+      "required": [
+        "status",
+        "requests",
+        "success",
+        "http_error",
+        "connection_error",
+        "timeout",
+        "failed",
+        "failure_ratio",
+        "latency_p95_seconds",
+        "counted_from",
+        "counted_to",
+        "starts_before_fault",
+        "failure_intervals",
+        "outage"
+      ],
+      "title": "ClientImpact",
+      "type": "object"
+    },
+    "ClientOutage": {
+      "additionalProperties": false,
+      "properties": {
+        "counted_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Counted From"
+        },
+        "counted_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Counted To"
+        },
+        "outage_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Outage Seconds"
+        },
+        "outage_windows": {
+          "items": {
+            "$ref": "#/$defs/OutageWindow"
+          },
+          "title": "Outage Windows",
+          "type": "array"
+        },
+        "outages": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Outages"
+        },
+        "pattern": {
+          "enum": [
+            "NONE",
+            "CONTINUOUS",
+            "INTERMITTENT",
+            "INSUFFICIENT_DATA"
+          ],
+          "title": "Pattern",
+          "type": "string"
+        },
+        "reset_detected": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reset Detected"
+        },
+        "starts_before_fault": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Starts Before Fault"
+        },
+        "status": {
+          "enum": [
+            "OK",
+            "INSUFFICIENT_DATA"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "pattern",
+        "outage_seconds",
+        "outages",
+        "reset_detected",
+        "starts_before_fault",
+        "counted_from",
+        "counted_to",
+        "outage_windows"
+      ],
+      "title": "ClientOutage",
+      "type": "object"
+    },
+    "ErrorCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "applicable": {
+          "title": "Applicable",
+          "type": "boolean"
+        },
+        "error_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error Ratio"
+        },
+        "ok": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ok"
+        },
+        "window_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Window Seconds"
+        }
+      },
+      "required": [
+        "applicable",
+        "ok",
+        "error_ratio",
+        "window_seconds"
+      ],
+      "title": "ErrorCheck",
+      "type": "object"
+    },
+    "FailureInterval": {
+      "additionalProperties": false,
+      "properties": {
+        "by_outcome": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "http_error",
+              "connection_error",
+              "timeout"
+            ]
+          },
+          "title": "By Outcome",
+          "type": "object"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "failed": {
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "failed",
+        "by_outcome"
+      ],
+      "title": "FailureInterval",
+      "type": "object"
+    },
+    "Fault": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_replicas": {
+          "exclusiveMinimum": 0,
+          "title": "Affected Replicas",
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "pod_delete_mode": {
+          "enum": [
+            "GRACEFUL",
+            "FORCE"
+          ],
+          "title": "Pod Delete Mode",
+          "type": "string"
+        },
+        "type": {
+          "const": "pod-delete",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "pod_delete_mode",
+        "duration_seconds",
+        "affected_replicas"
+      ],
+      "title": "Fault",
+      "type": "object"
+    },
+    "Impact": {
+      "additionalProperties": false,
+      "properties": {
+        "availability_dip_observed": {
+          "title": "Availability Dip Observed",
+          "type": "boolean"
+        },
+        "availability_samples": {
+          "minimum": 0,
+          "title": "Availability Samples",
+          "type": "integer"
+        },
+        "client": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClientImpact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "errors_in_window": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Errors In Window"
+        },
+        "min_available_replicas": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Min Available Replicas"
+        },
+        "replacement_pods": {
+          "items": {
+            "$ref": "#/$defs/ReplacementPod"
+          },
+          "title": "Replacement Pods",
+          "type": "array"
+        },
+        "requests_in_window": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Requests In Window"
+        },
+        "restarts_in_window": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Restarts In Window"
+        },
+        "window_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Window Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "window_seconds",
+        "availability_samples",
+        "min_available_replicas",
+        "availability_dip_observed",
+        "restarts_in_window",
+        "requests_in_window",
+        "errors_in_window",
+        "client",
+        "replacement_pods"
+      ],
+      "title": "Impact",
+      "type": "object"
+    },
+    "Injection": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "experiment": {
+          "const": "pod-delete",
+          "title": "Experiment",
+          "type": "string"
+        },
+        "injected_at": {
+          "format": "date-time",
+          "title": "Injected At",
+          "type": "string"
+        },
+        "provider": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "safety_policy": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Safety Policy",
+          "type": "string"
+        },
+        "target_pods": {
+          "items": {
+            "pattern": "^pod-[0-9]{1,3}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Target Pods",
+          "type": "array"
+        }
+      },
+      "required": [
+        "provider",
+        "experiment",
+        "safety_policy",
+        "created_at",
+        "injected_at",
+        "target_pods"
+      ],
+      "title": "Injection",
+      "type": "object"
+    },
+    "Integrity": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "canonicalization": {
+          "const": "json-sorted-compact/1",
+          "title": "Canonicalization",
+          "type": "string"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "canonicalization",
+        "content_sha256"
+      ],
+      "title": "Integrity",
+      "type": "object"
+    },
+    "LevelAReview": {
+      "additionalProperties": false,
+      "properties": {
+        "reviewed_at": {
+          "format": "date-time",
+          "title": "Reviewed At",
+          "type": "string"
+        },
+        "reviewed_by": {
+          "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+          "title": "Reviewed By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reviewed_by",
+        "reviewed_at"
+      ],
+      "title": "LevelAReview",
+      "type": "object"
+    },
+    "Lifecycle": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "auto",
+          "title": "Mode",
+          "type": "string"
+        },
+        "requested_at": {
+          "format": "date-time",
+          "title": "Requested At",
+          "type": "string"
+        },
+        "state_since": {
+          "additionalProperties": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "propertyNames": {
+            "enum": [
+              "CREATED",
+              "VALIDATING",
+              "BASELINING",
+              "INJECTING",
+              "OBSERVING",
+              "RECOVERING",
+              "COMPLETED"
+            ]
+          },
+          "title": "State Since",
+          "type": "object"
+        },
+        "transitions": {
+          "items": {
+            "$ref": "#/$defs/Transition"
+          },
+          "title": "Transitions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "requested_at",
+        "state_since",
+        "transitions"
+      ],
+      "title": "Lifecycle",
+      "type": "object"
+    },
+    "Litmus": {
+      "additionalProperties": false,
+      "properties": {
+        "chaos_result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChaosResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "engine_status": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Engine Status"
+        },
+        "experiment_status": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Experiment Status"
+        },
+        "finished_at": {
+          "format": "date-time",
+          "title": "Finished At",
+          "type": "string"
+        },
+        "phase": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Phase"
+        },
+        "verdict": {
+          "const": "Pass",
+          "title": "Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "verdict",
+        "phase",
+        "engine_status",
+        "experiment_status",
+        "finished_at",
+        "chaos_result"
+      ],
+      "title": "Litmus",
+      "type": "object"
+    },
+    "MetricGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "OK",
+            "UNAVAILABLE",
+            "ERROR"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "values": {
+          "patternProperties": {
+            "^[A-Za-z0-9_.:-]{1,64}$": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "status",
+        "values"
+      ],
+      "title": "MetricGroup",
+      "type": "object"
+    },
+    "OutageWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "End"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Seconds"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "seconds"
+      ],
+      "title": "OutageWindow",
+      "type": "object"
+    },
+    "Outcome": {
+      "additionalProperties": false,
+      "properties": {
+        "reason_code": {
+          "const": "RECOVERED",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "status": {
+          "const": "COMPLETED",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "reason_code"
+      ],
+      "title": "Outcome",
+      "type": "object"
+    },
+    "PolicySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_namespaces": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 63,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Allowed Namespaces"
+        },
+        "forbidden_namespaces": {
+          "items": {
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "type": "string"
+          },
+          "title": "Forbidden Namespaces",
+          "type": "array"
+        },
+        "max_affected_replicas": {
+          "exclusiveMinimum": 0,
+          "title": "Max Affected Replicas",
+          "type": "integer"
+        },
+        "max_duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Duration Seconds",
+          "type": "integer"
+        },
+        "min_healthy_replicas": {
+          "minimum": 0,
+          "title": "Min Healthy Replicas",
+          "type": "integer"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "max_duration_seconds",
+        "max_affected_replicas",
+        "min_healthy_replicas",
+        "forbidden_namespaces",
+        "allowed_namespaces"
+      ],
+      "title": "PolicySnapshot",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        },
+        "engine_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Engine Commit",
+          "type": "string"
+        },
+        "environment": {
+          "pattern": "^[A-Za-z0-9 ,.()/+_-]{3,120}$",
+          "title": "Environment",
+          "type": "string"
+        },
+        "evidence_category": {
+          "enum": [
+            "controlled_research",
+            "development_run"
+          ],
+          "title": "Evidence Category",
+          "type": "string"
+        },
+        "evidence_level": {
+          "enum": [
+            "unclassified",
+            "A"
+          ],
+          "title": "Evidence Level",
+          "type": "string"
+        },
+        "exported_at": {
+          "format": "date-time",
+          "title": "Exported At",
+          "type": "string"
+        },
+        "exporter_version": {
+          "const": "1.0.0",
+          "title": "Exporter Version",
+          "type": "string"
+        },
+        "level_a_review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LevelAReview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "score_version": {
+          "enum": [
+            "v1",
+            "v2",
+            "v3"
+          ],
+          "title": "Score Version",
+          "type": "string"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence_category",
+        "evidence_level",
+        "level_a_review",
+        "synthetic",
+        "captured_at",
+        "exported_at",
+        "engine_commit",
+        "exporter_version",
+        "score_version",
+        "environment"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RecordedRun": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "$ref": "#/$defs/Baseline"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "fault": {
+          "$ref": "#/$defs/Fault"
+        },
+        "impact": {
+          "$ref": "#/$defs/Impact"
+        },
+        "injection": {
+          "$ref": "#/$defs/Injection"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/Lifecycle"
+        },
+        "litmus": {
+          "$ref": "#/$defs/Litmus"
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "recovery": {
+          "$ref": "#/$defs/Recovery"
+        },
+        "score": {
+          "$ref": "#/$defs/Score"
+        },
+        "state": {
+          "const": "COMPLETED",
+          "title": "State",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "target_after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TargetAfter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validation": {
+          "$ref": "#/$defs/Validation"
+        }
+      },
+      "required": [
+        "state",
+        "created_at",
+        "target",
+        "fault",
+        "validation",
+        "baseline",
+        "injection",
+        "litmus",
+        "recovery",
+        "impact",
+        "target_after",
+        "outcome",
+        "lifecycle",
+        "score"
+      ],
+      "title": "RecordedRun",
+      "type": "object"
+    },
+    "Recovery": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmed_at": {
+          "format": "date-time",
+          "title": "Confirmed At",
+          "type": "string"
+        },
+        "error_check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorCheck"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluations": {
+          "exclusiveMinimum": 0,
+          "title": "Evaluations",
+          "type": "integer"
+        },
+        "fault_observed_at": {
+          "format": "date-time",
+          "title": "Fault Observed At",
+          "type": "string"
+        },
+        "max_sample_gap_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Sample Gap Seconds"
+        },
+        "recovered_at": {
+          "format": "date-time",
+          "title": "Recovered At",
+          "type": "string"
+        },
+        "rule": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Rule",
+          "type": "string"
+        },
+        "stable_streak": {
+          "items": {
+            "$ref": "#/$defs/StreakSample"
+          },
+          "title": "Stable Streak",
+          "type": "array"
+        },
+        "status": {
+          "const": "RECOVERED",
+          "title": "Status",
+          "type": "string"
+        },
+        "time_to_recovery_seconds": {
+          "minimum": 0,
+          "title": "Time To Recovery Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "rule",
+        "status",
+        "evaluations",
+        "fault_observed_at",
+        "recovered_at",
+        "confirmed_at",
+        "time_to_recovery_seconds",
+        "stable_streak",
+        "max_sample_gap_seconds",
+        "error_check"
+      ],
+      "title": "Recovery",
+      "type": "object"
+    },
+    "ReplacementPod": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "pod": {
+          "pattern": "^pod-[0-9]{1,3}$",
+          "title": "Pod",
+          "type": "string"
+        },
+        "ready_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ready At"
+        }
+      },
+      "required": [
+        "pod",
+        "created_at",
+        "ready_at"
+      ],
+      "title": "ReplacementPod",
+      "type": "object"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "properties": {
+        "components": {
+          "items": {
+            "$ref": "#/$defs/ScoreComponent"
+          },
+          "minItems": 1,
+          "title": "Components",
+          "type": "array"
+        },
+        "explanation": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "rating": {
+          "enum": [
+            "Excellent",
+            "Good",
+            "Fair",
+            "Poor"
+          ],
+          "title": "Rating",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "status": {
+          "const": "SCORED",
+          "title": "Status",
+          "type": "string"
+        },
+        "thresholds": {
+          "anyOf": [
+            {
+              "patternProperties": {
+                "^[A-Za-z0-9_.:-]{1,64}$": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Thresholds"
+        },
+        "version": {
+          "enum": [
+            "v1",
+            "v2",
+            "v3"
+          ],
+          "title": "Version",
+          "type": "string"
+        },
+        "weights": {
+          "anyOf": [
+            {
+              "patternProperties": {
+                "^[A-Za-z0-9_.:-]{1,64}$": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Weights"
+        }
+      },
+      "required": [
+        "version",
+        "status",
+        "score",
+        "rating",
+        "explanation",
+        "components",
+        "weights",
+        "thresholds"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "ScoreComponent": {
+      "additionalProperties": false,
+      "properties": {
+        "contribution": {
+          "title": "Contribution",
+          "type": "number"
+        },
+        "effective_weight": {
+          "title": "Effective Weight",
+          "type": "number"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "normalized": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Normalized"
+        },
+        "raw": {
+          "patternProperties": {
+            "^[A-Za-z0-9_.:-]{1,64}$": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "$ref": "#/$defs/OutageWindow"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "title": "Raw",
+          "type": "object"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "SCORED",
+            "NOT_APPLICABLE"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "weight": {
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "raw",
+        "normalized",
+        "weight",
+        "effective_weight",
+        "contribution",
+        "reason"
+      ],
+      "title": "ScoreComponent",
+      "type": "object"
+    },
+    "StreakSample": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "available_replicas": {
+          "title": "Available Replicas",
+          "type": "number"
+        }
+      },
+      "required": [
+        "at",
+        "available_replicas"
+      ],
+      "title": "StreakSample",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "Deployment",
+            "StatefulSet"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "pseudonymised": {
+          "title": "Pseudonymised",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "namespace",
+        "kind",
+        "name",
+        "pseudonymised"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "TargetAfter": {
+      "additionalProperties": false,
+      "description": "Kubernetes' own view at recovery time (evidence only; never decides).",
+      "properties": {
+        "deleted_pods_still_present": {
+          "items": {
+            "pattern": "^pod-[0-9]{1,3}$",
+            "type": "string"
+          },
+          "title": "Deleted Pods Still Present",
+          "type": "array"
+        },
+        "desired_replicas": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Desired Replicas"
+        },
+        "ready_pods": {
+          "items": {
+            "pattern": "^pod-[0-9]{1,3}$",
+            "type": "string"
+          },
+          "title": "Ready Pods",
+          "type": "array"
+        }
+      },
+      "required": [
+        "deleted_pods_still_present",
+        "ready_pods",
+        "desired_replicas"
+      ],
+      "title": "TargetAfter",
+      "type": "object"
+    },
+    "Transition": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "from_state": {
+          "enum": [
+            "CREATED",
+            "VALIDATING",
+            "BASELINING",
+            "INJECTING",
+            "OBSERVING",
+            "RECOVERING",
+            "COMPLETED"
+          ],
+          "title": "From State",
+          "type": "string"
+        },
+        "to_state": {
+          "enum": [
+            "CREATED",
+            "VALIDATING",
+            "BASELINING",
+            "INJECTING",
+            "OBSERVING",
+            "RECOVERING",
+            "COMPLETED"
+          ],
+          "title": "To State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "from_state",
+        "to_state"
+      ],
+      "title": "Transition",
+      "type": "object"
+    },
+    "Validation": {
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/Check"
+          },
+          "minItems": 1,
+          "title": "Checks",
+          "type": "array"
+        },
+        "passed": {
+          "const": true,
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "policy": {
+          "$ref": "#/$defs/PolicySnapshot"
+        }
+      },
+      "required": [
+        "passed",
+        "policy",
+        "checks"
+      ],
+      "title": "Validation",
+      "type": "object"
+    }
+  },
+  "$id": "autoresilience-recording/1",
+  "additionalProperties": false,
+  "properties": {
+    "experiment": {
+      "$ref": "#/$defs/RecordedRun"
+    },
+    "integrity": {
+      "$ref": "#/$defs/Integrity"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "recording_id": {
+      "pattern": "^rec-[0-9a-f]{16}$",
+      "title": "Recording Id",
+      "type": "string"
+    },
+    "schema": {
+      "const": "autoresilience-recording/1",
+      "title": "Schema",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "recording_id",
+    "provenance",
+    "experiment",
+    "integrity"
+  ],
+  "title": "RecordedExperiment",
+  "type": "object"
+}
