@@ -173,7 +173,7 @@ jobs:
       - run: ./scripts/gen-api-contracts.sh
       - name: Fail if the committed contract is stale
         run: |
-          if ! git diff --exit-code -- packages/contracts/openapi.json apps/web/src/lib/api/schema.ts; then
-            echo "::error::API contract is out of date. Run scripts/gen-api-contracts.sh and commit packages/contracts/openapi.json and apps/web/src/lib/api/schema.ts."
+          if ! git diff --exit-code -- packages/contracts apps/web/src/lib/api/schema.ts apps/site/src/lib/recordings/schema.ts; then
+            echo "::error::API contract is out of date. Run scripts/gen-api-contracts.sh and commit the generated files."
             exit 1
           fi

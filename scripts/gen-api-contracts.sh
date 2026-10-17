@@ -2,7 +2,8 @@
 # Regenerate the shared API contract from the FastAPI app and the frontend types.
 #   packages/contracts/openapi.json  <- apps/api (source of truth)
 #   apps/web/src/lib/api/schema.ts   <- openapi-typescript
-#   packages/contracts/recorded-experiment.schema.json <- app/schemas/recording.py
+#   packages/contracts/recorded-{experiment,validation}.schema.json <- app/schemas/recording.py
+#   apps/site/src/lib/recordings/schema.ts <- the recording schemas
 # Run after changing any API route or Pydantic schema; commit both files.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,4 +15,5 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
   uv run --frozen python -m app.tools.export_recording schema > /dev/null
 )
 npm --prefix "${ROOT}/apps/web" run --silent api:types
+npm --prefix "${ROOT}/apps/site" run --silent recordings:types
 echo "contracts regenerated"

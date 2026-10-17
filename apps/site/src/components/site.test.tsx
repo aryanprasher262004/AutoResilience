@@ -1,8 +1,13 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import HomePage from "@/app/page";
 import PlaygroundPage from "@/app/playground/page";
+import { COMMITTED_DIR } from "@/test/recordings";
 import { navigation } from "@/test/setup";
 
 import { SiteFooter } from "./site-footer";
@@ -48,10 +53,37 @@ describe("HomePage", () => {
 });
 
 describe("truthful states", () => {
-  it("the playground shows an empty state, not sample data", () => {
+  afterEach(() => {
+    delete process.env.RECORDINGS_DIR;
+  });
+
+  it("the playground lists the committed recordings", () => {
+    process.env.RECORDINGS_DIR = COMMITTED_DIR;
+    render(<PlaygroundPage />);
+    expect(screen.getByRole("heading", { name: "shop/checkout" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "resilience-sandbox/fragile" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "shop/cart-redis" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("the playground shows an empty state without recordings, not sample data", () => {
+    process.env.RECORDINGS_DIR = mkdtempSync(join(tmpdir(), "empty-"));
     render(<PlaygroundPage />);
     expect(screen.getByText("Coming soon")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "No recordings yet" })).toBeInTheDocument();
+  });
+
+  it("the playground reports files that fail integrity and does not show them", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tampered-"));
+    for (const file of readdirSync(COMMITTED_DIR).filter((f) => f.startsWith("rec-"))) {
+      const text = readFileSync(join(COMMITTED_DIR, file), "utf8");
+      writeFileSync(join(dir, file), text.replace(/"time_to_recovery_seconds": [0-9.]+/, '"time_to_recovery_seconds": 0.5'));
+    }
+    process.env.RECORDINGS_DIR = dir;
+    render(<PlaygroundPage />);
+    expect(screen.getByRole("alert")).toHaveTextContent("2 recording files failed verification");
+    expect(screen.getByRole("alert")).toHaveTextContent("integrity hash does not match the content");
+    expect(screen.queryByRole("heading", { name: "shop/checkout" })).not.toBeInTheDocument();
   });
 
   it("the footer marks support and social links as not set up", () => {

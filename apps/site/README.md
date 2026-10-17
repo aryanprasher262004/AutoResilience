@@ -21,6 +21,14 @@ npm test --workspace site
   score v3 weights in `src/lib/site.ts`). Unfinished things are marked *Planned*, *Coming soon* or
   *Placeholder*; there are no sample recordings, testimonials or metrics. The topology is labelled
   as an illustration.
+- **Playground** (`/playground`, `/playground/<recording_id>`). Built at build time from the
+  committed `recordings/` (`src/lib/recordings/load.ts`; `RECORDINGS_DIR` overrides). Each file
+  is re-checked before it is rendered: supported schema, the exporter's sha256 recomputed over
+  the canonical form (`canonical.ts` keeps number lexemes, so it is byte-identical to Python),
+  file name, and `synthetic: false`. A failing file is listed as an error and never replayed.
+  Types come from the recording JSON Schemas (`npm run recordings:types`). The replay
+  (`src/lib/recordings/replay.ts`) uses only recorded timestamps and counts; what the evidence
+  lacks (e.g. the exact deletion moment) is stated, not inferred.
 - **Motion.** CSS only: scroll-driven reveals and pan (`animation-timeline: view()`, progressive
   enhancement) and the hero's looping pod-delete. All of it is off under
   `prefers-reduced-motion`. Interactive 3D is P3.

@@ -65,7 +65,7 @@ export default function HomePage() {
             <ButtonLink href="/download">Download</ButtonLink>
           </div>
           <p className="mt-4 text-sm text-faint">
-            Not yet released. The playground opens once real recorded runs exist; today it runs from source.
+            Not yet released: it runs from source. The playground replays real recorded runs in your browser.
           </p>
 
           <Panel className="mt-16 overflow-hidden p-4 sm:p-8">
@@ -185,12 +185,13 @@ export default function HomePage() {
                 <li>Resilience Score v3 with v1 and v2 recomputation</li>
                 <li>Web console: builder, live experiment room, history, services, reports</li>
                 <li>Read-only export of completed runs as sanitized recordings</li>
+                <li>Playground replaying real recorded development runs</li>
               </ul>
             </Panel>
             <Panel className="reveal p-6">
               <StatusBadge status="planned" />
               <ul className="mt-4 space-y-2 text-sm text-muted">
-                <li>Playground replaying real recorded experiments</li>
+                <li>Controlled evaluation campaign with reviewed recordings</li>
                 <li>Packaged local stack with a guided setup</li>
                 <li>Importing your own Kubernetes or Compose application</li>
                 <li>Documentation site</li>

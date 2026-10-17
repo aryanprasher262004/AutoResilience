@@ -9,7 +9,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "check": "node scripts/check-static.mjs",
-    "preview": "node scripts/preview.mjs"
+    "preview": "node scripts/preview.mjs",
+    "recordings:types": "node scripts/gen-recording-types.mjs"
   },
   "dependencies": {
     "@autoresilience/ui": "0.0.0",
@@ -28,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "happy-dom": "20.14.5",
+    "openapi-typescript": "7.13.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "8.3.3",

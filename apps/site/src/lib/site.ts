@@ -5,6 +5,10 @@ export function repoFile(path: string): string {
   return `${GITHUB_URL}/blob/main/${path}`;
 }
 
+export function commitUrl(sha: string): string {
+  return `${GITHUB_URL}/commit/${sha}`;
+}
+
 export const NAV = [
   { href: "/product", label: "Product" },
   { href: "/how-it-works", label: "How It Works" },

@@ -1,14 +1,17 @@
 # Recorded experiments (contract)
 
 A recording is a sanitized, self-verifying JSON copy of one **COMPLETED** experiment, for
-replay without an engine (v0.2 architecture §8). Contract `autoresilience-recording/1`:
+replay without an engine (v0.2 architecture §8). Contract `autoresilience-recording/1`.
+A **VALIDATION_FAILED** experiment is recorded separately as safety evidence,
+`autoresilience-validation/1` (below).
 
 - Source of truth: `apps/api/app/schemas/recording.py` (Pydantic, strict, unknown fields
   forbidden).
-- Generated JSON Schema: `packages/contracts/recorded-experiment.schema.json` (never edited by
-  hand; `scripts/gen-api-contracts.sh` or `export_recording schema` regenerates it).
-- Committed recordings: `recordings/<recording_id>.json`. None exist yet: they come only from
-  real runs, never from test or sample data.
+- Generated JSON Schemas: `packages/contracts/recorded-{experiment,validation}.schema.json`,
+  and from them the site's types `apps/site/src/lib/recordings/schema.ts` (never edited by
+  hand; `scripts/gen-api-contracts.sh` regenerates all three).
+- Committed recordings: `recordings/<recording_id>.json`, only from real runs, never from test
+  or sample data. The public playground (`apps/site`, `/playground`) replays them.
 
 ## Shape
 
@@ -24,8 +27,10 @@ replay without an engine (v0.2 architecture §8). Contract `autoresilience-recor
 
 - **Evidence level.** The exporter always writes `unclassified`. `A` is a manual review decision
   and is valid only with `controlled_research`, `synthetic: false` and a `level_a_review`
-  (`reviewed_by`, `reviewed_at`), which changes the hash. P1 ships no promotion tool, so no
-  recording can be Level A yet. Only Level A is publishable (D-6).
+  (`reviewed_by`, `reviewed_at`), which changes the hash. There is no promotion tool yet, so
+  no recording is Level A. The playground publishes development runs, labelled on every page
+  as development runs and unclassified evidence; only Level A may be presented as research
+  evidence.
 - **Allowlist.** Only fields in the model are exported. Dropped: experiment UUID, name and
   description, all free-text messages, engine names, Litmus pod names, kube context, errors.
   Pod names become `pod-1…n`; namespace/workload become `namespace-1`/`workload-1` unless the
@@ -39,6 +44,14 @@ replay without an engine (v0.2 architecture §8). Contract `autoresilience-recor
   version; a stored score that `score_experiment` cannot reproduce from the stored evidence.
 - **Versioning.** A breaking change adds `autoresilience-recording/2`; files stay valid against
   their own version, like score versions.
+
+## Validation evidence (`autoresilience-validation/1`)
+
+Same provenance (without `score_version`) and integrity rules; `recording_id` is `val-` + 16 hex.
+`experiment` holds the target, the requested fault (any type), the policy snapshot and every
+check with its status. Check messages are engine-generated and kept only for shipped sample
+workloads, since they name the target. The exporter refuses a VALIDATION_FAILED record that has
+a passed validation or any baseline, chaos or observation evidence.
 
 ## Runbook
 
@@ -54,7 +67,8 @@ uv run python -m app.tools.export_recording verify            # all of recording
 uv run python -m app.tools.export_recording schema --check    # schema drift
 ```
 
-Exit codes: `0` ok, `1` verification failed, `3` database unavailable, `2` export refused (`refused: <CODE>: …`, codes
+`export` writes an experiment recording for a COMPLETED experiment and validation evidence
+for a VALIDATION_FAILED one. Exit codes: `0` ok, `1` verification failed, `3` database unavailable, `2` export refused (`refused: <CODE>: …`, codes
 `NOT_FOUND | NOT_COMPLETED | MISSING_EVIDENCE | INCONSISTENT | UNSUPPORTED_SCORE_VERSION |
 UNSAFE | INVALID`). Review every file before committing; CI (`docs/ci.md`) re-validates each one
 and its hash.

@@ -19,9 +19,9 @@ Seven jobs, each a separate check on the pull request:
 | Frontend · tests | a failing Vitest test (`apps/web/src/**/*.test.tsx`, see `apps/web/README.md`) | `npm ci && npm test --workspace web` |
 | Site · lint, typecheck, tests, static export | the same for `apps/site`, plus `scripts/check-static.mjs`: config is static-export only, no server code or network calls in `src/`, no engine address in `out/`, and each page has `lang`, a title, one `h1`, `main`, a skip link and the CSP | `npm ci`, then `lint`, `typecheck`, `test`, `build`, `check` with `--workspace site` |
 | Recorded evidence · schema and recordings | `packages/contracts/recorded-experiment.schema.json` differs from the Pydantic model, or a file in `recordings/` fails validation or its hash ([recordings.md](recordings.md)) | `cd apps/api && uv run python -m app.tools.export_recording schema --check && uv run python -m app.tools.export_recording verify ../../recordings` |
-| API contract in sync | `packages/contracts/openapi.json` or `apps/web/src/lib/api/schema.ts` differ from what the code generates | `./scripts/gen-api-contracts.sh && git diff --exit-code -- packages/contracts/openapi.json apps/web/src/lib/api/schema.ts` |
+| API contract in sync | anything under `packages/contracts/`, `apps/web/src/lib/api/schema.ts` or `apps/site/src/lib/recordings/schema.ts` differs from what the code generates | `./scripts/gen-api-contracts.sh && git diff --exit-code -- packages/contracts apps/web/src/lib/api/schema.ts apps/site/src/lib/recordings/schema.ts` |
 
-Fixing a contract failure: run `scripts/gen-api-contracts.sh` and commit both generated files.
+Fixing a contract failure: run `scripts/gen-api-contracts.sh` and commit the generated files.
 
 ## Decision: what CI does not need
 

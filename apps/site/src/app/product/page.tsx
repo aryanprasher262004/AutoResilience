@@ -42,7 +42,7 @@ const capabilities: { title: string; body: string; status: Availability }[] = [
   },
   {
     title: "Recorded evidence",
-    body: "Completed runs export as sanitized, hash-verified recordings: the basis for the public playground.",
+    body: "Completed runs export as sanitized, hash-verified recordings, which the public playground replays in the browser.",
     status: "available",
   },
   {
