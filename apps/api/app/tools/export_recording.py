@@ -1,4 +1,5 @@
-"""Export one COMPLETED experiment as a recording (`autoresilience-recording/1`).
+"""Export one experiment as a recording: COMPLETED runs as `autoresilience-recording/1`,
+safety-rejected (VALIDATION_FAILED) ones as validation evidence `autoresilience-validation/1`.
 
 Read-only: one read-only transaction, by explicit experiment id, then rollback. No
 HTTP endpoint, no chaos, no cluster access. Fields are copied by allowlist into the
@@ -36,8 +37,10 @@ from app.schemas.recording import (
     CANONICALIZATION,
     EXPORTER_VERSION,
     LIFECYCLE_ORDER,
+    MODELS,
     SCHEMA_ID,
-    RecordedExperiment,
+    VALIDATION_SCHEMA_ID,
+    AnyRecording,
     RecordingFormatError,
     content_hash,
     json_schema,
@@ -58,8 +61,20 @@ SAMPLE_WORKLOADS = frozenset(
     }
 )
 REPO_ROOT = Path(__file__).resolve().parents[4]
-SCHEMA_PATH = REPO_ROOT / "packages/contracts/recorded-experiment.schema.json"
+SCHEMA_PATHS = {
+    SCHEMA_ID: REPO_ROOT / "packages/contracts/recorded-experiment.schema.json",
+    VALIDATION_SCHEMA_ID: REPO_ROOT
+    / "packages/contracts/recorded-validation.schema.json",
+}
 RECORDINGS_DIR = REPO_ROOT / "recordings"
+_POLICY_FIELDS = (
+    "name",
+    "max_duration_seconds",
+    "max_affected_replicas",
+    "min_healthy_replicas",
+    "forbidden_namespaces",
+    "allowed_namespaces",
+)
 _TRANSITION = re.compile(r"^([A-Z_]+) -> ([A-Z_]+)\b")
 
 
@@ -244,8 +259,14 @@ def _ordered(*stamps: tuple[str, str]) -> None:
 
 
 def build_document(experiment: Experiment, **options: Any) -> dict[str, Any]:
-    """Allowlisted, sanitized recording body (no integrity block yet)."""
+    """Allowlisted, sanitized recording body (no integrity block yet).
+
+    COMPLETED runs become experiment recordings; VALIDATION_FAILED experiments
+    become separate validation evidence. Everything else is refused.
+    """
     try:
+        if experiment.state is ExperimentState.VALIDATION_FAILED:
+            return _build_validation(experiment, **options)
         return _build(experiment, **options)
     except (KeyError, TypeError, AttributeError, ValueError) as exc:
         # Stored JSON that does not have the shape the engine writes.
@@ -265,7 +286,9 @@ def _build(
 ) -> dict[str, Any]:
     if experiment.state is not ExperimentState.COMPLETED:
         raise RecordingError(
-            "NOT_COMPLETED", f"experiment is {experiment.state}, not COMPLETED"
+            "NOT_COMPLETED",
+            f"experiment is {experiment.state}, not COMPLETED "
+            "(or VALIDATION_FAILED, exported as validation evidence)",
         )
     validation = _require(experiment.validation_result, "validation_result")
     baseline = _require(experiment.baseline, "baseline")
@@ -367,17 +390,7 @@ def _build(
         },
         "validation": {
             "passed": True,
-            "policy": {
-                k: policy.get(k)
-                for k in (
-                    "name",
-                    "max_duration_seconds",
-                    "max_affected_replicas",
-                    "min_healthy_replicas",
-                    "forbidden_namespaces",
-                    "allowed_namespaces",
-                )
-            },
+            "policy": {k: policy.get(k) for k in _POLICY_FIELDS},
             "checks": checks,
         },
         "baseline": {
@@ -495,6 +508,79 @@ def _build(
     return document
 
 
+def _build_validation(
+    experiment: Experiment,
+    *,
+    evidence_category: EvidenceCategory,
+    environment: str,
+    engine_commit: str,
+    exported_at: datetime,
+    synthetic: bool = False,
+) -> dict[str, Any]:
+    validation = _require(experiment.validation_result, "validation_result")
+    if validation.get("passed") is not False:
+        raise _inconsistent("VALIDATION_FAILED experiment with a passed validation")
+    if experiment.chaos or experiment.baseline or experiment.observation:
+        raise _inconsistent("a rejected experiment has injection or run evidence")
+    sample = (experiment.target_namespace, experiment.target_name) in SAMPLE_WORKLOADS
+    policy = _get(validation, "validation_result.policy")
+    created_at = experiment.created_at.replace(
+        tzinfo=experiment.created_at.tzinfo or UTC
+    ).isoformat()
+    document = {
+        "schema": VALIDATION_SCHEMA_ID,
+        "recording_id": "val-"
+        + hashlib.sha256(
+            f"{VALIDATION_SCHEMA_ID}:{experiment.id}".encode()
+        ).hexdigest()[:16],
+        "provenance": {
+            "evidence_category": evidence_category,
+            "evidence_level": "unclassified",  # never assigned automatically
+            "level_a_review": None,
+            "synthetic": synthetic,
+            # Validation is synchronous with creation; no separate timestamp is stored.
+            "captured_at": created_at,
+            "exported_at": exported_at.isoformat(),
+            "engine_commit": engine_commit,
+            "exporter_version": EXPORTER_VERSION,
+            "environment": environment,
+        },
+        "experiment": {
+            "state": "VALIDATION_FAILED",
+            "created_at": created_at,
+            "target": {
+                "namespace": experiment.target_namespace if sample else "namespace-1",
+                "kind": experiment.target_kind.value,
+                "name": experiment.target_name if sample else "workload-1",
+                "pseudonymised": not sample,
+            },
+            "fault": {
+                "type": experiment.fault_type.value,
+                "pod_delete_mode": experiment.pod_delete_mode.value,
+                "duration_seconds": experiment.duration_seconds,
+                "affected_replicas": experiment.affected_replicas,
+            },
+            "validation": {
+                "passed": False,
+                "policy": {k: policy.get(k) for k in _POLICY_FIELDS},
+                "checks": [
+                    {
+                        "phase": phase,
+                        "name": c["name"],
+                        "status": c["status"],
+                        # Messages name the target, so only sample workloads keep them.
+                        "message": c.get("message") if sample else None,
+                    }
+                    for phase in ("static", "cluster")
+                    for c in validation.get(f"{phase}_checks") or []
+                ],
+            },
+        },
+    }
+    _assert_no_leaks(_json(document), experiment, set(), sample)
+    return document
+
+
 def _assert_no_leaks(
     document: Any, experiment: Experiment, pods: set[str], sample: bool
 ) -> None:
@@ -518,15 +604,16 @@ def _assert_no_leaks(
                 raise RecordingError("UNSAFE", f"original {kind} survived export")
 
 
-def seal(document: dict[str, Any]) -> RecordedExperiment:
+def seal(document: dict[str, Any]) -> AnyRecording:
     """Normalise through the contract, hash the canonical form, verify."""
+    model = MODELS[document["schema"]]
     try:
-        draft = RecordedExperiment.model_validate_json(
+        draft = model.model_validate_json(
             json.dumps({**document, "integrity": _integrity("0" * 64)}),
             context={"draft": True},
         ).to_document()
         draft["integrity"] = _integrity(content_hash(draft))
-        return RecordedExperiment.model_validate_json(json.dumps(draft))
+        return model.model_validate_json(json.dumps(draft))
     except ValidationError as exc:
         raise RecordingError("INVALID", _first_error(exc)) from exc
 
@@ -547,7 +634,7 @@ def _first_error(exc: ValidationError) -> str:
 
 def export_experiment(
     session: Session, experiment_id: uuid.UUID, **options: Any
-) -> RecordedExperiment:
+) -> AnyRecording:
     """Read-only: the transaction is marked READ ONLY (PostgreSQL) and rolled back."""
     try:
         if session.get_bind().dialect.name == "postgresql":
@@ -597,22 +684,26 @@ def _verify(paths: list[str], out: Callable[[str], None]) -> int:
 
 
 def _schema(check: bool, out: Callable[[str], None]) -> int:
-    expected = json.dumps(json_schema(), indent=2, sort_keys=True) + "\n"
-    if not check:
-        SCHEMA_PATH.write_text(expected)
-        out(f"wrote {SCHEMA_PATH}")
-        return 0
-    if not SCHEMA_PATH.exists() or SCHEMA_PATH.read_text() != expected:
-        out(f"FAIL {SCHEMA_PATH} is stale; run: export_recording schema")
-        return 1
-    out(f"ok   {SCHEMA_PATH}")
-    return 0
+    stale = 0
+    for schema_id, path in SCHEMA_PATHS.items():
+        expected = json.dumps(json_schema(schema_id), indent=2, sort_keys=True) + "\n"
+        if not check:
+            path.write_text(expected)
+            out(f"wrote {path}")
+        elif not path.exists() or path.read_text() != expected:
+            stale += 1
+            out(f"FAIL {path} is stale; run: export_recording schema")
+        else:
+            out(f"ok   {path}")
+    return 1 if stale else 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="export_recording", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    exp = sub.add_parser("export", help="export one COMPLETED experiment")
+    exp = sub.add_parser(
+        "export", help="export one COMPLETED (or VALIDATION_FAILED) experiment"
+    )
     exp.add_argument("experiment_id", type=uuid.UUID)
     exp.add_argument(
         "--evidence-category",

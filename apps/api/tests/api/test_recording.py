@@ -13,7 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Experiment
 from app.schemas.recording import (
+    AnyRecording,
     RecordedExperiment,
+    RecordedValidation,
     RecordingFormatError,
     content_hash,
     json_schema,
@@ -27,6 +29,7 @@ from app.tools.export_recording import (
     export_experiment,
     seal,
 )
+from tests.api.test_experiments import payload
 from tests.api.test_orchestration import DONE, new_reconciler, start, tick_until
 from tests.conftest import Clock, FakeChaos, FakeKubernetes, FakePrometheus
 
@@ -66,7 +69,7 @@ def completed(
     return experiment
 
 
-def export(experiment: Experiment, **overrides: Any) -> RecordedExperiment:
+def export(experiment: Experiment, **overrides: Any) -> AnyRecording:
     return seal(build_document(experiment, **{**OPTIONS, **overrides}))
 
 
@@ -149,6 +152,17 @@ def test_tampered_recording_is_rejected(completed: Experiment) -> None:
 
 
 # --- incomplete and inconsistent records ---------------------------------------------
+
+
+def test_score_inputs_may_be_timestamps(completed: Experiment) -> None:
+    # Real v3 client components carry counted_from/counted_to (found on PostgreSQL).
+    doc = build_document(completed, **OPTIONS)
+    raw = doc["experiment"]["score"]["components"][0]["raw"]
+    raw["counted_from"] = "2026-10-08T22:53:24.875000+00:00"
+    recording = seal(doc)
+    component = recording.to_document()["experiment"]["score"]["components"][0]
+    assert component["raw"]["counted_from"] == "2026-10-08T22:53:24.875000Z"
+    assert parse_recording(render(recording)) == recording
 
 
 def test_only_completed_experiments_are_exported(completed: Experiment) -> None:
@@ -325,10 +339,83 @@ def test_verify_cli(completed: Experiment, tmp_path: Path) -> None:
     assert lines[-1] == "1 recording(s) checked, 1 failed"
 
 
-def test_committed_schema_matches_the_model() -> None:
-    committed = json.loads(export_recording.SCHEMA_PATH.read_text())
-    assert committed == json_schema()
+@pytest.mark.parametrize("schema_id", list(export_recording.SCHEMA_PATHS))
+def test_committed_schemas_match_the_models(schema_id: str) -> None:
+    committed = json.loads(export_recording.SCHEMA_PATHS[schema_id].read_text())
+    assert committed == json_schema(schema_id)
 
 
 def test_committed_recordings_are_valid() -> None:
     assert export_recording._verify([], lambda _: None) == 0
+
+
+# --- safety-rejected experiments (autoresilience-validation/1) ------------------------
+
+
+@pytest.fixture
+def rejected(client: TestClient, db_session: Session) -> Experiment:
+    """Two affected replicas exceed the default policy: refused before any injection."""
+    experiment_id = client.post(
+        "/experiments", json=payload(affected_replicas=2, description="secret note")
+    ).json()["id"]
+    assert client.post(f"/experiments/{experiment_id}/validate").status_code == 200
+    experiment = db_session.get(Experiment, uuid.UUID(experiment_id))
+    assert experiment is not None and experiment.state == "VALIDATION_FAILED"
+    return experiment
+
+
+def test_rejected_experiment_exports_as_validation_evidence(
+    rejected: Experiment,
+) -> None:
+    recording = export(rejected)
+    assert isinstance(recording, RecordedValidation)
+    doc = recording.to_document()
+    assert doc["schema"] == "autoresilience-validation/1"
+    assert doc["recording_id"].startswith("val-")
+    assert doc["provenance"]["evidence_level"] == "unclassified"
+    assert "score_version" not in doc["provenance"]
+    checks = {c["name"]: c for c in doc["experiment"]["validation"]["checks"]}
+    assert checks["affected_replicas_within_limit"]["status"] == "FAILED"
+    assert checks["affected_replicas_within_limit"]["message"]  # sample workload
+    blob = render(recording)
+    assert str(rejected.id) not in blob and "secret note" not in blob
+    assert parse_recording(blob) == recording
+
+
+def test_rejection_messages_are_dropped_for_non_sample_targets(
+    rejected: Experiment,
+) -> None:
+    rejected.target_namespace, rejected.target_name = "payments-prod", "ledger"
+    validation = copy.deepcopy(rejected.validation_result)
+    assert validation is not None
+    for check in validation["static_checks"]:
+        check["message"] = check["message"].replace("shop", "payments-prod")
+    rejected.validation_result = validation
+    doc = export(rejected).to_document()
+    assert all(c["message"] is None for c in doc["experiment"]["validation"]["checks"])
+    assert "payments-prod" not in json.dumps(doc)
+
+
+def test_validation_evidence_needs_a_failed_check(rejected: Experiment) -> None:
+    doc = build_document(rejected, **OPTIONS)
+    for check in doc["experiment"]["validation"]["checks"]:
+        check["status"] = "PASSED"
+    with pytest.raises(RecordingError, match="did not pass"):
+        seal(doc)
+
+
+def test_rejected_experiment_with_run_evidence_is_inconsistent(
+    rejected: Experiment,
+) -> None:
+    rejected.chaos = {"engine_name": "x"}
+    assert refusal(rejected) == "INCONSISTENT"
+
+
+def test_verify_accepts_both_recording_kinds(
+    completed: Experiment, rejected: Experiment, tmp_path: Path
+) -> None:
+    for recording in (export(completed), export(rejected)):
+        (tmp_path / f"{recording.recording_id}.json").write_text(render(recording))
+    lines: list[str] = []
+    assert export_recording._verify([str(tmp_path)], lines.append) == 0
+    assert lines[-1] == "2 recording(s) checked, 0 failed"

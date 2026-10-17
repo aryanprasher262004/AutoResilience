@@ -28,7 +28,9 @@ from pydantic import (
 )
 
 SCHEMA_ID = "autoresilience-recording/1"
-SUPPORTED_SCHEMAS = (SCHEMA_ID,)
+# Safety-rejected experiments: validation evidence only, recorded separately.
+VALIDATION_SCHEMA_ID = "autoresilience-validation/1"
+SUPPORTED_SCHEMAS = (SCHEMA_ID, VALIDATION_SCHEMA_ID)
 EXPORTER_VERSION = "1.0.0"
 CANONICALIZATION = "json-sorted-compact/1"
 
@@ -275,7 +277,8 @@ class Lifecycle(_Model):
 class ScoreComponent(_Model):
     name: Token
     status: Literal["SCORED", "NOT_APPLICABLE"]
-    raw: dict[Token, Scalar | list[OutageWindow]]
+    # Engine-computed inputs: numbers, flags, enum tokens, timestamps (e.g. counted_from).
+    raw: dict[Token, UtcDatetime | Scalar | list[OutageWindow]]
     normalized: float | None
     weight: float
     effective_weight: float
@@ -319,7 +322,7 @@ class LevelAReview(_Model):
     reviewed_at: UtcDatetime
 
 
-class Provenance(_Model):
+class _ProvenanceBase(_Model):
     # Declared by the maintainer at export time; never inferred.
     evidence_category: Literal["controlled_research", "development_run"]
     # The exporter always writes "unclassified"; "A" is a manual review decision.
@@ -330,13 +333,12 @@ class Provenance(_Model):
     exported_at: UtcDatetime
     engine_commit: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{40}$")]
     exporter_version: Literal["1.0.0"]
-    score_version: Literal["v1", "v2", "v3"]
     environment: Annotated[
         str, StringConstraints(pattern=r"^[A-Za-z0-9 ,.()/+_-]{3,120}$")
     ]
 
     @model_validator(mode="after")
-    def _level_a_rules(self) -> "Provenance":
+    def _level_a_rules(self) -> "_ProvenanceBase":
         if self.evidence_level == "A":
             if self.evidence_category != "controlled_research":
                 raise ValueError(
@@ -349,6 +351,14 @@ class Provenance(_Model):
         elif self.level_a_review is not None:
             raise ValueError("level_a_review is only allowed with evidence_level A")
         return self
+
+
+class Provenance(_ProvenanceBase):
+    score_version: Literal["v1", "v2", "v3"]
+
+
+class ValidationProvenance(_ProvenanceBase):
+    """A rejected experiment never ran, so there is no score."""
 
 
 class Integrity(_Model):
@@ -403,24 +413,93 @@ class RecordedExperiment(_Model):
         ]
         if times != sorted(times) or "COMPLETED" not in run.lifecycle.state_since:
             raise ValueError("lifecycle.state_since is incomplete or out of order")
-        document = self.to_document()
-        for text in _strings(document):
-            if found := sensitive_findings(text):
-                raise ValueError(f"unsafe content ({', '.join(found)}) in recording")
-        draft = bool(info.context and info.context.get("draft"))
-        if not draft and content_hash(document) != self.integrity.content_sha256:
-            raise ValueError("integrity.content_sha256 does not match the content")
+        _check_sealed(self.to_document(), self.integrity, info)
         return self
 
     def to_document(self) -> dict[str, Any]:
         return self.model_dump(mode="json", by_alias=True)
 
 
+def _check_sealed(
+    document: dict[str, Any], integrity: Integrity, info: ValidationInfo
+) -> None:
+    for text in _strings(document):
+        if found := sensitive_findings(text):
+            raise ValueError(f"unsafe content ({', '.join(found)}) in recording")
+    draft = bool(info.context and info.context.get("draft"))
+    if not draft and content_hash(document) != integrity.content_sha256:
+        raise ValueError("integrity.content_sha256 does not match the content")
+
+
+# --- safety-rejected experiments (autoresilience-validation/1) -----------------------
+
+
+class RejectedFault(_Model):
+    # Any requested fault: an unsupported type is itself a reason for rejection.
+    type: Token
+    pod_delete_mode: Literal["GRACEFUL", "FORCE"]
+    duration_seconds: PositiveInt
+    affected_replicas: PositiveInt
+
+
+class RejectedCheck(_Model):
+    phase: Literal["static", "cluster"]
+    name: Token
+    status: Literal["PASSED", "FAILED", "ERROR", "SKIPPED"]
+    # Engine-generated; kept only for shipped sample workloads (it names the target).
+    message: EngineText | None
+
+
+class RejectedValidation(_Model):
+    passed: Literal[False]
+    policy: PolicySnapshot
+    checks: list[RejectedCheck] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _has_failure(self) -> "RejectedValidation":
+        if all(c.status == "PASSED" for c in self.checks):
+            raise ValueError("a rejected validation needs a check that did not pass")
+        return self
+
+
+class RejectedRun(_Model):
+    state: Literal["VALIDATION_FAILED"]
+    created_at: UtcDatetime
+    target: Target
+    fault: RejectedFault
+    validation: RejectedValidation
+
+
+class RecordedValidation(_Model):
+    """Evidence that the safety model refused an experiment before any injection."""
+
+    schema_: Literal["autoresilience-validation/1"] = Field(alias="schema")
+    recording_id: Annotated[str, StringConstraints(pattern=r"^val-[0-9a-f]{16}$")]
+    provenance: ValidationProvenance
+    experiment: RejectedRun
+    integrity: Integrity
+
+    @model_validator(mode="after")
+    def _consistent(self, info: ValidationInfo) -> "RecordedValidation":
+        _check_sealed(self.to_document(), self.integrity, info)
+        return self
+
+    def to_document(self) -> dict[str, Any]:
+        return self.model_dump(mode="json", by_alias=True)
+
+
+AnyRecording = RecordedExperiment | RecordedValidation
+MODELS: dict[str, type[RecordedExperiment] | type[RecordedValidation]] = {
+    SCHEMA_ID: RecordedExperiment,
+    VALIDATION_SCHEMA_ID: RecordedValidation,
+}
+
+
 class RecordingFormatError(ValueError):
     pass
 
 
-def parse_recording(raw: str | bytes) -> RecordedExperiment:
+def parse_recording(raw: str | bytes) -> AnyRecording:
     """Strictly parse and verify one recording file (schema, safety, hash, form)."""
     try:
         data = json.loads(raw)
@@ -433,18 +512,18 @@ def parse_recording(raw: str | bytes) -> RecordedExperiment:
             f"unsupported recording schema {data.get('schema')!r} "
             f"(supported: {', '.join(SUPPORTED_SCHEMAS)})"
         )
-    recording = RecordedExperiment.model_validate_json(raw)
+    recording = MODELS[data["schema"]].model_validate_json(raw)
     # Exactly what the model emits: no hidden normalisation differences.
     if recording.to_document() != data:
         raise RecordingFormatError("file is not in canonical form; re-export it")
     return recording
 
 
-def render(recording: RecordedExperiment) -> str:
+def render(recording: AnyRecording) -> str:
     return json.dumps(recording.to_document(), indent=2, sort_keys=True) + "\n"
 
 
-def json_schema() -> dict[str, Any]:
-    schema = RecordedExperiment.model_json_schema(by_alias=True)
-    schema["$id"] = SCHEMA_ID
+def json_schema(schema_id: str = SCHEMA_ID) -> dict[str, Any]:
+    schema = MODELS[schema_id].model_json_schema(by_alias=True)
+    schema["$id"] = schema_id
     return schema

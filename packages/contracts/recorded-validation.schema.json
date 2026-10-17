@@ -1,0 +1,402 @@
+{
+  "$defs": {
+    "Integrity": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "canonicalization": {
+          "const": "json-sorted-compact/1",
+          "title": "Canonicalization",
+          "type": "string"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "canonicalization",
+        "content_sha256"
+      ],
+      "title": "Integrity",
+      "type": "object"
+    },
+    "LevelAReview": {
+      "additionalProperties": false,
+      "properties": {
+        "reviewed_at": {
+          "format": "date-time",
+          "title": "Reviewed At",
+          "type": "string"
+        },
+        "reviewed_by": {
+          "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+          "title": "Reviewed By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reviewed_by",
+        "reviewed_at"
+      ],
+      "title": "LevelAReview",
+      "type": "object"
+    },
+    "PolicySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_namespaces": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 63,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Allowed Namespaces"
+        },
+        "forbidden_namespaces": {
+          "items": {
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "type": "string"
+          },
+          "title": "Forbidden Namespaces",
+          "type": "array"
+        },
+        "max_affected_replicas": {
+          "exclusiveMinimum": 0,
+          "title": "Max Affected Replicas",
+          "type": "integer"
+        },
+        "max_duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Duration Seconds",
+          "type": "integer"
+        },
+        "min_healthy_replicas": {
+          "minimum": 0,
+          "title": "Min Healthy Replicas",
+          "type": "integer"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "max_duration_seconds",
+        "max_affected_replicas",
+        "min_healthy_replicas",
+        "forbidden_namespaces",
+        "allowed_namespaces"
+      ],
+      "title": "PolicySnapshot",
+      "type": "object"
+    },
+    "RejectedCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Message"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "static",
+            "cluster"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PASSED",
+            "FAILED",
+            "ERROR",
+            "SKIPPED"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "name",
+        "status",
+        "message"
+      ],
+      "title": "RejectedCheck",
+      "type": "object"
+    },
+    "RejectedFault": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_replicas": {
+          "exclusiveMinimum": 0,
+          "title": "Affected Replicas",
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "pod_delete_mode": {
+          "enum": [
+            "GRACEFUL",
+            "FORCE"
+          ],
+          "title": "Pod Delete Mode",
+          "type": "string"
+        },
+        "type": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,64}$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "pod_delete_mode",
+        "duration_seconds",
+        "affected_replicas"
+      ],
+      "title": "RejectedFault",
+      "type": "object"
+    },
+    "RejectedRun": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "fault": {
+          "$ref": "#/$defs/RejectedFault"
+        },
+        "state": {
+          "const": "VALIDATION_FAILED",
+          "title": "State",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "validation": {
+          "$ref": "#/$defs/RejectedValidation"
+        }
+      },
+      "required": [
+        "state",
+        "created_at",
+        "target",
+        "fault",
+        "validation"
+      ],
+      "title": "RejectedRun",
+      "type": "object"
+    },
+    "RejectedValidation": {
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/RejectedCheck"
+          },
+          "minItems": 1,
+          "title": "Checks",
+          "type": "array"
+        },
+        "passed": {
+          "const": false,
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "policy": {
+          "$ref": "#/$defs/PolicySnapshot"
+        }
+      },
+      "required": [
+        "passed",
+        "policy",
+        "checks"
+      ],
+      "title": "RejectedValidation",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "Deployment",
+            "StatefulSet"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "pseudonymised": {
+          "title": "Pseudonymised",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "namespace",
+        "kind",
+        "name",
+        "pseudonymised"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "ValidationProvenance": {
+      "additionalProperties": false,
+      "description": "A rejected experiment never ran, so there is no score.",
+      "properties": {
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        },
+        "engine_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Engine Commit",
+          "type": "string"
+        },
+        "environment": {
+          "pattern": "^[A-Za-z0-9 ,.()/+_-]{3,120}$",
+          "title": "Environment",
+          "type": "string"
+        },
+        "evidence_category": {
+          "enum": [
+            "controlled_research",
+            "development_run"
+          ],
+          "title": "Evidence Category",
+          "type": "string"
+        },
+        "evidence_level": {
+          "enum": [
+            "unclassified",
+            "A"
+          ],
+          "title": "Evidence Level",
+          "type": "string"
+        },
+        "exported_at": {
+          "format": "date-time",
+          "title": "Exported At",
+          "type": "string"
+        },
+        "exporter_version": {
+          "const": "1.0.0",
+          "title": "Exporter Version",
+          "type": "string"
+        },
+        "level_a_review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LevelAReview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence_category",
+        "evidence_level",
+        "level_a_review",
+        "synthetic",
+        "captured_at",
+        "exported_at",
+        "engine_commit",
+        "exporter_version",
+        "environment"
+      ],
+      "title": "ValidationProvenance",
+      "type": "object"
+    }
+  },
+  "$id": "autoresilience-validation/1",
+  "additionalProperties": false,
+  "description": "Evidence that the safety model refused an experiment before any injection.",
+  "properties": {
+    "experiment": {
+      "$ref": "#/$defs/RejectedRun"
+    },
+    "integrity": {
+      "$ref": "#/$defs/Integrity"
+    },
+    "provenance": {
+      "$ref": "#/$defs/ValidationProvenance"
+    },
+    "recording_id": {
+      "pattern": "^val-[0-9a-f]{16}$",
+      "title": "Recording Id",
+      "type": "string"
+    },
+    "schema": {
+      "const": "autoresilience-validation/1",
+      "title": "Schema",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "recording_id",
+    "provenance",
+    "experiment",
+    "integrity"
+  ],
+  "title": "RecordedValidation",
+  "type": "object"
+}

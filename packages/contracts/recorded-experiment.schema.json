@@ -1104,8 +1104,8 @@
         "exported_at",
         "engine_commit",
         "exporter_version",
-        "score_version",
-        "environment"
+        "environment",
+        "score_version"
       ],
       "title": "Provenance",
       "type": "object"
@@ -1427,6 +1427,10 @@
           "patternProperties": {
             "^[A-Za-z0-9_.:-]{1,64}$": {
               "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
                 {
                   "type": "boolean"
                 },
