@@ -6,9 +6,6 @@
    path in the topology illustration and nothing else. */
 @theme {
   --color-signal: #4cc9e0;
-  /* Lighter than the console's faint (#616d87, 3.7:1): the site sets body copy in it,
-     so it must meet WCAG AA (≥ 4.5:1 on every surface used). */
-  --color-faint: #7a86a0;
   --text-display: clamp(2.5rem, 5.4vw, 4.25rem);
   --text-display--line-height: 1.04;
 }

@@ -32,5 +32,5 @@ npm test --workspace site
 - **Motion.** CSS only: scroll-driven reveals and pan (`animation-timeline: view()`, progressive
   enhancement) and the hero's looping pod-delete. All of it is off under
   `prefers-reduced-motion`. Interactive 3D is P3.
-- **Colour.** Console tokens, except `faint`, which the site lightens to meet WCAG AA for small
-  text. `signal` (cyan) marks the healthy request path only.
+- **Colour.** The shared console tokens (`packages/ui`). `signal` (cyan) marks the healthy request
+  path only.

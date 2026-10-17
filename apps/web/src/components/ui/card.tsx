@@ -4,7 +4,8 @@ import { cn } from "@/lib/cn";
 
 export function Card({ className, ...props }: ComponentProps<"section">) {
   return (
-    <section className={cn("rounded-lg border border-line bg-surface", className)} {...props} />
+    // min-w-0: as a grid/flex item a card may shrink below a wide table, which then scrolls.
+    <section className={cn("min-w-0 rounded-lg border border-line bg-surface", className)} {...props} />
   );
 }
 

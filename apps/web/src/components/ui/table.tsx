@@ -4,7 +4,8 @@ import { cn } from "@/lib/cn";
 
 export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
-    <div className="overflow-x-auto">
+    // relative: absolutely positioned descendants (e.g. sr-only text) stay inside the scroller.
+    <div className="relative overflow-x-auto">
       <table className={cn("w-full border-collapse text-left text-sm", className)} {...props} />
     </div>
   );

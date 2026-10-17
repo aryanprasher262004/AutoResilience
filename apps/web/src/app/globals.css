@@ -17,6 +17,19 @@
   }
 }
 
+/* Dialog entrance; only applied under motion-safe. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
 /* Reports print on white: browsers drop dark backgrounds, so swap the tokens. */
 @media print {
   @page {

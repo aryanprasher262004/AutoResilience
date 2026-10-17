@@ -12,7 +12,7 @@ export function Stepper({ steps, current }: { steps: Step[]; current: string }) 
         const active = i === index;
         return (
           <li key={step.id} className="flex items-center gap-2">
-            {i > 0 ? <span aria-hidden className="h-px w-6 bg-line-strong" /> : null}
+            {i > 0 ? <span aria-hidden className="h-px w-4 bg-line-strong sm:w-6" /> : null}
             <span
               aria-current={active ? "step" : undefined}
               className={cn(
@@ -33,7 +33,8 @@ export function Stepper({ steps, current }: { steps: Step[]; current: string }) 
               >
                 {done ? "✓" : i + 1}
               </span>
-              <span className="font-medium">{step.label}</span>
+              {/* Phones name only the current step; the others keep their number (and an accessible label). */}
+              <span className={cn("font-medium", !active && "sr-only sm:not-sr-only")}>{step.label}</span>
               {done ? <span className="sr-only">(completed)</span> : null}
             </span>
           </li>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { Guide } from "@/components/onboarding/guide";
 import { Sidebar } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/top-bar";
 
@@ -19,14 +20,23 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
+        <a
+          href="#main"
+          className="sr-only rounded-md bg-accent px-3 py-2 text-sm font-medium text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60]"
+        >
+          Skip to content
+        </a>
         <Providers>
           <div className="flex min-h-dvh">
             <Sidebar />
             <div className="flex min-w-0 flex-1 flex-col">
               <TopBar />
-              <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-6 print:max-w-none print:p-0">{children}</main>
+              <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 outline-none sm:px-6 lg:py-8 print:max-w-none print:p-0">
+                {children}
+              </main>
             </div>
           </div>
+          <Guide />
         </Providers>
       </body>
     </html>

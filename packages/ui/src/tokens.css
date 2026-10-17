@@ -13,7 +13,8 @@
   --color-line-strong: #2a3552;
   --color-fg: #e4e8f1;
   --color-muted: #939fb6;
-  --color-faint: #616d87;
+  /* ≥ 4.5:1 on canvas and every surface (WCAG AA for small text). */
+  --color-faint: #7a86a0;
   --color-accent: #4f8bff;
   --color-accent-strong: #3b75ea;
   --color-success: #3dcc8e;
