@@ -1,0 +1,104 @@
+{
+  "experiment": {
+    "created_at": "2026-10-17T06:47:26.880170Z",
+    "fault": {
+      "affected_replicas": 1,
+      "duration_seconds": 60,
+      "pod_delete_mode": "GRACEFUL",
+      "type": "pod-delete"
+    },
+    "state": "VALIDATION_FAILED",
+    "target": {
+      "kind": "StatefulSet",
+      "name": "cart-redis",
+      "namespace": "shop",
+      "pseudonymised": false
+    },
+    "validation": {
+      "checks": [
+        {
+          "message": "Fault type 'pod-delete' is supported",
+          "name": "fault_type_supported",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "message": "Namespace 'shop' is not protected",
+          "name": "namespace_not_forbidden",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "message": "No namespace allowlist configured",
+          "name": "namespace_allowed",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "message": "Duration 60s <= limit 300s",
+          "name": "duration_within_limit",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "message": "Affected replicas 1 <= limit 1",
+          "name": "affected_replicas_within_limit",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "message": "StatefulSet shop/cart-redis exists",
+          "name": "target_workload_exists",
+          "phase": "cluster",
+          "status": "PASSED"
+        },
+        {
+          "message": "1/1 desired pods running and ready (1 running)",
+          "name": "target_has_running_pods",
+          "phase": "cluster",
+          "status": "PASSED"
+        },
+        {
+          "message": "1 ready - 1 affected = 0 remaining < minimum 1",
+          "name": "min_healthy_replicas_after_fault",
+          "phase": "cluster",
+          "status": "FAILED"
+        }
+      ],
+      "passed": false,
+      "policy": {
+        "allowed_namespaces": null,
+        "forbidden_namespaces": [
+          "kube-node-lease",
+          "kube-public",
+          "kube-system",
+          "litmus",
+          "local-path-storage",
+          "monitoring"
+        ],
+        "max_affected_replicas": 1,
+        "max_duration_seconds": 300,
+        "min_healthy_replicas": 1,
+        "name": "default"
+      }
+    }
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "json-sorted-compact/1",
+    "content_sha256": "10c9441e3ff567bdd3492b03abafafd1005fb45517a3d484458920482be6e5fe"
+  },
+  "provenance": {
+    "captured_at": "2026-10-17T06:47:26.880170Z",
+    "engine_commit": "30cf676a93048a54eabc8910888d55cec72929d2",
+    "environment": "kind 0.33 single node on Docker Desktop (10 CPU, 8 GB), sample apps",
+    "evidence_category": "development_run",
+    "evidence_level": "unclassified",
+    "exported_at": "2026-10-17T06:49:31.128009Z",
+    "exporter_version": "1.0.0",
+    "level_a_review": null,
+    "synthetic": false
+  },
+  "recording_id": "val-f6a5dd497e8fae25",
+  "schema": "autoresilience-validation/1"
+}

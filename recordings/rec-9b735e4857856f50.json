@@ -1,0 +1,389 @@
+{
+  "experiment": {
+    "baseline": {
+      "availability": {
+        "status": "OK",
+        "values": {
+          "availability_ratio": 1.0,
+          "available_replicas_avg": 2.0,
+          "available_replicas_min": 2,
+          "desired_replicas": 2,
+          "samples": 16
+        }
+      },
+      "captured_at": "2026-10-17T06:45:12.329989Z",
+      "client": {
+        "status": "OK",
+        "values": {
+          "client_failure_rate_rps": 0.0209,
+          "client_failure_ratio": 0.0026,
+          "client_latency_p95_seconds": 0.0048,
+          "client_outage_seconds": 31.4656,
+          "client_outages": 0,
+          "client_rate_rps": 8.2028
+        }
+      },
+      "requests": {
+        "status": "OK",
+        "values": {
+          "error_rate_rps": 0.0,
+          "error_ratio": 0.0,
+          "request_rate_rps": 8.5514
+        }
+      },
+      "restarts": {
+        "status": "OK",
+        "values": {
+          "restarts_in_window": 0,
+          "restarts_total": 6
+        }
+      },
+      "status": "CAPTURED",
+      "window_seconds": 300
+    },
+    "created_at": "2026-10-17T06:45:06.307254Z",
+    "fault": {
+      "affected_replicas": 1,
+      "duration_seconds": 60,
+      "pod_delete_mode": "GRACEFUL",
+      "type": "pod-delete"
+    },
+    "impact": {
+      "availability_dip_observed": false,
+      "availability_samples": 7,
+      "client": {
+        "connection_error": 0,
+        "counted_from": "2026-10-17T06:45:07.110000Z",
+        "counted_to": "2026-10-17T06:46:52.109000Z",
+        "failed": 0,
+        "failure_intervals": [],
+        "failure_ratio": 0.0,
+        "http_error": 0,
+        "latency_p95_seconds": 0.004760698198198198,
+        "outage": {
+          "counted_from": "2026-10-17T06:45:07.110000Z",
+          "counted_to": "2026-10-17T06:46:52.109000Z",
+          "outage_seconds": 0.0,
+          "outage_windows": [],
+          "outages": 0,
+          "pattern": "NONE",
+          "reset_detected": false,
+          "starts_before_fault": true,
+          "status": "OK"
+        },
+        "requests": 1038,
+        "starts_before_fault": true,
+        "status": "OK",
+        "success": 1038,
+        "timeout": 0
+      },
+      "errors_in_window": 0.0,
+      "min_available_replicas": 2,
+      "replacement_pods": [
+        {
+          "created_at": "2026-10-17T06:45:31Z",
+          "pod": "pod-2",
+          "ready_at": "2026-10-17T06:45:32Z"
+        }
+      ],
+      "requests_in_window": 956.96,
+      "restarts_in_window": 0,
+      "window_seconds": 101
+    },
+    "injection": {
+      "created_at": "2026-10-17T06:45:17.384057Z",
+      "experiment": "pod-delete",
+      "injected_at": "2026-10-17T06:45:32.509939Z",
+      "provider": "litmus",
+      "safety_policy": "default",
+      "target_pods": [
+        "pod-1"
+      ]
+    },
+    "lifecycle": {
+      "mode": "auto",
+      "requested_at": "2026-10-17T06:45:06.360479Z",
+      "state_since": {
+        "BASELINING": "2026-10-17T06:45:07.279109Z",
+        "COMPLETED": "2026-10-17T06:46:57.902389Z",
+        "CREATED": "2026-10-17T06:45:06.360479Z",
+        "INJECTING": "2026-10-17T06:45:12.329989Z",
+        "OBSERVING": "2026-10-17T06:45:32.509939Z"
+      },
+      "transitions": [
+        {
+          "at": "2026-10-17T06:45:07.279109Z",
+          "from_state": "CREATED",
+          "to_state": "BASELINING"
+        },
+        {
+          "at": "2026-10-17T06:45:12.329989Z",
+          "from_state": "BASELINING",
+          "to_state": "INJECTING"
+        },
+        {
+          "at": "2026-10-17T06:45:32.509939Z",
+          "from_state": "INJECTING",
+          "to_state": "OBSERVING"
+        },
+        {
+          "at": "2026-10-17T06:46:57.902389Z",
+          "from_state": "OBSERVING",
+          "to_state": "COMPLETED"
+        }
+      ]
+    },
+    "litmus": {
+      "chaos_result": {
+        "fail_step": null,
+        "phase": "Completed",
+        "probe_success_percentage": "100",
+        "verdict": "Pass"
+      },
+      "engine_status": "completed",
+      "experiment_status": "Completed",
+      "finished_at": "2026-10-17T06:46:57.902389Z",
+      "phase": "COMPLETED",
+      "verdict": "Pass"
+    },
+    "outcome": {
+      "reason_code": "RECOVERED",
+      "status": "COMPLETED"
+    },
+    "recovery": {
+      "confirmed_at": "2026-10-17T06:46:19.670000Z",
+      "error_check": {
+        "applicable": true,
+        "error_ratio": 0.0,
+        "ok": true,
+        "window_seconds": 47
+      },
+      "evaluations": 17,
+      "fault_observed_at": "2026-10-17T06:45:31Z",
+      "max_sample_gap_seconds": 15.005,
+      "recovered_at": "2026-10-17T06:45:32Z",
+      "rule": "recovered when >= affected_replicas replacement pods are Ready, then >= 4 consecutive availability samples >= baseline desired replicas with no gap > 40s, and (if the baseline had traffic) requests flow with 5xx ratio <= baseline + 0.01",
+      "stable_streak": [
+        {
+          "at": "2026-10-17T06:45:34.667000Z",
+          "available_replicas": 2.0
+        },
+        {
+          "at": "2026-10-17T06:45:49.665000Z",
+          "available_replicas": 2.0
+        },
+        {
+          "at": "2026-10-17T06:46:04.670000Z",
+          "available_replicas": 2.0
+        },
+        {
+          "at": "2026-10-17T06:46:19.670000Z",
+          "available_replicas": 2.0
+        }
+      ],
+      "status": "RECOVERED",
+      "time_to_recovery_seconds": 1.0
+    },
+    "score": {
+      "components": [
+        {
+          "contribution": 35.0,
+          "effective_weight": 35.0,
+          "name": "recovery_time",
+          "normalized": 1.0,
+          "raw": {
+            "recovered": true,
+            "time_to_recovery_seconds": 1.0
+          },
+          "reason": "Recovered in 1s (replacement created -> Ready, 1s resolution; full marks <= 10s, zero >= 120s)",
+          "status": "SCORED",
+          "weight": 35.0
+        },
+        {
+          "contribution": 15.0,
+          "effective_weight": 15.0,
+          "name": "client_outage",
+          "normalized": 1.0,
+          "raw": {
+            "baseline_expected_seconds": 10.593,
+            "excess_seconds": 0.0,
+            "outage_seconds": 0.0,
+            "outage_windows": [],
+            "outages": 0,
+            "pattern": "NONE",
+            "source": "client",
+            "window_seconds": 101
+          },
+          "reason": "No client-observed outage; baseline expects 10.593s; excess 0s (full marks <= 1s, zero >= 60s)",
+          "status": "SCORED",
+          "weight": 15.0
+        },
+        {
+          "contribution": 30.0,
+          "effective_weight": 30.0,
+          "name": "request_failures",
+          "normalized": 1.0,
+          "raw": {
+            "baseline_failure_ratio": 0.0026,
+            "connection_error": 0,
+            "counted_from": "2026-10-17T06:45:07.110000Z",
+            "counted_to": "2026-10-17T06:46:52.109000Z",
+            "failed": 0,
+            "failure_intervals": 0,
+            "fault_failure_ratio": 0.0,
+            "http_error": 0,
+            "increase": 0.0,
+            "requests": 1038,
+            "source": "client",
+            "timeout": 0
+          },
+          "reason": "Client saw 0/1038 requests fail: ratio 0.0 vs baseline 0.0026 (+0.0; full marks <= +0.001, zero >= +0.05)",
+          "status": "SCORED",
+          "weight": 30.0
+        },
+        {
+          "contribution": 10.0,
+          "effective_weight": 10.0,
+          "name": "restarts",
+          "normalized": 1.0,
+          "raw": {
+            "baseline_restarts_in_window": 0,
+            "restarts_in_window": 0
+          },
+          "reason": "0 container restart(s) during the fault window (zero marks at >= 2)",
+          "status": "SCORED",
+          "weight": 10.0
+        },
+        {
+          "contribution": 10.0,
+          "effective_weight": 10.0,
+          "name": "litmus_verdict",
+          "normalized": 1.0,
+          "raw": {
+            "fail_step": null,
+            "verdict": "Pass"
+          },
+          "reason": "Litmus verdict Pass",
+          "status": "SCORED",
+          "weight": 10.0
+        }
+      ],
+      "explanation": "Resilience Score 100/100 (Excellent) for pod-delete (GRACEFUL). Full marks on every applicable component.",
+      "rating": "Excellent",
+      "score": 100.0,
+      "status": "SCORED",
+      "thresholds": {
+        "error_ratio_severe_increase": 0.05,
+        "error_ratio_tolerated_increase": 0.001,
+        "not_recovered_cap": 40.0,
+        "outage_severe_seconds": 60.0,
+        "outage_tolerated_seconds": 1.0,
+        "recovery_fast_seconds": 10.0,
+        "recovery_slow_seconds": 120.0,
+        "restarts_zero_at": 2.0
+      },
+      "version": "v3",
+      "weights": {
+        "client_outage": 15.0,
+        "litmus_verdict": 10.0,
+        "recovery_time": 35.0,
+        "request_failures": 30.0,
+        "restarts": 10.0
+      }
+    },
+    "state": "COMPLETED",
+    "target": {
+      "kind": "Deployment",
+      "name": "checkout",
+      "namespace": "shop",
+      "pseudonymised": false
+    },
+    "target_after": {
+      "deleted_pods_still_present": [],
+      "desired_replicas": 2,
+      "ready_pods": [
+        "pod-2",
+        "pod-3"
+      ]
+    },
+    "validation": {
+      "checks": [
+        {
+          "name": "fault_type_supported",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "name": "namespace_not_forbidden",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "name": "namespace_allowed",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "name": "duration_within_limit",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "name": "affected_replicas_within_limit",
+          "phase": "static",
+          "status": "PASSED"
+        },
+        {
+          "name": "target_workload_exists",
+          "phase": "cluster",
+          "status": "PASSED"
+        },
+        {
+          "name": "target_has_running_pods",
+          "phase": "cluster",
+          "status": "PASSED"
+        },
+        {
+          "name": "min_healthy_replicas_after_fault",
+          "phase": "cluster",
+          "status": "PASSED"
+        }
+      ],
+      "passed": true,
+      "policy": {
+        "allowed_namespaces": null,
+        "forbidden_namespaces": [
+          "kube-node-lease",
+          "kube-public",
+          "kube-system",
+          "litmus",
+          "local-path-storage",
+          "monitoring"
+        ],
+        "max_affected_replicas": 1,
+        "max_duration_seconds": 300,
+        "min_healthy_replicas": 1,
+        "name": "default"
+      }
+    }
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "json-sorted-compact/1",
+    "content_sha256": "21792bde8051810f2088a124ae8eebf5b1652f6422ec0658d1e9bf8706d9af00"
+  },
+  "provenance": {
+    "captured_at": "2026-10-17T06:46:57.902389Z",
+    "engine_commit": "30cf676a93048a54eabc8910888d55cec72929d2",
+    "environment": "kind 0.33 single node on Docker Desktop (10 CPU, 8 GB), sample apps",
+    "evidence_category": "development_run",
+    "evidence_level": "unclassified",
+    "exported_at": "2026-10-17T06:49:30.668600Z",
+    "exporter_version": "1.0.0",
+    "level_a_review": null,
+    "score_version": "v3",
+    "synthetic": false
+  },
+  "recording_id": "rec-9b735e4857856f50",
+  "schema": "autoresilience-recording/1"
+}
