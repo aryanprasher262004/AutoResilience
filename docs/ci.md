@@ -9,7 +9,7 @@ run for the same branch cancels the older one.
 
 ## Jobs (run in parallel)
 
-Five jobs, each a separate check on the pull request:
+Six jobs, each a separate check on the pull request:
 
 | Job | What fails it | Same thing locally |
 |---|---|---|
@@ -17,6 +17,7 @@ Five jobs, each a separate check on the pull request:
 | Backend · migrations on PostgreSQL | a migration that does not apply, or models changed without a migration | `./scripts/dev-db.sh` (applies `alembic upgrade head`), then `cd apps/api && uv run alembic check` |
 | Frontend · lint, typecheck, build | ESLint errors, TypeScript errors, a failing `next build` | `cd apps/web && npm ci && npm run lint && npm run typecheck && npm run build` |
 | Frontend · tests | a failing Vitest test (`apps/web/src/**/*.test.tsx`, see `apps/web/README.md`) | `cd apps/web && npm ci && npm test` |
+| Recorded evidence · schema and recordings | `packages/contracts/recorded-experiment.schema.json` differs from the Pydantic model, or a file in `recordings/` fails validation or its hash ([recordings.md](recordings.md)) | `cd apps/api && uv run python -m app.tools.export_recording schema --check && uv run python -m app.tools.export_recording verify ../../recordings` |
 | API contract in sync | `packages/contracts/openapi.json` or `apps/web/src/lib/api/schema.ts` differ from what the code generates | `./scripts/gen-api-contracts.sh && git diff --exit-code -- packages/contracts/openapi.json apps/web/src/lib/api/schema.ts` |
 
 Fixing a contract failure: run `scripts/gen-api-contracts.sh` and commit both generated files.

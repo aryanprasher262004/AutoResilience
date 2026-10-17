@@ -115,6 +115,26 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  recordings:
+    name: Recorded evidence · schema and recordings
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - run: uv sync --frozen
+      - name: Generated JSON Schema matches the Pydantic contract
+        run: uv run --frozen python -m app.tools.export_recording schema --check
+      - name: Every committed recording validates and its hash matches
+        run: uv run --frozen python -m app.tools.export_recording verify ../../recordings
+
   contract:
     name: API contract in sync
     runs-on: ubuntu-latest
