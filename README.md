@@ -309,6 +309,7 @@ docker volume rm autoresilience-pgdata        # deletes all experiment history
 | `monitoring/prometheus/queries.md` | PromQL used for baseline and observation |
 | `research/handoff/README.md` | Research knowledge base: architecture, methodology, evidence, experiment plan, paper guide |
 | `DEVELOPMENT.md` | Developer guide (current state, commands) |
+| `docs/product/v0.2-architecture.md` | v0.2 product architecture proposal (website, local tool, desktop, Cloud) |
 
 ### Documentation rule
 
