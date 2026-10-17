@@ -9,6 +9,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { useServices } from "@/lib/api/queries";
 import type { ServiceSummary } from "@/lib/api/types";
+import Link from "next/link";
+
 import { FAULT_TYPES, MODE_HELP, POD_DELETE_MODES, WORKLOAD_KINDS } from "@/lib/experiment-options";
 
 import type { FieldErrors, FormValues } from "./form";
@@ -105,183 +107,258 @@ export function ConfigureStep({
 
   return (
     <form onSubmit={submit} noValidate aria-busy={busy}>
-      <fieldset disabled={busy} className="grid gap-4">
-        <Card>
-          <CardHeader title="Experiment" description="How this run is identified in history." />
-          <CardBody className="grid gap-4 sm:grid-cols-2">
-            <Field id="name" label="Name" error={errors.name} hint="Up to 200 characters.">
-              <Input
-                id="name"
-                value={values.name}
-                maxLength={200}
-                autoComplete="off"
-                aria-invalid={invalid("name")}
-                aria-describedby={describedBy("name")}
-                onChange={(e) => onChange("name", e.target.value)}
-              />
-            </Field>
-            <Field id="description" label="Description (optional)" error={errors.description}>
-              <Textarea
-                id="description"
-                rows={2}
-                maxLength={2000}
-                value={values.description}
-                aria-invalid={invalid("description")}
-                onChange={(e) => onChange("description", e.target.value)}
-              />
-            </Field>
-          </CardBody>
-        </Card>
+      <fieldset disabled={busy} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+        <div className="grid min-w-0 gap-4">
+          <Card>
+            <CardHeader title="Experiment" description="How this run is identified in history." />
+            <CardBody className="grid gap-4 sm:grid-cols-2">
+              <Field id="name" label="Name" error={errors.name} hint="Up to 200 characters.">
+                <Input
+                  id="name"
+                  value={values.name}
+                  maxLength={200}
+                  autoComplete="off"
+                  aria-invalid={invalid("name")}
+                  aria-describedby={describedBy("name")}
+                  onChange={(e) => onChange("name", e.target.value)}
+                />
+              </Field>
+              <Field id="description" label="Description (optional)" error={errors.description}>
+                <Textarea
+                  id="description"
+                  rows={2}
+                  maxLength={2000}
+                  value={values.description}
+                  aria-invalid={invalid("description")}
+                  onChange={(e) => onChange("description", e.target.value)}
+                />
+              </Field>
+            </CardBody>
+          </Card>
 
-        <Card>
-          <CardHeader
-            title="Target"
-            description="The workload whose pods will be deleted. The server checks that it exists and is safe to target."
-          />
-          <CardBody className="grid gap-4 sm:grid-cols-3">
-            <DiscoveredWorkload
-              values={values}
-              onPick={(s) => {
-                onChange("namespace", s.namespace);
-                onChange("workload", s.name);
-                onChange("kind", s.kind);
-              }}
+          <Card>
+            <CardHeader
+              title="Target"
+              description="The workload whose pods will be deleted. The server checks that it exists and is safe to target."
             />
-            <Field id="namespace" label="Namespace" error={errors.namespace} hint="Kubernetes namespace">
-              <Input
-                id="namespace"
-                value={values.namespace}
-                autoComplete="off"
-                spellCheck={false}
-                className="font-mono"
-                aria-invalid={invalid("namespace")}
-                aria-describedby={describedBy("namespace")}
-                onChange={(e) => onChange("namespace", e.target.value)}
+            <CardBody className="grid gap-4 sm:grid-cols-3">
+              <DiscoveredWorkload
+                values={values}
+                onPick={(s) => {
+                  onChange("namespace", s.namespace);
+                  onChange("workload", s.name);
+                  onChange("kind", s.kind);
+                }}
               />
-            </Field>
-            <Field id="workload" label="Workload name" error={errors.workload} hint="Deployment or StatefulSet name">
-              <Input
-                id="workload"
-                value={values.workload}
-                autoComplete="off"
-                spellCheck={false}
-                className="font-mono"
-                aria-invalid={invalid("workload")}
-                aria-describedby={describedBy("workload")}
-                onChange={(e) => onChange("workload", e.target.value)}
-              />
-            </Field>
-            <Field id="kind" label="Workload kind" error={errors.kind}>
-              <Select
-                id="kind"
-                value={values.kind}
-                onChange={(e) => onChange("kind", e.target.value as FormValues["kind"])}
-              >
-                {WORKLOAD_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {kind}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader title="Fault" description="What happens to the target, and how much of it." />
-          <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field id="faultType" label="Fault type" error={errors.faultType}>
-              <Select
-                id="faultType"
-                value={values.faultType}
-                onChange={(e) => onChange("faultType", e.target.value as FormValues["faultType"])}
-              >
-                {FAULT_TYPES.map((fault) => (
-                  <option key={fault} value={fault}>
-                    {fault}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {values.faultType === "pod-delete" ? (
-              <Field id="mode" label="Deletion mode" error={errors.mode} hint={MODE_HELP[values.mode]}>
+              <Field id="namespace" label="Namespace" error={errors.namespace} hint="Kubernetes namespace">
+                <Input
+                  id="namespace"
+                  value={values.namespace}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="font-mono"
+                  aria-invalid={invalid("namespace")}
+                  aria-describedby={describedBy("namespace")}
+                  onChange={(e) => onChange("namespace", e.target.value)}
+                />
+              </Field>
+              <Field id="workload" label="Workload name" error={errors.workload} hint="Deployment or StatefulSet name">
+                <Input
+                  id="workload"
+                  value={values.workload}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="font-mono"
+                  aria-invalid={invalid("workload")}
+                  aria-describedby={describedBy("workload")}
+                  onChange={(e) => onChange("workload", e.target.value)}
+                />
+              </Field>
+              <Field id="kind" label="Workload kind" error={errors.kind}>
                 <Select
-                  id="mode"
-                  value={values.mode}
-                  aria-describedby={describedBy("mode")}
-                  onChange={(e) => onChange("mode", e.target.value as FormValues["mode"])}
+                  id="kind"
+                  value={values.kind}
+                  onChange={(e) => onChange("kind", e.target.value as FormValues["kind"])}
                 >
-                  {POD_DELETE_MODES.map((mode) => (
-                    <option key={mode} value={mode}>
-                      {mode}
+                  {WORKLOAD_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind}
                     </option>
                   ))}
                 </Select>
               </Field>
-            ) : null}
-            <Field
-              id="durationSeconds"
-              label="Duration (seconds)"
-              error={errors.durationSeconds}
-              hint="Observation window for the fault"
-            >
-              <Input
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Fault" description="What happens to the target, and how much of it." />
+            <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field id="faultType" label="Fault type" error={errors.faultType}>
+                <Select
+                  id="faultType"
+                  value={values.faultType}
+                  onChange={(e) => onChange("faultType", e.target.value as FormValues["faultType"])}
+                >
+                  {FAULT_TYPES.map((fault) => (
+                    <option key={fault} value={fault}>
+                      {fault}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {values.faultType === "pod-delete" ? (
+                <Field id="mode" label="Deletion mode" error={errors.mode} hint={MODE_HELP[values.mode]}>
+                  <Select
+                    id="mode"
+                    value={values.mode}
+                    aria-describedby={describedBy("mode")}
+                    onChange={(e) => onChange("mode", e.target.value as FormValues["mode"])}
+                  >
+                    {POD_DELETE_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {mode}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+              <Field
                 id="durationSeconds"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                className="font-mono"
-                value={values.durationSeconds}
-                aria-invalid={invalid("durationSeconds")}
-                aria-describedby={describedBy("durationSeconds")}
-                onChange={(e) => onChange("durationSeconds", e.target.value)}
-              />
-            </Field>
-            <Field
-              id="affectedReplicas"
-              label="Affected replicas"
-              error={errors.affectedReplicas}
-              hint="Pods deleted at once (blast radius)"
-            >
-              <Input
+                label="Duration (seconds)"
+                error={errors.durationSeconds}
+                hint="Observation window for the fault"
+              >
+                <Input
+                  id="durationSeconds"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  className="font-mono"
+                  value={values.durationSeconds}
+                  aria-invalid={invalid("durationSeconds")}
+                  aria-describedby={describedBy("durationSeconds")}
+                  onChange={(e) => onChange("durationSeconds", e.target.value)}
+                />
+              </Field>
+              <Field
                 id="affectedReplicas"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                className="font-mono"
-                value={values.affectedReplicas}
-                aria-invalid={invalid("affectedReplicas")}
-                aria-describedby={describedBy("affectedReplicas")}
-                onChange={(e) => onChange("affectedReplicas", e.target.value)}
-              />
-            </Field>
-          </CardBody>
-        </Card>
+                label="Affected replicas"
+                error={errors.affectedReplicas}
+                hint="Pods deleted at once (blast radius)"
+              >
+                <Input
+                  id="affectedReplicas"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  className="font-mono"
+                  value={values.affectedReplicas}
+                  aria-invalid={invalid("affectedReplicas")}
+                  aria-describedby={describedBy("affectedReplicas")}
+                  onChange={(e) => onChange("affectedReplicas", e.target.value)}
+                />
+              </Field>
+            </CardBody>
+          </Card>
 
-        {formError ? (
-          <Callout tone="danger" title="Could not create the experiment" role="alert">
-            <span className="font-mono">{formError}</span>
-          </Callout>
-        ) : null}
-        {supersedes ? (
-          <Callout tone="info" title="The configuration changed since the last safety check">
-            Checking again creates a new experiment. The earlier attempt{" "}
-            <span className="font-mono">{supersedes.id.split("-")[0]}</span> stays in history as{" "}
-            {supersedes.state}.
-          </Callout>
-        ) : null}
+          {formError ? (
+            <Callout tone="danger" title="Could not create the experiment" role="alert">
+              <span className="font-mono">{formError}</span>
+            </Callout>
+          ) : null}
+          {supersedes ? (
+            <Callout tone="info" title="The configuration changed since the last safety check">
+              Checking again creates a new experiment. The earlier attempt{" "}
+              <span className="font-mono">{supersedes.id.split("-")[0]}</span> stays in history as{" "}
+              {supersedes.state}.
+            </Callout>
+          ) : null}
 
-        <div className="flex items-center justify-end gap-3">
-          <p className="text-xs text-faint">
-            Creates the experiment and runs the server-side safety checks. Nothing is injected yet.
-          </p>
-          <Button type="submit" variant="primary" disabled={busy}>
-            {busy ? "Checking…" : "Check safety"}
-          </Button>
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <p className="text-xs text-faint">
+              Creates the experiment and runs the server-side safety checks. Nothing is injected yet.
+            </p>
+            <Button type="submit" variant="primary" disabled={busy}>
+              {busy ? "Checking…" : "Check safety"}
+            </Button>
+          </div>
         </div>
+        <Summary values={values} />
       </fieldset>
     </form>
+  );
+}
+
+/**
+ * What will be submitted, with the discovered workload's live replica counts for context.
+ * It states numbers only: whether they are allowed is decided by the server's policy.
+ */
+function Summary({ values }: { values: FormValues }) {
+  const { data } = useServices();
+  const target = keyOf({ namespace: values.namespace.trim(), kind: values.kind, name: values.workload.trim() });
+  const discovered = data?.items.find((s) => keyOf(s) === target);
+  const affected = Number(values.affectedReplicas);
+  const validAffected = Number.isInteger(affected) && affected > 0;
+  return (
+    <aside aria-labelledby="summary-title" className="lg:sticky lg:top-20">
+      <Card>
+        <CardHeader title={<span id="summary-title">Summary</span>} description="What the safety check will receive" />
+        <CardBody className="grid gap-3 text-sm">
+          <Row label="Target">
+            {values.namespace.trim() && values.workload.trim() ? (
+              <span className="font-mono text-xs">
+                {values.kind} {values.namespace.trim()}/{values.workload.trim()}
+              </span>
+            ) : (
+              <span className="text-faint">Not chosen yet</span>
+            )}
+          </Row>
+          <Row label="Fault">
+            <span className="font-mono text-xs">
+              {values.faultType}
+              {values.faultType === "pod-delete" ? ` · ${values.mode}` : ""}
+            </span>
+          </Row>
+          <Row label="Duration">
+            <span className="font-mono text-xs">{values.durationSeconds.trim() ? `${values.durationSeconds.trim()} s` : "?"}</span>
+          </Row>
+          <Row label="Blast radius">
+            {validAffected ? (
+              discovered ? (
+                <span>
+                  <span className="font-mono">{affected}</span> of{" "}
+                  <span className="font-mono">{discovered.ready_replicas}</span> ready pod
+                  {discovered.ready_replicas === 1 ? "" : "s"} deleted at once
+                </span>
+              ) : (
+                <span>
+                  <span className="font-mono">{affected}</span> pod{affected === 1 ? "" : "s"} deleted at once
+                </span>
+              )
+            ) : (
+              <span className="text-faint">Enter a whole number</span>
+            )}
+          </Row>
+          <div className="rounded-md border border-line bg-surface-2/60 p-3 text-xs leading-relaxed text-muted">
+            The server applies the target namespace&apos;s safety policy: duration and blast-radius limits, then
+            the live workload, which must keep enough ready pods. Nothing is injected until you start the run.{" "}
+            <Link href="/how-it-works#safety" className="text-accent hover:underline">
+              How safety works
+            </Link>
+          </div>
+        </CardBody>
+      </Card>
+    </aside>
+  );
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[6.5rem_1fr] gap-2">
+      <span className="text-xs text-faint">{label}</span>
+      <span className="min-w-0 break-words">{children}</span>
+    </div>
   );
 }

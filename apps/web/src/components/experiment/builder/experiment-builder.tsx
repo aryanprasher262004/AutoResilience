@@ -9,6 +9,7 @@ import { ApiError, api } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/queries";
 import type { Experiment } from "@/lib/api/types";
 import { presentState } from "@/lib/experiment-state";
+import { readPreferences } from "@/lib/preferences";
 
 import { ConfigureStep } from "./configure-step";
 import {
@@ -44,7 +45,9 @@ export function ExperimentBuilder() {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<StepId>("configure");
   const searchParams = useSearchParams();
-  const [values, setValues] = useState<FormValues>(() => initialValues(searchParams));
+  const [values, setValues] = useState<FormValues>(() =>
+    initialValues(searchParams, readPreferences().experimentDefaults),
+  );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [experiment, setExperiment] = useState<Experiment | null>(null);

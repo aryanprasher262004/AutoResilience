@@ -1,5 +1,6 @@
 import type { ExperimentCreate, FaultType, PodDeleteMode, WorkloadKind } from "@/lib/api/types";
 import { WORKLOAD_KINDS } from "@/lib/experiment-options";
+import { BUILT_IN_DEFAULTS, type ExperimentDefaults } from "@/lib/preferences";
 
 /** Raw form state (strings for number inputs so partial edits are possible). */
 export type FormValues = {
@@ -28,11 +29,17 @@ export const INITIAL_VALUES: FormValues = {
   affectedReplicas: "1",
 };
 
-/** Target prefilled from a link (e.g. Services → "New experiment"); still editable. */
-export function initialValues(params: URLSearchParams): FormValues {
+/**
+ * Target prefilled from a link (e.g. Services → "New experiment") and fault values from
+ * the user's preferences; everything stays editable and is checked by the server.
+ */
+export function initialValues(params: URLSearchParams, defaults: ExperimentDefaults = BUILT_IN_DEFAULTS): FormValues {
   const kind = params.get("kind");
   return {
     ...INITIAL_VALUES,
+    mode: defaults.mode,
+    durationSeconds: String(defaults.durationSeconds),
+    affectedReplicas: String(defaults.affectedReplicas),
     namespace: params.get("namespace") ?? "",
     workload: params.get("name") ?? "",
     kind: kind && (WORKLOAD_KINDS as readonly string[]).includes(kind) ? (kind as WorkloadKind) : INITIAL_VALUES.kind,

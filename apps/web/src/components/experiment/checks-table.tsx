@@ -2,6 +2,7 @@ import { Badge, type Tone } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import type { ValidationResult } from "@/lib/api/types";
+import { CHECK_HELP } from "@/lib/guidance";
 
 const CHECK_TONE: Record<string, Tone> = {
   PASSED: "success",
@@ -12,7 +13,7 @@ const CHECK_TONE: Record<string, Tone> = {
 
 type Check = ValidationResult["static_checks"][number];
 
-/** Server validation checks, rendered exactly as returned. */
+/** Server validation checks, rendered exactly as returned; non-passing ones get background. */
 export function ChecksTable({
   title,
   description,
@@ -42,7 +43,12 @@ export function ChecksTable({
                 </Badge>
               </TD>
               <TD className="font-mono text-xs">{check.name}</TD>
-              <TD className="text-xs text-muted">{check.message}</TD>
+              <TD className="text-xs text-muted">
+                {check.message}
+                {check.status !== "PASSED" && CHECK_HELP[check.name] ? (
+                  <span className="mt-1 block text-faint">Why this matters: {CHECK_HELP[check.name]}</span>
+                ) : null}
+              </TD>
             </TR>
           ))}
         </TBody>

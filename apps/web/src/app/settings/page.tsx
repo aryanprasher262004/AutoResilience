@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 
+import { GuideControls } from "@/components/settings/guide-controls";
+import { PreferencesForm } from "@/components/settings/preferences-form";
 import { ApiStatus } from "@/components/shell/api-status";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { DescriptionList } from "@/components/ui/description-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { PlannedState } from "@/components/ui/states";
 import { API_BASE_PATH } from "@/lib/api/client";
+import { RUNTIME_MODE, RUNTIME_MODES, type RuntimeMode } from "@/lib/runtime";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -14,10 +18,19 @@ export default function SettingsPage() {
   const upstream = process.env.AUTORESILIENCE_API_PROXY_TARGET ?? "unknown";
   return (
     <>
-      <PageHeader title="Settings" description="How this console reaches the AutoResilience API." />
+      <PageHeader title="Settings" description="Console preferences and how this console reaches the engine." />
       <div className="grid gap-4">
+        <PreferencesForm />
+
         <Card>
-          <CardHeader title="API connection" />
+          <CardHeader title="Getting-started guide" description="Stored in this browser." />
+          <CardBody>
+            <GuideControls />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader title="API connection" description="Fixed when the console is built." />
           <CardBody>
             <DescriptionList
               items={[
@@ -31,10 +44,39 @@ export default function SettingsPage() {
             />
           </CardBody>
         </Card>
-        <PlannedState milestone="Not configurable here" title="Platform settings">
+
+        <Card>
+          <CardHeader title="Runtime mode" description="Where the engine and this console run." />
+          <ul className="divide-y divide-line">
+            {(Object.keys(RUNTIME_MODES) as RuntimeMode[]).map((mode) => {
+              const meta = RUNTIME_MODES[mode];
+              return (
+                <li key={mode} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-fg">
+                      {meta.label}
+                      {mode === RUNTIME_MODE ? <span className="ml-2 text-xs text-accent">this console</span> : null}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted">{meta.summary}</p>
+                  </div>
+                  <Badge tone={meta.status === "available" ? "success" : "warning"} dot>
+                    {meta.status === "available" ? "Available" : "Planned"}
+                  </Badge>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+
+        <PlannedState milestone="Planned · local stack" title="Cluster, permissions and data">
           <p>
-            Safety policies, timeouts and the target cluster are configured on the backend (code
-            and environment variables) and are deliberately not editable from the browser.
+            Choosing the cluster context, reviewing granted permissions, backups and cleanup arrive with the
+            packaged local stack. Until then the cluster is set with <code className="font-mono">KUBE_CONTEXT</code>{" "}
+            when the API starts.
+          </p>
+          <p>
+            Safety policies, timeouts and limits are configured in the engine (code and environment variables) and
+            are deliberately not editable from the browser.
           </p>
         </PlannedState>
       </div>

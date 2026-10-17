@@ -20,6 +20,7 @@ import { Lifecycle } from "./lifecycle";
 import { LiveStatus } from "./live-status";
 import { MetricsTable } from "./metrics-table";
 import { OutcomeBanner } from "./outcome-banner";
+import { PhaseGuide } from "./phase-guide";
 import { ScorePanel } from "./score-panel";
 
 /** /experiments/[id]: the live experiment workspace. Everything shown comes from the API. */
@@ -79,6 +80,7 @@ export function ExperimentRoom({ id }: { id: string }) {
       />
       <OutcomeBanner experiment={e} orch={orch} />
       <LiveStatus experiment={e} orch={orch} active={active} fetchedAt={dataUpdatedAt} fetching={isFetching} />
+      <PhaseGuide experiment={e} />
       <Tabs
         items={[
           {
