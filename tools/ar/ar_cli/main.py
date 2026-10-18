@@ -133,9 +133,11 @@ class App:
         findings += checks.check_ports(ports, owned)
         return findings
 
-    def ensure_engine_kubeconfig(self) -> None:
-        if not self.paths.kubeconfig.exists():
-            raise Abort(f"{self.paths.kubeconfig} is missing; run `ar install` to regenerate the engine's access")
+    def ensure_engine_kubeconfig(self, provisioner: bool = False) -> None:
+        paths = [self.paths.kubeconfig] + ([self.paths.provisioner_kubeconfig] if provisioner else [])
+        for path in paths:
+            if not path.exists():
+                raise Abort(f"{path} is missing; run `ar install` to regenerate the engine's access")
 
     @staticmethod
     def imported(state: State) -> list[imports.ImportRecord]:
@@ -218,6 +220,10 @@ class App:
             "    (read: workloads, ReplicaSets, Pods, Services, EndpointSlices, Events, Nodes, Namespaces; no Secrets)"
         )
         c.say(f"    and write its kubeconfig to {self.paths.kubeconfig} (0600)")
+        c.say("  - create the separate import provisioner (autoresilience-provisioner: may only write inside")
+        c.say(
+            f"    ar-imp-* namespaces, enforced by an admission policy), kubeconfig {self.paths.provisioner_kubeconfig}"
+        )
         c.say(
             f"  - build images autoresilience/api:local and autoresilience/web:local, create the Docker volume {DATA_VOLUME}"
         )
@@ -267,23 +273,27 @@ class App:
         changed = cluster.write_engine_kubeconfig(
             self.runner, self.paths, self.versions, [r.context for r in self.imported(state)]
         )
-        wrong = [
-            (p, actual)
-            for p, actual in cluster.check_engine_permissions(self.runner, self.versions)
-            if actual != p.expected
-        ]
-        for p, actual in wrong:
-            self.console.say(
-                f"  unexpected: engine {'can' if actual else 'cannot'} {p.verb} {p.resource} in {p.namespace or 'all namespaces'}"
-            )
+        changed = cluster.write_provisioner_kubeconfig(self.runner, self.paths, self.versions) or changed
+        wrong = []
+        for who, provisioner in (("engine", False), ("provisioner", True)):
+            for p, actual in cluster.check_engine_permissions(self.runner, self.versions, provisioner=provisioner):
+                if actual != p.expected:
+                    wrong.append(p)
+                    self.console.say(
+                        f"  unexpected: {who} {'can' if actual else 'cannot'} {p.verb} {p.resource}"
+                        f" in {p.namespace or 'all namespaces'}"
+                    )
         if wrong:
             raise Abort("The engine's permissions differ from infra/rbac/; not starting the stack")
         self.console.say("  engine permissions verified (read-only + own ChaosEngines; no secrets, no workload writes)")
+        self.console.say(
+            "  provisioner permissions verified (namespaces and bindings only; writes confined to imports)"
+        )
         return changed
 
     def start(self) -> int:
         state = self.require_state()
-        self.ensure_engine_kubeconfig()
+        self.ensure_engine_kubeconfig(provisioner=True)
         status = cluster.cluster_status(self.runner, self.versions)
         if not status.exists:
             raise Abort(
@@ -586,7 +596,8 @@ class App:
         )
         for r in self.imported(state):
             c.say(f"  - revoke read-only discovery access in imported context {r.context} ({', '.join(r.namespaces)})")
-        c.say(f"backups in {self.paths.backups} (always kept),")
+        c.say(f"backups in {self.paths.backups} (always kept), imported applications (namespaces ar-imp-*;")
+        c.say("remove them in the console first, or they stay without a way to remove them from it),")
         c.say(
             f"and the kind cluster '{v.cluster_name}'"
             + ("" if state.cluster_created_by_ar else " (adopted: never deleted by this tool)")
@@ -624,6 +635,7 @@ class App:
             except (cluster.OwnershipError, CommandError) as exc:
                 c.say(f"  not revoked ({exc}); objects labelled {imports.VIEWER_SELECTOR} remain in {r.context}")
         self.paths.kubeconfig.unlink(missing_ok=True)
+        self.paths.provisioner_kubeconfig.unlink(missing_ok=True)
         shutil.rmtree(self.paths.helm, ignore_errors=True)  # this tool's Helm repo cache
         if drop_data:
             c.step(f"Deleting volume {DATA_VOLUME}")

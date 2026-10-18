@@ -22,12 +22,18 @@ from app.api.routes.experiments import (
     get_prometheus_client,
     get_start_wait,
 )
+from app.api.routes.imports import get_provisioner
 from app.api.routes.topology import get_cluster_registry
 from app.core.config import DiscoveryCluster, Settings
 from app.db import models  # noqa: F401  (registers models on Base.metadata)
 from app.db.base import Base
 from app.db.session import get_db
 from app.domain.experiment import ExperimentTarget, WorkloadKind
+from app.integrations.app_provisioner import (
+    OwnershipError,
+    ProvisionerUnavailableError,
+    check_objects,
+)
 from app.integrations.chaos_provider import (
     EXPERIMENT_ID_LABEL,
     MANAGED_BY_LABEL,
@@ -59,6 +65,7 @@ from app.services.orchestration.recovery import (
 from app.services.topology.clusters import ClusterRegistry
 
 CHECKOUT_PODS = ("checkout-a", "checkout-b", "checkout-c")
+CLUSTER_UID = "kube-system-uid-of-the-execution-cluster"
 
 
 class FakeKubernetes:
@@ -112,6 +119,11 @@ class FakeKubernetes:
             raise ClusterUnavailableError(self.error)
         return self.status
 
+    def cluster_fingerprint(self) -> str | None:
+        if self.error is not None:
+            raise ClusterUnavailableError(self.error)
+        return CLUSTER_UID
+
     def live_pod_names(self, namespace: str, names: list[str]) -> set[str]:
         self.live_calls.append(names)
         result = self.live_sequence[
@@ -120,6 +132,59 @@ class FakeKubernetes:
         if isinstance(result, Exception):
             raise result
         return result & set(names)
+
+
+class FakeProvisioner:
+    """Stands in for ImportProvisioner: records applies/removals, checks the objects
+    with the real allowlist (check_objects), and simulates ownership conflicts."""
+
+    def __init__(self) -> None:
+        self.configured = True
+        self.identity_ok = True
+        self.fingerprint: str | None = CLUSTER_UID
+        self.applied: list[tuple[str, str, list[dict[str, Any]]]] = []
+        self.removed: list[tuple[str, str]] = []
+        # Namespaces that exist and are not ours (apply/remove must refuse).
+        self.foreign: set[str] = set()
+        self.phase = "absent"
+
+    def verify(self) -> None:
+        if not self.configured:
+            raise ProvisionerUnavailableError("No provisioner identity is configured")
+        if not self.identity_ok:
+            raise ProvisionerUnavailableError("authenticates as 'kubernetes-admin'")
+
+    def cluster_fingerprint(self) -> str | None:
+        return self.fingerprint
+
+    def apply(
+        self, namespace: str, import_id: str, objects: list[dict[str, Any]]
+    ) -> list[dict[str, str]]:
+        check_objects(namespace, import_id, objects)
+        if namespace in self.foreign:
+            raise OwnershipError(
+                f"Namespace {namespace} exists and was not created by this import"
+            )
+        self.applied.append((namespace, import_id, objects))
+        self.phase = "Active"
+        return [
+            {"kind": o["kind"], "name": o["metadata"]["name"], "result": "created"}
+            for o in objects
+        ]
+
+    def remove(self, namespace: str, import_id: str) -> dict[str, Any]:
+        if namespace in self.foreign:
+            raise OwnershipError(
+                f"Namespace {namespace} is not labelled as this import's"
+            )
+        self.removed.append((namespace, import_id))
+        if self.phase == "absent":
+            return {"namespace": "absent", "foreign": []}
+        self.phase = "Terminating"
+        return {"namespace": "deleting", "foreign": []}
+
+    def namespace_phase(self, namespace: str) -> str:
+        return self.phase
 
 
 def fault(phase: FaultPhase, verdict: str | None = "Awaited") -> FaultStatus:
@@ -434,6 +499,11 @@ def chaos() -> FakeChaos:
 
 
 @pytest.fixture
+def provisioner() -> FakeProvisioner:
+    return FakeProvisioner()
+
+
+@pytest.fixture
 def clock() -> Clock:
     return Clock()
 
@@ -480,6 +550,7 @@ def client(
     chaos: FakeChaos,
     clock: Clock,
     clusters: Clusters,
+    provisioner: FakeProvisioner,
 ) -> Iterator[TestClient]:
     app.dependency_overrides[get_db] = lambda: db_session
     app.dependency_overrides[get_kubernetes_adapter] = lambda: kubernetes
@@ -489,6 +560,7 @@ def client(
     app.dependency_overrides[get_start_wait] = lambda: FAST_WAIT
     app.dependency_overrides[get_observation_config] = lambda: OBSERVATION_CONFIG
     app.dependency_overrides[get_now] = clock
+    app.dependency_overrides[get_provisioner] = lambda: provisioner
     # Rebuilt per request, so tests may authorize contexts after creating the client.
     app.dependency_overrides[get_cluster_registry] = clusters.registry
     with TestClient(app) as test_client:

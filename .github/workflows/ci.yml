@@ -174,9 +174,9 @@ jobs:
         working-directory: tools/ar
         run: python3 -m unittest discover -s tests -t . -v
       - name: compose.yaml is valid
-        run: AUTORESILIENCE_DB_PASSWORD=ci AUTORESILIENCE_KUBECONFIG=/dev/null docker compose config -q
+        run: AUTORESILIENCE_DB_PASSWORD=ci AUTORESILIENCE_KUBECONFIG=/dev/null AUTORESILIENCE_PROVISIONER_KUBECONFIG=/dev/null docker compose config -q
       - name: Images build from the lockfiles
-        run: AUTORESILIENCE_DB_PASSWORD=ci AUTORESILIENCE_KUBECONFIG=/dev/null docker compose build
+        run: AUTORESILIENCE_DB_PASSWORD=ci AUTORESILIENCE_KUBECONFIG=/dev/null AUTORESILIENCE_PROVISIONER_KUBECONFIG=/dev/null docker compose build
 
   contract:
     name: API contract in sync

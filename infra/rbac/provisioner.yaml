@@ -1,0 +1,243 @@
+# Identity that deploys and removes imported applications (P7, docs/imports.md).
+# Separate from the engine's experiment identity (engine-rbac.yaml): the engine's
+# kubeconfig cannot deploy anything, and this one cannot run chaos.
+#
+# Least privilege, in three layers:
+#   1. RBAC, cluster-wide: get namespaces; create/patch/delete namespaces; create
+#      RoleBindings; `bind` only the three ClusterRoles below. No reads of anything else.
+#   2. Inside an import namespace it binds itself to autoresilience-import-writer
+#      (namespaced writes of the kinds an import plan contains).
+#   3. The ValidatingAdmissionPolicy at the end confines every write by this identity
+#      to namespaces named ar-imp-* and labelled autoresilience.io/owner=import, with
+#      Pod Security `baseline` enforced, ClusterIP Services only, and RoleBindings only
+#      to the vetted roles and subjects. Pod privileges are then enforced by Pod
+#      Security Admission in those namespaces.
+# Applied by scripts/dev-provisioner.sh (development) and tools/ar (local stack).
+# Every object carries both ownership labels, like the engine's identity.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: autoresilience-provisioner
+  namespace: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+---
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: autoresilience-provisioner-token
+  namespace: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+  annotations:
+    kubernetes.io/service-account.name: autoresilience-provisioner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autoresilience-provisioner
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "create", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["rolebindings"]
+    verbs: ["create"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    resourceNames:
+      - autoresilience-import-writer
+      - autoresilience-chaos-runner
+      - autoresilience-engine-chaos
+    verbs: ["bind"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: autoresilience-provisioner
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: autoresilience-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: autoresilience-provisioner
+    namespace: autoresilience-system
+---
+# Bound by the provisioner to itself inside each import namespace only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autoresilience-import-writer
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "create", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services", "serviceaccounts", "configmaps", "resourcequotas", "limitranges"]
+    verbs: ["get", "list", "create", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["rolebindings"]
+    verbs: ["get", "list", "create", "patch", "delete"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosexperiments"]
+    verbs: ["get", "list", "create", "patch", "delete"]
+---
+# The pod-delete runner's rules (same as chaos/rbac/pod-delete-rbac.yaml), as a
+# ClusterRole so the provisioner can bind it per import namespace without holding
+# these permissions itself.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autoresilience-chaos-runner
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets", "daemonsets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["replicationcontrollers"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "delete", "deletecollection"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosengines", "chaosexperiments", "chaosresults"]
+    verbs: ["create", "get", "list", "patch", "update", "delete"]
+---
+# The engine's per-namespace chaos rules (same as engine-chaos-role.yaml), bound in
+# import namespaces to the engine's ServiceAccount.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autoresilience-engine-chaos
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+rules:
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosengines"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosresults"]
+    verbs: ["get", "delete"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosexperiments"]
+    resourceNames: ["pod-delete"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    resourceNames: ["autoresilience-chaos"]
+    verbs: ["get"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: autoresilience-provisioner-boundary
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["*"]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["*/*"]
+    # "Who am I" reviews: how the engine checks it holds this identity, not a write.
+    excludeResourceRules:
+      - apiGroups: ["authentication.k8s.io"]
+        apiVersions: ["*"]
+        operations: ["CREATE"]
+        resources: ["selfsubjectreviews"]
+  matchConditions:
+    - name: provisioner-only
+      expression: >-
+        request.userInfo.username ==
+        'system:serviceaccount:autoresilience-system:autoresilience-provisioner'
+  variables:
+    - name: obj
+      expression: "request.operation == 'DELETE' ? oldObject : object"
+    - name: isNamespace
+      expression: "request.kind.group == '' && request.kind.kind == 'Namespace'"
+    - name: labels
+      expression: >-
+        has(variables.obj.metadata) && has(variables.obj.metadata.labels)
+        ? variables.obj.metadata.labels : {}
+    - name: nsLabels
+      expression: >-
+        namespaceObject != null && has(namespaceObject.metadata.labels)
+        ? namespaceObject.metadata.labels : {}
+  validations:
+    - expression: >-
+        !variables.isNamespace || (
+          request.name.startsWith('ar-imp-') &&
+          'autoresilience.io/owner' in variables.labels &&
+          variables.labels['autoresilience.io/owner'] == 'import' &&
+          (request.operation == 'DELETE' || (
+            'pod-security.kubernetes.io/enforce' in variables.labels &&
+            variables.labels['pod-security.kubernetes.io/enforce'] in ['baseline', 'restricted'])))
+      message: "the provisioner may only manage ar-imp-* namespaces labelled for imports, with Pod Security baseline enforced"
+    - expression: >-
+        variables.isNamespace || (
+          request.namespace.startsWith('ar-imp-') &&
+          'autoresilience.io/owner' in variables.nsLabels &&
+          variables.nsLabels['autoresilience.io/owner'] == 'import')
+      message: "the provisioner may only write inside import namespaces"
+    - expression: >-
+        request.operation == 'DELETE' ||
+        !(request.kind.group == 'rbac.authorization.k8s.io' && request.kind.kind == 'RoleBinding') || (
+          variables.obj.roleRef.kind == 'ClusterRole' && (
+            (variables.obj.roleRef.name == 'autoresilience-import-writer' &&
+              variables.obj.subjects.all(s, s.kind == 'ServiceAccount' &&
+                s.name == 'autoresilience-provisioner' && s.namespace == 'autoresilience-system')) ||
+            (variables.obj.roleRef.name == 'autoresilience-chaos-runner' &&
+              variables.obj.subjects.all(s, s.kind == 'ServiceAccount' &&
+                s.name == 'autoresilience-chaos' && s.namespace == request.namespace)) ||
+            (variables.obj.roleRef.name == 'autoresilience-engine-chaos' &&
+              variables.obj.subjects.all(s, s.kind == 'ServiceAccount' &&
+                s.name == 'autoresilience-engine' && s.namespace == 'autoresilience-system'))))
+      message: "RoleBindings may only grant the vetted import, chaos-runner and engine roles to their own subjects"
+    - expression: >-
+        request.operation == 'DELETE' ||
+        !(request.kind.group == '' && request.kind.kind == 'Service') ||
+        !has(variables.obj.spec.type) || variables.obj.spec.type == 'ClusterIP'
+      message: "imported Services must be ClusterIP"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: autoresilience-provisioner-boundary
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+spec:
+  policyName: autoresilience-provisioner-boundary
+  validationActions: ["Deny"]

@@ -263,6 +263,21 @@ class KubernetesAdapter:
         if (body.get("metadata") or {}).get("continue"):
             snapshot.truncated.append((resource, namespace))
 
+    def cluster_fingerprint(self) -> str | None:
+        """kube-system's UID: identifies which cluster this credential reaches."""
+        try:
+            ns = client.CoreV1Api(self._client()).read_namespace(
+                "kube-system", _request_timeout=self._timeout
+            )
+        except ApiException as exc:
+            raise ClusterUnavailableError(
+                f"Kubernetes API error {exc.status}: {exc.reason}", exc.status
+            ) from exc
+        except (ConfigException, HTTPError, OSError) as exc:
+            raise ClusterUnavailableError(f"Kubernetes API unreachable: {exc}") from exc
+        uid = ns.metadata.uid
+        return str(uid) if uid else None
+
     def live_pod_names(self, namespace: str, names: list[str]) -> set[str]:
         """Which of the named pods still exist and are not terminating."""
         try:

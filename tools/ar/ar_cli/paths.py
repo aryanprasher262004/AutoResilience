@@ -10,6 +10,9 @@ CONTEXT_PREFIX = "kind-"
 ENGINE_NAMESPACE = "autoresilience-system"
 ENGINE_SERVICE_ACCOUNT = "autoresilience-engine"
 ENGINE_TOKEN_SECRET = "autoresilience-engine-token"
+# Deploys imported applications (P7); a separate identity from the engine's.
+PROVISIONER_SERVICE_ACCOUNT = "autoresilience-provisioner"
+PROVISIONER_TOKEN_SECRET = "autoresilience-provisioner-token"
 # Both labels on every object tools/ar creates; cleanup deletes only objects with both.
 OWNER_SELECTOR = "app.kubernetes.io/managed-by=autoresilience,autoresilience.io/owner=local-manager"
 DATA_VOLUME = "autoresilience-data"
@@ -34,6 +37,11 @@ class Paths:
     @property
     def kubeconfig(self) -> Path:
         return self.home / "engine.kubeconfig"
+
+    @property
+    def provisioner_kubeconfig(self) -> Path:
+        """The identity that deploys imported applications (infra/rbac/provisioner.yaml)."""
+        return self.home / "provisioner.kubeconfig"
 
     @property
     def backups(self) -> Path:

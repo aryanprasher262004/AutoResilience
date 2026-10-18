@@ -32,7 +32,7 @@ class UnreachableSession:
 
 
 def test_migration_head_comes_from_the_alembic_scripts() -> None:
-    assert migration_head() == "c2fba4185b1c"
+    assert migration_head() == "4def42029e96"
 
 
 def test_ready_when_database_is_at_head(

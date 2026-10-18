@@ -538,6 +538,261 @@
         "title": "DashboardSummary",
         "type": "object"
       },
+      "DeclaredEdge": {
+        "description": "A relationship an import's source file states (e.g. Compose depends_on).\n\nNot part of `edges`: it is configuration someone wrote, not something the\nKubernetes API records, and never evidence of traffic.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "depends_on",
+              "network"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "verified": {
+            "const": false,
+            "default": false,
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "source",
+          "target",
+          "detail"
+        ],
+        "title": "DeclaredEdge",
+        "type": "object"
+      },
+      "DeclaredRelation": {
+        "description": "A relationship the input file states. Never verified, never traffic.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "depends_on",
+              "network"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "type",
+          "detail"
+        ],
+        "title": "DeclaredRelation",
+        "type": "object"
+      },
+      "DeployRequest": {
+        "properties": {
+          "confirm": {
+            "const": true,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "plan_digest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Plan Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_digest",
+          "confirm"
+        ],
+        "title": "DeployRequest",
+        "type": "object"
+      },
+      "DeploymentPlan": {
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "guarantees": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Guarantees",
+            "type": "array"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedObject"
+            },
+            "title": "Objects",
+            "type": "array"
+          },
+          "traffic": {
+            "items": {
+              "$ref": "#/components/schemas/TrafficTarget"
+            },
+            "title": "Traffic",
+            "type": "array"
+          }
+        },
+        "required": [
+          "namespace",
+          "objects",
+          "digest",
+          "actions",
+          "guarantees",
+          "traffic"
+        ],
+        "title": "DeploymentPlan",
+        "type": "object"
+      },
+      "DeploymentStatus": {
+        "properties": {
+          "applied": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Applied",
+            "type": "array"
+          },
+          "attempts": {
+            "default": 0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "failing_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failing Since"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "recovery": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery"
+          },
+          "removal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removal"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "workloads": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WorkloadHealth"
+            },
+            "title": "Workloads",
+            "type": "array"
+          }
+        },
+        "title": "DeploymentStatus",
+        "type": "object"
+      },
       "Distribution": {
         "properties": {
           "count": {
@@ -1171,6 +1426,67 @@
         "title": "FaultType",
         "type": "string"
       },
+      "Finding": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "warning",
+              "info"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "severity",
+          "code",
+          "message"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1182,6 +1498,482 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImageSource": {
+        "description": "One container image, deployed as a Deployment (+ a Service when `port` is set).",
+        "properties": {
+          "image": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Image",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "replicas": {
+            "default": 2,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Replicas",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "ImageSource",
+        "type": "object"
+      },
+      "ImportCapabilities": {
+        "properties": {
+          "compose_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Compose Keys",
+            "type": "array"
+          },
+          "execution_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Context"
+          },
+          "manifest_kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Manifest Kinds",
+            "type": "array"
+          },
+          "max_bytes": {
+            "title": "Max Bytes",
+            "type": "integer"
+          },
+          "max_documents": {
+            "title": "Max Documents",
+            "type": "integer"
+          },
+          "max_replicas": {
+            "title": "Max Replicas",
+            "type": "integer"
+          },
+          "max_workloads": {
+            "title": "Max Workloads",
+            "type": "integer"
+          },
+          "namespace_prefix": {
+            "title": "Namespace Prefix",
+            "type": "string"
+          },
+          "provisioner": {
+            "$ref": "#/components/schemas/ProvisionerInfo"
+          }
+        },
+        "required": [
+          "provisioner",
+          "execution_context",
+          "max_bytes",
+          "max_documents",
+          "max_workloads",
+          "max_replicas",
+          "namespace_prefix",
+          "compose_keys",
+          "manifest_kinds"
+        ],
+        "title": "ImportCapabilities",
+        "type": "object"
+      },
+      "ImportList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ImportList",
+        "type": "object"
+      },
+      "ImportOverlay": {
+        "description": "The import behind an application's view: what was planned vs. what exists.",
+        "properties": {
+          "declared": {
+            "items": {
+              "$ref": "#/components/schemas/DeclaredEdge"
+            },
+            "title": "Declared",
+            "type": "array"
+          },
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "planned": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedResource"
+            },
+            "title": "Planned",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "compose",
+              "manifests",
+              "image"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "import_id",
+          "name",
+          "status",
+          "source",
+          "namespace",
+          "declared",
+          "planned"
+        ],
+        "title": "ImportOverlay",
+        "type": "object"
+      },
+      "ImportPreview": {
+        "properties": {
+          "deployable": {
+            "title": "Deployable",
+            "type": "boolean"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeploymentPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "enum": [
+              "compose",
+              "manifests",
+              "image"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "spec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "source",
+          "filename",
+          "spec",
+          "findings",
+          "deployable",
+          "plan"
+        ],
+        "title": "ImportPreview",
+        "type": "object"
+      },
+      "ImportRead": {
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deployment": {
+            "$ref": "#/components/schemas/DeploymentStatus"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/DeploymentPlan"
+          },
+          "source": {
+            "enum": [
+              "compose",
+              "manifests",
+              "image"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/ImportSpec"
+          },
+          "status": {
+            "enum": [
+              "PLANNED",
+              "DEPLOYING",
+              "READY",
+              "FAILED",
+              "REMOVING",
+              "REMOVED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "filename",
+          "status",
+          "namespace",
+          "spec",
+          "findings",
+          "plan",
+          "deployment",
+          "application_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ImportRead",
+        "type": "object"
+      },
+      "ImportRequest": {
+        "properties": {
+          "name": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ImportSource"
+          },
+          "traffic": {
+            "items": {
+              "$ref": "#/components/schemas/TrafficTarget"
+            },
+            "maxItems": 5,
+            "title": "Traffic",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "source"
+        ],
+        "title": "ImportRequest",
+        "type": "object"
+      },
+      "ImportSource": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 262144,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "compose",
+              "manifests",
+              "image"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ImportSource",
+        "type": "object"
+      },
+      "ImportSpec": {
+        "properties": {
+          "declared": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DeclaredRelation"
+            },
+            "title": "Declared",
+            "type": "array"
+          },
+          "networks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceSpec"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "compose",
+              "manifests",
+              "image"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "workloads": {
+            "items": {
+              "$ref": "#/components/schemas/WorkloadSpec"
+            },
+            "title": "Workloads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "workloads",
+          "services"
+        ],
+        "title": "ImportSpec",
         "type": "object"
       },
       "LatestScore": {
@@ -1484,6 +2276,49 @@
         "title": "NodeDetails",
         "type": "object"
       },
+      "NodeOrigin": {
+        "description": "Set on objects an import (P7) created, matched by its ownership labels.",
+        "properties": {
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "import_name": {
+            "title": "Import Name",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "application",
+              "load-generator",
+              "chaos",
+              "isolation"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "workload": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workload"
+          }
+        },
+        "required": [
+          "import_id",
+          "import_name",
+          "role",
+          "workload"
+        ],
+        "title": "NodeOrigin",
+        "type": "object"
+      },
       "ObservationRead": {
         "properties": {
           "evaluations": {
@@ -1650,6 +2485,102 @@
         "title": "OutcomeCounts",
         "type": "object"
       },
+      "PlannedObject": {
+        "properties": {
+          "api_version": {
+            "title": "Api Version",
+            "type": "string"
+          },
+          "group": {
+            "enum": [
+              "application",
+              "isolation",
+              "chaos",
+              "load-generator"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namespace"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "kind",
+          "name",
+          "namespace",
+          "purpose",
+          "group",
+          "manifest"
+        ],
+        "title": "PlannedObject",
+        "type": "object"
+      },
+      "PlannedResource": {
+        "properties": {
+          "group": {
+            "enum": [
+              "application",
+              "load-generator",
+              "chaos",
+              "isolation"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observed": {
+            "title": "Observed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "group",
+          "observed"
+        ],
+        "title": "PlannedResource",
+        "type": "object"
+      },
       "PodDeleteMode": {
         "description": "How pod-delete removes pods (maps to the vetted experiment's FORCE env).\n\nGRACEFUL: default Kubernetes deletion; the pod's terminationGracePeriodSeconds\n          applies (SIGTERM, then SIGKILL after the grace period).\nFORCE:    deletion with gracePeriodSeconds=0; containers are killed at once.",
         "enum": [
@@ -1732,6 +2663,122 @@
         "title": "PodDetails",
         "type": "object"
       },
+      "PortSpec": {
+        "properties": {
+          "container_port": {
+            "title": "Container Port",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "protocol": {
+            "default": "TCP",
+            "enum": [
+              "TCP",
+              "UDP"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "container_port"
+        ],
+        "title": "PortSpec",
+        "type": "object"
+      },
+      "ProbeSpec": {
+        "properties": {
+          "command": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "failure_threshold": {
+            "default": 3,
+            "title": "Failure Threshold",
+            "type": "integer"
+          },
+          "generated": {
+            "default": false,
+            "title": "Generated",
+            "type": "boolean"
+          },
+          "initial_delay_seconds": {
+            "default": 0,
+            "title": "Initial Delay Seconds",
+            "type": "integer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "period_seconds": {
+            "default": 10,
+            "title": "Period Seconds",
+            "type": "integer"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "timeout_seconds": {
+            "default": 1,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "exec",
+              "http",
+              "tcp",
+              "grpc"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "ProbeSpec",
+        "type": "object"
+      },
       "Provenance": {
         "properties": {
           "detail": {
@@ -1748,6 +2795,36 @@
           "detail"
         ],
         "title": "Provenance",
+        "type": "object"
+      },
+      "ProvisionerInfo": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configured",
+          "context",
+          "detail"
+        ],
+        "title": "ProvisionerInfo",
         "type": "object"
       },
       "Readiness": {
@@ -1820,6 +2897,21 @@
         "title": "ReadinessCheck",
         "type": "object"
       },
+      "RemoveRequest": {
+        "properties": {
+          "confirm_name": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Confirm Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm_name"
+        ],
+        "title": "RemoveRequest",
+        "type": "object"
+      },
       "Replicas": {
         "description": "Controller status (spec.replicas and status.*), as `kubectl get` shows it.",
         "properties": {
@@ -1875,6 +2967,34 @@
           "selector"
         ],
         "title": "Replicas",
+        "type": "object"
+      },
+      "Resources": {
+        "properties": {
+          "cpu_limit": {
+            "title": "Cpu Limit",
+            "type": "string"
+          },
+          "cpu_request": {
+            "title": "Cpu Request",
+            "type": "string"
+          },
+          "memory_limit": {
+            "title": "Memory Limit",
+            "type": "string"
+          },
+          "memory_request": {
+            "title": "Memory Request",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cpu_request",
+          "memory_request",
+          "cpu_limit",
+          "memory_limit"
+        ],
+        "title": "Resources",
         "type": "object"
       },
       "ScoreComponentRead": {
@@ -2424,6 +3544,82 @@
         "title": "ServicePort",
         "type": "object"
       },
+      "ServicePortSpec": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "protocol": {
+            "default": "TCP",
+            "enum": [
+              "TCP",
+              "UDP"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "target_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Target Port"
+          }
+        },
+        "required": [
+          "port",
+          "target_port"
+        ],
+        "title": "ServicePortSpec",
+        "type": "object"
+      },
+      "ServiceSpec": {
+        "properties": {
+          "headless": {
+            "default": false,
+            "title": "Headless",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/ServicePortSpec"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "workload": {
+            "title": "Workload",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "workload",
+          "ports"
+        ],
+        "title": "ServiceSpec",
+        "type": "object"
+      },
       "ServiceSummary": {
         "properties": {
           "available_replicas": {
@@ -2598,6 +3794,16 @@
             },
             "title": "Edges",
             "type": "array"
+          },
+          "imported": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportOverlay"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "nodes": {
             "items": {
@@ -2834,6 +4040,16 @@
               }
             ]
           },
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pod": {
             "anyOf": [
               {
@@ -3012,6 +4228,35 @@
         "title": "Traffic",
         "type": "object"
       },
+      "TrafficTarget": {
+        "description": "A load-generator endpoint: a Service of this import, one of its ports, a path.",
+        "properties": {
+          "path": {
+            "default": "/",
+            "maxLength": 200,
+            "title": "Path",
+            "type": "string"
+          },
+          "port": {
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "service": {
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "port"
+        ],
+        "title": "TrafficTarget",
+        "type": "object"
+      },
       "ValidationCheckRead": {
         "properties": {
           "message": {
@@ -3123,6 +4368,73 @@
         "title": "ValidationResultRead",
         "type": "object"
       },
+      "VolumeSpec": {
+        "description": "Always an emptyDir: nothing on the host, data lost when the Pod goes.",
+        "properties": {
+          "memory": {
+            "default": false,
+            "title": "Memory",
+            "type": "boolean"
+          },
+          "mount_path": {
+            "title": "Mount Path",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "read_only": {
+            "default": false,
+            "title": "Read Only",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "mount_path"
+        ],
+        "title": "VolumeSpec",
+        "type": "object"
+      },
+      "WorkloadHealth": {
+        "properties": {
+          "desired": {
+            "title": "Desired",
+            "type": "integer"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "state",
+          "ready",
+          "desired",
+          "detail"
+        ],
+        "title": "WorkloadHealth",
+        "type": "object"
+      },
       "WorkloadKind": {
         "enum": [
           "Deployment",
@@ -3130,6 +4442,205 @@
         ],
         "title": "WorkloadKind",
         "type": "string"
+      },
+      "WorkloadSpec": {
+        "properties": {
+          "args": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "drop_all_capabilities": {
+            "default": false,
+            "title": "Drop All Capabilities",
+            "type": "boolean"
+          },
+          "env_names": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Env Names",
+            "type": "array"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "kind": {
+            "default": "Deployment",
+            "enum": [
+              "Deployment",
+              "StatefulSet"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "liveness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ports": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PortSpec"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "read_only_root": {
+            "default": false,
+            "title": "Read Only Root",
+            "type": "boolean"
+          },
+          "readiness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replicas": {
+            "title": "Replicas",
+            "type": "integer"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/Resources"
+          },
+          "run_as_non_root": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run As Non Root"
+          },
+          "run_as_user": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run As User"
+          },
+          "selector": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Selector",
+            "type": "object"
+          },
+          "service_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Name"
+          },
+          "startup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "termination_grace_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Termination Grace Seconds"
+          },
+          "volumes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/VolumeSpec"
+            },
+            "title": "Volumes",
+            "type": "array"
+          },
+          "working_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Working Dir"
+          }
+        },
+        "required": [
+          "name",
+          "image",
+          "replicas",
+          "resources",
+          "labels",
+          "selector"
+        ],
+        "title": "WorkloadSpec",
+        "type": "object"
       }
     }
   },
@@ -4057,6 +5568,361 @@
           }
         },
         "summary": "Health Check"
+      }
+    },
+    "/imports": {
+      "get": {
+        "operationId": "list_imports_imports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Imports",
+        "tags": [
+          "imports"
+        ]
+      },
+      "post": {
+        "description": "Save a reviewed import (PLANNED). Nothing is deployed.",
+        "operationId": "create_import_imports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Import",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/imports/capabilities": {
+      "get": {
+        "description": "What can be imported, and whether deployment is available here.",
+        "operationId": "get_capabilities_imports_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Capabilities",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/imports/preview": {
+      "post": {
+        "description": "Parse, validate and plan; stores nothing and contacts no cluster.",
+        "operationId": "post_preview_imports_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Preview",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/imports/{import_id}": {
+      "delete": {
+        "description": "Forget a removed (or never deployed) import's record.",
+        "operationId": "forget_import_imports__import_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget Import",
+        "tags": [
+          "imports"
+        ]
+      },
+      "get": {
+        "operationId": "get_import_imports__import_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Import",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/imports/{import_id}/deploy": {
+      "post": {
+        "description": "Apply the reviewed plan (explicit approval: its digest and confirm=true).",
+        "operationId": "deploy_import_imports__import_id__deploy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deploy Import",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/imports/{import_id}/refresh": {
+      "post": {
+        "description": "One read-only health check; moves DEPLOYING on, and REMOVING to REMOVED.",
+        "operationId": "refresh_import_imports__import_id__refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Import",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/imports/{import_id}/remove": {
+      "post": {
+        "description": "Delete the import's namespace after verifying it owns it (typed confirmation).",
+        "operationId": "remove_import_imports__import_id__remove_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Import",
+        "tags": [
+          "imports"
+        ]
       }
     },
     "/ready": {

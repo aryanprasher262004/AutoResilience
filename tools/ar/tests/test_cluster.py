@@ -132,11 +132,67 @@ class EngineAccessTests(unittest.TestCase):
         for argv in runner.calls:
             self.assertEqual(argv[-2:], ["--as", "system:serviceaccount:autoresilience-system:autoresilience-engine"])
 
+    def test_provisioner_gets_its_own_kubeconfig_and_token(self) -> None:
+        runner = owned_runner()
+        engine = {"data": {"token": base64.b64encode(b"engine-tok").decode(), "ca.crt": "Q0EK"}}
+        prov = {"data": {"token": base64.b64encode(b"prov-tok").decode(), "ca.crt": "Q0EK"}}
+        runner.on(*CONTEXT, "-n", "autoresilience-system", "get", "secret", answer=ok(json.dumps(engine)))
+        runner.on(  # later rules win
+            *CONTEXT,
+            "-n",
+            "autoresilience-system",
+            "get",
+            "secret",
+            "autoresilience-provisioner-token",
+            answer=ok(json.dumps(prov)),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            p = paths(Path(tmp))
+            cluster.write_engine_kubeconfig(runner, p, VERSIONS)
+            self.assertTrue(cluster.write_provisioner_kubeconfig(runner, p, VERSIONS))
+            self.assertFalse(cluster.write_provisioner_kubeconfig(runner, p, VERSIONS))
+            config = json.loads(p.provisioner_kubeconfig.read_text())
+            mode = p.provisioner_kubeconfig.stat().st_mode & 0o777
+            engine_text = p.kubeconfig.read_text()
+        self.assertEqual(mode, 0o600)
+        self.assertEqual(config["users"], [{"name": "autoresilience-provisioner", "user": {"token": "prov-tok"}}])
+        self.assertNotIn("prov-tok", engine_text)  # the engine never holds the provisioner's token
+
+    def test_grant_applies_the_provisioner_identity_with_its_admission_policy(self) -> None:
+        runner = owned_runner()
+        runner.on(*CONTEXT, "get", "namespace", answer=ok(""))
+        cluster.grant_engine_access(runner, paths(ROOT), VERSIONS)
+        applied = [argv[-1] for argv in runner.calls if "apply" in argv and "-f" in argv]
+        self.assertTrue(any(a.endswith("infra/rbac/provisioner.yaml") for a in applied))
+        text = (ROOT / "infra/rbac/provisioner.yaml").read_text()
+        self.assertIn("kind: ValidatingAdmissionPolicy", text)
+        self.assertIn('validationActions: ["Deny"]', text)
+        self.assertNotIn("secrets", text.split("kind: ClusterRole", 1)[1].split("---")[0])
+
+    def test_provisioner_permission_check_impersonates_the_provisioner(self) -> None:
+        runner = FakeRunner()
+        allowed = {
+            p.verb + p.resource + str(p.namespace)
+            for p in cluster.expected_provisioner_permissions(VERSIONS)
+            if p.expected
+        }
+
+        def can_i(argv: list[str], _: bytes | None) -> object:
+            ns = None if "--all-namespaces" in argv else argv[argv.index("-n") + 1]
+            return ok("yes" if argv[5] + argv[6] + str(ns) in allowed else "no")
+
+        runner.on(*CONTEXT, "auth", "can-i", answer=can_i)  # type: ignore[arg-type]
+        results = cluster.check_engine_permissions(runner, VERSIONS, provisioner=True)
+        self.assertTrue(all(actual == p.expected for p, actual in results))
+        self.assertTrue(any(not p.expected and p.resource == "deployments.apps" for p, _ in results))
+        for argv in runner.calls:
+            self.assertEqual(argv[-1], "system:serviceaccount:autoresilience-system:autoresilience-provisioner")
+
     def test_revoke_deletes_only_label_selected_objects(self) -> None:
         runner = owned_runner()
         cluster.revoke_engine_access(runner, VERSIONS)
         deletes = [c for c in runner.calls if "delete" in c]
-        self.assertEqual(len(deletes), 4)
+        self.assertEqual(len(deletes), 5)  # incl. the import admission policy
         for argv in deletes:
             self.assertEqual(argv[argv.index("-l") + 1], OWNER_SELECTOR)
             self.assertIn("--ignore-not-found", argv)

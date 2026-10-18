@@ -14,11 +14,12 @@ from sqlalchemy.orm import Session
 
 from app.api.routes.experiments import get_kubernetes_adapter
 from app.core.config import get_settings
-from app.db.models import Application
+from app.db.models import AppImport, Application
 from app.db.session import get_db
 from app.integrations.kubernetes_adapter import ClusterUnavailableError
 from app.schemas.applications import ApplicationCreate, ApplicationList, ApplicationRead
 from app.schemas.topology import ClusterList, NamespaceList, Topology
+from app.services.imports.overlay import annotate, overlay
 from app.services.topology.clusters import (
     ClusterAccess,
     ClusterRegistry,
@@ -91,6 +92,7 @@ def _topology(
 @router.get("/topology", response_model=Topology)
 def get_topology(
     registry: Registry,
+    db: DbSession,
     context: ContextParam = None,
     namespace: Annotated[list[str] | None, Query(max_length=50)] = None,
 ) -> Topology:
@@ -103,7 +105,8 @@ def get_topology(
         check_scope(access, namespace or [])
     except ScopeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return Topology.model_validate(_topology(registry, access, namespace or []))
+    body = _topology(registry, access, namespace or [])
+    return Topology.model_validate(annotate(db, body))
 
 
 # --- applications ---------------------------------------------------------------------
@@ -205,7 +208,13 @@ def get_application(
 @router.delete("/applications/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_application(application_id: uuid.UUID, db: DbSession) -> Response:
     """Forget the application. The cluster and experiment history are unchanged."""
-    db.delete(_get(db, application_id))
+    app = _get(db, application_id)
+    if db.scalars(select(AppImport).where(AppImport.application_id == app.id)).first():
+        raise HTTPException(
+            status_code=409,
+            detail="This application was created by an import; remove the import instead",
+        )
+    db.delete(app)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -222,5 +231,14 @@ def get_application_topology(
             detail=f"Context {app.kube_context!r} or its namespaces are no longer "
             "authorized for this engine; onboard the application again",
         )
-    body = _topology(registry, access, app.namespaces)
-    return Topology.model_validate({**body, "application_id": app.id})
+    body = annotate(db, _topology(registry, access, app.namespaces))
+    imp = db.scalars(
+        select(AppImport).where(AppImport.application_id == app.id)
+    ).first()
+    return Topology.model_validate(
+        {
+            **body,
+            "application_id": app.id,
+            "imported": overlay(imp, body) if imp is not None else None,
+        }
+    )

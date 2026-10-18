@@ -24,6 +24,8 @@ from .paths import (
     ENGINE_TOKEN_SECRET,
     OWNER_SELECTOR,
     PROMETHEUS_HOST_PORT,
+    PROVISIONER_SERVICE_ACCOUNT,
+    PROVISIONER_TOKEN_SECRET,
     Paths,
     Versions,
 )
@@ -284,28 +286,34 @@ def wait_namespace_gone_or_active(
 
 
 def grant_engine_access(runner: Runner, paths: Paths, versions: Versions) -> None:
+    """The engine's identity, and the separate provisioner identity for imports (P7)."""
     verify_owned(runner, versions)
     wait_namespace_gone_or_active(runner, versions)
     runner.run(kubectl(versions, "apply", "-f", str(paths.manifest("infra/rbac/engine-rbac.yaml"))))
+    runner.run(kubectl(versions, "apply", "-f", str(paths.manifest("infra/rbac/provisioner.yaml"))))
     role = paths.manifest("infra/rbac/engine-chaos-role.yaml").read_text()
     for namespace in versions.chaos_namespaces:
         runner.run(kubectl(versions, "apply", "-f", "-"), input=for_namespace(role, namespace).encode())
 
 
 def read_token(
-    runner: Runner, versions: Versions, attempts: int = 30, sleep: Callable[[float], None] = time.sleep
+    runner: Runner,
+    versions: Versions,
+    attempts: int = 30,
+    sleep: Callable[[float], None] = time.sleep,
+    secret: str = ENGINE_TOKEN_SECRET,
 ) -> tuple[str, str]:
     """(token, base64 CA) from the ServiceAccount token Secret, once the controller filled it."""
     for _ in range(attempts):
         result = runner.run(
-            kubectl(versions, "-n", ENGINE_NAMESPACE, "get", "secret", ENGINE_TOKEN_SECRET, "-o", "json"), check=False
+            kubectl(versions, "-n", ENGINE_NAMESPACE, "get", "secret", secret, "-o", "json"), check=False
         )
         if result.ok:
             data = json.loads(result.stdout).get("data") or {}
             if data.get("token") and data.get("ca.crt"):
                 return base64.b64decode(data["token"]).decode(), data["ca.crt"]
         sleep(1)
-    raise OwnershipError(f"Secret {ENGINE_NAMESPACE}/{ENGINE_TOKEN_SECRET} has no token yet")
+    raise OwnershipError(f"Secret {ENGINE_NAMESPACE}/{secret} has no token yet")
 
 
 @dataclass(frozen=True)
@@ -384,6 +392,29 @@ def write_engine_kubeconfig(
     return content != before
 
 
+def write_provisioner_kubeconfig(runner: Runner, paths: Paths, versions: Versions) -> bool:
+    """The provisioner's kubeconfig (its ServiceAccount token only); True if it changed.
+
+    Kept apart from the engine's kubeconfig: the engine's own identity can never deploy,
+    and this one can only write inside import namespaces (infra/rbac/provisioner.yaml).
+    """
+    token, ca = read_token(runner, versions, secret=PROVISIONER_TOKEN_SECRET)
+    entry = KubeconfigEntry(versions.context, PROVISIONER_SERVICE_ACCOUNT, f"https://{versions.node}:6443", ca, token)
+    config = {
+        "apiVersion": "v1",
+        "kind": "Config",
+        "clusters": [{"name": entry.context, "cluster": {"server": entry.server, "certificate-authority-data": ca}}],
+        "users": [{"name": entry.user, "user": {"token": token}}],
+        "contexts": [{"name": entry.context, "context": {"cluster": entry.context, "user": entry.user}}],
+        "current-context": entry.context,
+    }
+    content = json.dumps(config, indent=2) + "\n"
+    path = paths.provisioner_kubeconfig
+    before = path.read_text() if path.exists() else None
+    write_private(path, content)
+    return content != before
+
+
 @dataclass(frozen=True)
 class Permission:
     verb: str
@@ -420,14 +451,35 @@ def expected_permissions(versions: Versions) -> list[Permission]:
     ]
 
 
-def check_engine_permissions(runner: Runner, versions: Versions) -> list[tuple[Permission, bool]]:
-    """(permission, actual) via `kubectl auth can-i --as` the engine's ServiceAccount."""
+PROVISIONER_USER = f"system:serviceaccount:{ENGINE_NAMESPACE}:{PROVISIONER_SERVICE_ACCOUNT}"
+
+
+def expected_provisioner_permissions(versions: Versions) -> list[Permission]:
+    """RBAC only: writes are further confined to import namespaces by the admission policy."""
+    chaos = versions.chaos_namespaces[0]
+    return [
+        Permission("create", "namespaces", None, True),
+        Permission("create", "rolebindings.rbac.authorization.k8s.io", chaos, True),
+        # Never outside an import namespace (it binds its writer role only there).
+        Permission("create", "deployments.apps", chaos, False),
+        Permission("delete", "pods", chaos, False),
+        Permission("get", "secrets", chaos, False),
+        Permission("list", "configmaps", None, False),
+        Permission("create", "chaosengines.litmuschaos.io", chaos, False),
+        Permission("create", "clusterrolebindings.rbac.authorization.k8s.io", None, False),
+    ]
+
+
+def check_engine_permissions(
+    runner: Runner, versions: Versions, provisioner: bool = False
+) -> list[tuple[Permission, bool]]:
+    """(permission, actual) via `kubectl auth can-i --as` the engine's (or provisioner's) ServiceAccount."""
+    user = PROVISIONER_USER if provisioner else ENGINE_USER
+    wanted = expected_provisioner_permissions(versions) if provisioner else expected_permissions(versions)
     results = []
-    for p in expected_permissions(versions):
+    for p in wanted:
         scope = ["--all-namespaces"] if p.namespace is None else ["-n", p.namespace]
-        out = runner.run(
-            kubectl(versions, "auth", "can-i", p.verb, p.resource, *scope, "--as", ENGINE_USER), check=False
-        )
+        out = runner.run(kubectl(versions, "auth", "can-i", p.verb, p.resource, *scope, "--as", user), check=False)
         results.append((p, out.stdout.strip() == "yes"))
     return results
 
@@ -435,6 +487,16 @@ def check_engine_permissions(runner: Runner, versions: Versions) -> list[tuple[P
 def revoke_engine_access(runner: Runner, versions: Versions) -> None:
     """Delete only objects carrying both ownership labels (the engine's identity)."""
     verify_owned(runner, versions)
+    runner.run(
+        kubectl(
+            versions,
+            "delete",
+            "validatingadmissionpolicybinding,validatingadmissionpolicy",
+            "-l",
+            OWNER_SELECTOR,
+            "--ignore-not-found",
+        )
+    )
     runner.run(
         kubectl(versions, "delete", "clusterrolebinding,clusterrole", "-l", OWNER_SELECTOR, "--ignore-not-found")
     )

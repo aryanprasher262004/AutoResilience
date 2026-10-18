@@ -23,6 +23,7 @@ from app.schemas.experiment import (
     ExperimentRead,
     ScoreRead,
 )
+from app.services.imports.lifecycle import target_gate
 from app.services.orchestration.baseline import run_baseline
 from app.services.orchestration.injection import StartWait, run_injection
 from app.services.orchestration.observation import (
@@ -136,6 +137,19 @@ def _get_or_404(db: Session, experiment_id: uuid.UUID) -> Experiment:
 
 @router.post("", response_model=ExperimentRead, status_code=status.HTTP_201_CREATED)
 def create_experiment(payload: ExperimentCreate, db: DbSession) -> Experiment:
+    # Import namespaces (P7): only healthy imports' own workloads; validation follows.
+    reason = target_gate(db, payload.target.namespace, payload.target.name)
+    if reason is not None:
+        raise HTTPException(
+            status_code=422,
+            detail=[
+                {
+                    "loc": ["body", "target", "namespace"],
+                    "msg": reason,
+                    "type": "value_error",
+                }
+            ],
+        )
     experiment = Experiment(
         name=payload.name,
         description=payload.description,

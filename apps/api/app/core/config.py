@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     # [{"context": "kind-staging", "namespaces": ["shop"]}]. Written by `ar cluster
     # import` in the local stack; never selectable or extendable through the API.
     discovery_clusters: list[DiscoveryCluster] = []
+    # Imported applications (P7, docs/imports.md). A kubeconfig for the dedicated
+    # provisioner ServiceAccount (infra/rbac/provisioner.yaml) on the execution
+    # cluster; None: imports can be reviewed but not deployed.
+    provisioner_kubeconfig: str | None = None
+    provisioner_context: str | None = None
+    import_deploy_timeout_seconds: float = 300.0
+    # Same image as the sample load generator (infra/versions.env LOADGEN_IMAGE).
+    loadgen_image: str = "python:3.12.11-alpine3.22"
 
 
 class ConfigurationError(Exception):

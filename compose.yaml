@@ -6,7 +6,8 @@
 # Trust boundaries:
 #   - ports are published on 127.0.0.1 only; PostgreSQL is not published at all;
 #   - the engine reaches the kind cluster over the `kind` Docker network with a
-#     ServiceAccount kubeconfig (infra/rbac/engine-rbac.yaml), mounted read-only;
+#     ServiceAccount kubeconfig (infra/rbac/engine-rbac.yaml), mounted read-only,
+#     plus the separate import provisioner's (infra/rbac/provisioner.yaml);
 #     the host kubeconfig and the Docker socket are never mounted;
 #   - data lives in the named volume autoresilience-data; `docker compose down`
 #     (without -v) and `ar uninstall` keep it unless explicitly asked.
@@ -26,10 +27,17 @@ x-engine: &engine
     ORCHESTRATOR_ENABLED: "true"
     # Read-only discovery contexts in the kubeconfig above (`ar cluster import`).
     DISCOVERY_CLUSTERS: "${AUTORESILIENCE_DISCOVERY_CLUSTERS:-[]}"
+    # Imported applications (P7): a separate identity that may only write inside
+    # ar-imp-* namespaces (infra/rbac/provisioner.yaml); never used for chaos.
+    PROVISIONER_KUBECONFIG: /run/autoresilience/provisioner-kubeconfig
   volumes:
     - type: bind
       source: ${AUTORESILIENCE_KUBECONFIG:?run `ar install` to generate the engine kubeconfig}
       target: /run/autoresilience/kubeconfig
+      read_only: true
+    - type: bind
+      source: ${AUTORESILIENCE_PROVISIONER_KUBECONFIG:?run `ar install` to generate the provisioner kubeconfig}
+      target: /run/autoresilience/provisioner-kubeconfig
       read_only: true
   read_only: true
   tmpfs:

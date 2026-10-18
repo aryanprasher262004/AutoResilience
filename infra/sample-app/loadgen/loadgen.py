@@ -45,6 +45,22 @@ TARGETS = [
     for key, url in (item.split("=", 1) for item in os.environ["TARGETS"].split(";") if item)
 ]
 
+# Optional guard, set for imported applications: every target must be plain http to a
+# host under this suffix (e.g. ".ar-imp-shop.svc.cluster.local"); anything else stops
+# the process before a single request is sent.
+ALLOWED_HOST_SUFFIX = os.environ.get("ALLOWED_HOST_SUFFIX", "")
+if ALLOWED_HOST_SUFFIX:
+    for _ns, _workload, _url in TARGETS:
+        _parts = urllib.parse.urlsplit(_url)
+        if (
+            _parts.scheme != "http"
+            or not (_parts.hostname or "").endswith(ALLOWED_HOST_SUFFIX)
+            or _parts.username
+            or _parts.query
+            or _parts.fragment
+        ):
+            raise SystemExit(f"refusing target outside {ALLOWED_HOST_SUFFIX}: {_url}")
+
 
 class Stats:
     def __init__(self) -> None:

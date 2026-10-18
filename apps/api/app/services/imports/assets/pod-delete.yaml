@@ -1,0 +1,51 @@
+# Vendored from litmuschaos/kubernetes-chaos chart 3.31.0 (pod-delete only), so the
+# fault definition is pinned and reviewable. Changes from upstream: helm labels
+# removed, imagePullPolicy IfNotPresent. Applied to each target namespace.
+# Env values are defaults; AutoResilience's ChaosEngine overrides them per run.
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: pod-delete
+  labels:
+    name: pod-delete
+    app.kubernetes.io/part-of: litmus
+    litmuschaos.io/version: 3.31.0
+description:
+  message: Deletes a pod belonging to a deployment/statefulset/daemonset
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups: ["", "apps", "apps.openshift.io", "argoproj.io", "batch", "litmuschaos.io"]
+        resources:
+          - deployments
+          - jobs
+          - pods
+          - pods/log
+          - replicationcontrollers
+          - statefulsets
+          - daemonsets
+          - replicasets
+          - deploymentconfigs
+          - rollouts
+          - pods/exec
+          - events
+          - chaosengines
+          - chaosexperiments
+          - chaosresults
+        verbs: ["create", "list", "get", "patch", "update", "delete", "deletecollection"]
+    image: litmuschaos.docker.scarf.sh/litmuschaos/go-runner:3.31.0
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/bash"]
+    args: ["-c", "./experiments -name pod-delete"]
+    env:
+      - {name: TOTAL_CHAOS_DURATION, value: "15"}
+      - {name: RAMP_TIME, value: ""}
+      - {name: FORCE, value: "true"}
+      - {name: CHAOS_INTERVAL, value: "5"}
+      - {name: PODS_AFFECTED_PERC, value: ""}
+      - {name: TARGET_PODS, value: ""}
+      - {name: SEQUENCE, value: parallel}
+    labels:
+      name: pod-delete
+      app.kubernetes.io/part-of: litmus

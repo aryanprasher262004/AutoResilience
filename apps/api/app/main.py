@@ -14,6 +14,7 @@ from app.api.routes.experiments import (
 )
 from app.api.routes.experiments import router as experiments_router
 from app.api.routes.health import router as health_router
+from app.api.routes.imports import router as imports_router
 from app.api.routes.ready import router as ready_router
 from app.api.routes.reports import router as history_router
 from app.api.routes.targets import router as services_router
@@ -80,3 +81,4 @@ app.include_router(history_router)
 app.include_router(experiments_router)
 app.include_router(services_router)
 app.include_router(topology_router)
+app.include_router(imports_router)

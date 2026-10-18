@@ -127,6 +127,17 @@ class TopologyEvent(BaseModel):
     last_seen: datetime | None
 
 
+class NodeOrigin(BaseModel):
+    """Set on objects an import (P7) created, matched by its ownership labels."""
+
+    import_id: uuid.UUID
+    import_name: str
+    # application: the imported app; load-generator, chaos, isolation: AutoResilience's.
+    role: Literal["application", "load-generator", "chaos", "isolation"]
+    # The import's workload this object belongs to, when its labels say so.
+    workload: str | None
+
+
 class TopologyNode(BaseModel):
     # "<Kind>:<namespace>/<name>", or "Node:<name>"; stable across snapshots.
     id: str
@@ -147,6 +158,7 @@ class TopologyNode(BaseModel):
     experiment_target: TargetSupport | None
     # Newest first, at most 10.
     events: list[TopologyEvent]
+    origin: NodeOrigin | None = None
 
 
 class Provenance(BaseModel):
@@ -192,6 +204,40 @@ class Traffic(BaseModel):
     detail: str
 
 
+class DeclaredEdge(BaseModel):
+    """A relationship an import's source file states (e.g. Compose depends_on).
+
+    Not part of `edges`: it is configuration someone wrote, not something the
+    Kubernetes API records, and never evidence of traffic.
+    """
+
+    type: Literal["depends_on", "network"]
+    source: str  # node id of the declaring workload
+    target: str  # node id of the workload it names
+    detail: str
+    verified: Literal[False] = False
+
+
+class PlannedResource(BaseModel):
+    id: str  # the node id it has once it exists
+    kind: str
+    name: str
+    group: Literal["application", "load-generator", "chaos", "isolation"]
+    observed: bool
+
+
+class ImportOverlay(BaseModel):
+    """The import behind an application's view: what was planned vs. what exists."""
+
+    import_id: uuid.UUID
+    name: str
+    status: str
+    source: Literal["compose", "manifests", "image"]
+    namespace: str
+    declared: list[DeclaredEdge]
+    planned: list[PlannedResource]
+
+
 class Topology(BaseModel):
     schema_: Literal["autoresilience-topology/1"] = Field(alias="schema")
     observed_at: datetime
@@ -204,6 +250,8 @@ class Topology(BaseModel):
     traffic: Traffic
     # Set when this topology is an application's view.
     application_id: uuid.UUID | None = None
+    # Set when that application was created by an import.
+    imported: ImportOverlay | None = None
 
 
 class ClusterList(BaseModel):

@@ -1,7 +1,8 @@
 """LitmusChaos pod-delete provider.
 
-The only code in AutoResilience that writes to the cluster, and it only ever
-creates or stops its own ChaosEngine objects. The ChaosEngine is built from typed,
+The only code in AutoResilience that writes chaos to the cluster, and it only ever
+creates or stops its own ChaosEngine objects. (Imported applications are deployed by
+the separate ImportProvisioner, with its own identity, which cannot create ChaosEngines.) The ChaosEngine is built from typed,
 already-validated fields; no user-supplied YAML is accepted.
 
 Litmus concepts: a ChaosExperiment (vetted template, chaos/templates/pod-delete.yaml)

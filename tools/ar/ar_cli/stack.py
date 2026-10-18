@@ -49,6 +49,7 @@ def write_stack_env(paths: Paths, state: State, discovery: str = "[]") -> None:
         # Generated once; the data volume is initialised with it, so it is never rotated here.
         "AUTORESILIENCE_DB_PASSWORD": existing.get("AUTORESILIENCE_DB_PASSWORD") or secrets.token_urlsafe(24),
         "AUTORESILIENCE_KUBECONFIG": str(paths.kubeconfig),
+        "AUTORESILIENCE_PROVISIONER_KUBECONFIG": str(paths.provisioner_kubeconfig),
         "AUTORESILIENCE_WEB_PORT": str(state.web_port),
         "AUTORESILIENCE_API_PORT": str(state.api_port),
         "AUTORESILIENCE_DISCOVERY_CLUSTERS": discovery,

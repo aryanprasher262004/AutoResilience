@@ -9,6 +9,7 @@ dependencies = [
     "kubernetes>=36.0.3",
     "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0.3",
     "sqlalchemy>=2.0.52",
 ]
 
@@ -18,6 +19,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.3",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.pytest.ini_options]
@@ -27,3 +29,10 @@ testpaths = ["tests"]
 [[tool.mypy.overrides]]
 module = ["kubernetes.*"]
 ignore_missing_imports = true
+
+# Vendored verbatim from chaos/templates and infra/sample-app (tests assert identity).
+[tool.ruff]
+extend-exclude = ["app/services/imports/assets"]
+
+[tool.mypy]
+exclude = ["app/services/imports/assets/"]
