@@ -69,6 +69,7 @@ export function PreferencesForm() {
   return (
     <Card>
       <CardHeader
+        level={3}
         title="Experiment defaults"
         description="Starting values in New Experiment, stored in this browser. Every run is still validated by the server."
       />

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AboutOnboarding } from "@/components/applications/about-onboarding";
 import { Onboarding } from "@/components/applications/onboarding";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -12,7 +13,10 @@ export default function OnboardApplicationPage() {
         title="Onboard a Kubernetes application"
         description="Read-only: choose a cluster and namespaces, inspect what runs there, then pick experiment targets."
       />
-      <Onboarding />
+      <div className="grid gap-4">
+        <AboutOnboarding defaultOpen={false} />
+        <Onboarding />
+      </div>
     </>
   );
 }

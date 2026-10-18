@@ -59,8 +59,24 @@ describe("parsePreferences", () => {
   test("falls back field by field on malformed or tampered storage", () => {
     expect(parsePreferences("not json")).toEqual(parsePreferences(null));
     expect(
-      parsePreferences(JSON.stringify({ experimentDefaults: { durationSeconds: -5, affectedReplicas: 2.5, mode: "NUKE" }, guideDismissedAt: 7 })),
-    ).toEqual({ version: 1, experimentDefaults: BUILT_IN_DEFAULTS, guideDismissedAt: null });
+      parsePreferences(
+        JSON.stringify({
+          experimentDefaults: { durationSeconds: -5, affectedReplicas: 2.5, mode: "NUKE" },
+          tours: {
+            overview: { status: "completed", at: "2026-10-19T08:00:00Z" },
+            topology: { status: "maybe", at: "2026-10-19T08:00:00Z" },
+            nowhere: { status: "skipped", at: "2026-10-19T08:00:00Z" },
+            settings: "yes",
+          },
+        }),
+      ),
+    ).toEqual({
+      version: 1,
+      experimentDefaults: BUILT_IN_DEFAULTS,
+      tours: { overview: { status: "completed", at: "2026-10-19T08:00:00Z" } },
+    });
+    // A pre-tour preference (the old single guide) is simply ignored.
+    expect(parsePreferences(JSON.stringify({ guideDismissedAt: "2026-10-17T07:00:00Z" })).tours).toEqual({});
     expect(parsePreferences(JSON.stringify({ experimentDefaults: { durationSeconds: 90 } })).experimentDefaults).toEqual({
       ...BUILT_IN_DEFAULTS,
       durationSeconds: 90,

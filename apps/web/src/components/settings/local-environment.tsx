@@ -9,6 +9,7 @@ import { DescriptionList } from "@/components/ui/description-list";
 import { LoadingState } from "@/components/ui/states";
 import { useEnvironment } from "@/lib/api/queries";
 import type { Environment, EnvironmentCheck } from "@/lib/api/types";
+import { TOUR_TARGET } from "@/lib/help-content";
 import { docsUrl } from "@/lib/runtime";
 
 type Mode = Environment["runtime_mode"];
@@ -25,6 +26,14 @@ const CHECK_LABEL: Record<EnvironmentCheck["name"], string> = {
 };
 
 const AR = "python3 tools/ar/ar.py";
+
+/** What the engine needs each dependency for, and what stops working without it. */
+const PURPOSE: Record<EnvironmentCheck["name"], string> = {
+  database: "Stores every experiment, its evidence, score and onboarded applications. Without it nothing can be created or listed.",
+  kubernetes: "Discovers workloads and topology, checks safety against live pods and runs pod-delete through LitmusChaos.",
+  prometheus:
+    "Supplies the baseline and the impact and recovery evidence (availability, restarts, request errors, client outages). Without it baselines fail and runs end undetermined.",
+};
 
 /** What to do when a check fails; the commands that exist for that runtime mode only. */
 const FIX: Record<Mode, Record<EnvironmentCheck["name"], ReactNode>> = {
@@ -79,8 +88,9 @@ export function LocalEnvironment() {
   );
 
   return (
-    <Card>
+    <Card data-tour={TOUR_TARGET.settingsEnvironment}>
       <CardHeader
+        level={3}
         title="Local environment"
         description="Database, cluster and Prometheus as the engine reaches them (GET /environment)."
         actions={recheck}
@@ -123,6 +133,7 @@ export function LocalEnvironment() {
                     {check.status === "pass" ? "Connected" : "Failing"}
                   </Badge>
                 </div>
+                <p className="text-xs text-muted">{PURPOSE[check.name]}</p>
                 <p className="font-mono text-2xs break-all text-faint">{check.detail}</p>
                 {check.status === "fail" ? (
                   <p className="text-xs leading-relaxed text-muted [&_code]:font-mono [&_code]:text-fg">
@@ -153,7 +164,7 @@ const COMMANDS: [string, string][] = [
 export function StackCommands() {
   return (
     <Card>
-      <CardHeader title="Managing the local stack" description="Run in a terminal at the repository root." />
+      <CardHeader level={3} title="Managing the local stack" description="Run in a terminal at the repository root." />
       <CardBody className="grid gap-3 text-xs text-muted">
         <dl className="grid gap-1.5 sm:grid-cols-[12rem_1fr]">
           {COMMANDS.map(([command, summary]) => (

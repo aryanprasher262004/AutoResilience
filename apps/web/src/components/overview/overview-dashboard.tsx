@@ -14,6 +14,7 @@ import { useDashboardSummary } from "@/lib/api/queries";
 import type { DashboardSummary } from "@/lib/api/types";
 import { cn } from "@/lib/cn";
 import { formatRelative, formatSeconds } from "@/lib/format";
+import { TOUR_TARGET } from "@/lib/help-content";
 
 import { ScoreTrend } from "./score-trend";
 
@@ -33,6 +34,7 @@ function OutcomeStrip({ s }: { s: DashboardSummary }) {
   return (
     <section
       aria-label="Experiment outcomes"
+      data-tour={TOUR_TARGET.overviewOutcomes}
       className="grid grid-cols-2 divide-line rounded-lg border border-line bg-surface sm:grid-cols-3 sm:divide-x lg:grid-cols-6"
     >
       <Stat label="Experiments" value={s.total} href="/experiments" tone="text-fg" />
@@ -65,7 +67,7 @@ function ScoreSummary({ s }: { s: DashboardSummary }) {
     sc.other_versions ? `${sc.other_versions} scored with an older methodology, excluded` : null,
   ].filter(Boolean);
   return (
-    <Card>
+    <Card data-tour={TOUR_TARGET.overviewScore}>
       <CardHeader title="Resilience Score" description={`Methodology ${sc.version}`} />
       <CardBody className="grid gap-3">
         {sc.count ? (

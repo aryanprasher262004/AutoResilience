@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { OpenGuideButton } from "@/components/help/open-guide-button";
+import { TourLink } from "@/components/help/page-guides";
 import { ShieldIcon } from "@/components/icons";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -41,7 +41,7 @@ export default function HowItWorksPage() {
       <PageHeader
         title="How it works"
         description="What happens between Check safety and the score, and what each phase records."
-        actions={<OpenGuideButton label="Open the guide" />}
+        actions={<TourLink page="overview" label="Take the Overview tour" />}
       />
       <div className="grid gap-4">
         <Section id="lifecycle" title="The lifecycle" description="Each phase stores its evidence before the next begins">

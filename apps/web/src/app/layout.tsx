@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { Guide } from "@/components/onboarding/guide";
+import { TourHost } from "@/components/tour/tour";
 import { Sidebar } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/top-bar";
 
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </main>
             </div>
           </div>
-          <Guide />
+          <TourHost />
         </Providers>
       </body>
     </html>

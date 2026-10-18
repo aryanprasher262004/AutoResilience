@@ -17,6 +17,8 @@ import {
   SupportIcon,
 } from "@/components/icons";
 import { cn } from "@/lib/cn";
+import { TOUR_TARGET } from "@/lib/help-content";
+import { isKnownRoute } from "@/lib/routes";
 
 type NavItem = { href: string; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 
@@ -48,20 +50,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-// The console's routes. Anything else is the 404 page, which is prerendered at
-// "/_not-found": treating every unknown path alike keeps server and browser renders equal.
-const ROUTES = [
-  /^\/$/,
-  /^\/(experiments|applications|services|reports|settings|help|how-it-works|support|about)$/,
-  /^\/applications\/[^/]+$/,
-  /^\/experiments\/[^/]+$/,
-  /^\/reports\/[^/]+$/,
-  /^\/services\/[^/]+\/[^/]+\/[^/]+$/,
-];
-
-export function isKnownRoute(pathname: string): boolean {
-  return ROUTES.some((route) => route.test(pathname));
-}
+export { isKnownRoute };
 
 export function isActive(pathname: string, href: string): boolean {
   if (!isKnownRoute(pathname)) return false;
@@ -83,6 +72,7 @@ export function NavLinks({ pathname, rail = false }: { pathname: string; rail?: 
         href="/experiments/new"
         aria-current={creating ? "page" : undefined}
         title="New Experiment"
+        data-tour={TOUR_TARGET.navNewExperiment}
         className={cn(
           "flex h-9 items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-colors",
           "bg-accent text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.15)] hover:bg-accent-strong",
@@ -108,6 +98,7 @@ export function NavLinks({ pathname, rail = false }: { pathname: string; rail?: 
                     <Link
                       href={href}
                       title={rail ? label : undefined}
+                      data-tour={href === "/applications" ? TOUR_TARGET.navApplications : undefined}
                       aria-current={active ? "page" : undefined}
                       className={cn(
                         "relative flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors",

@@ -33,10 +33,25 @@ npm test             # Vitest, once (CI); npm run test:watch while developing
 - **Shell** (`src/components/shell`): grouped navigation (Workspace, Learn, System) as a sidebar
   (≥ lg), icon rail (md) or drawer (phones, portalled out of the blurred header). Unknown paths
   render the 404 with no active item and a single "Not found" crumb, matching its prerender.
-- **Guide** (`src/components/onboarding`): opens on the first visit until finished or skipped,
-  replayable from the top bar, Help and Settings. Modal dialog with focus trap; Escape skips.
+- **Help content** (`src/lib/help-content.ts`): one source for page tours, the Help panel, the
+  Help page's page guides and the onboarding explanations. Text only; it never decides.
+  `pageFor(pathname)` maps a URL to its page.
+- **Tours** (`src/components/tour`): `TourHost` in the layout opens the current page's tour on
+  the first visit (Overview, Experiments, Applications, Topology, Settings) and records it as
+  finished or skipped per page. Steps spotlight real controls marked
+  `data-tour={TOUR_TARGET.x}` (the first visible one, so responsive duplicates work), say
+  when a control is not on screen, and only let view-only controls (filters, legend, graph
+  selection) be used to advance; everything else stays covered, and a tour never starts,
+  confirms or approves anything. Back/Next/dots, ← →, Escape skips; focus returns on close;
+  phones get a bottom sheet. Navigating away ends a tour unrecorded. Replay: top bar Tour,
+  Help, Settings → Guided tours (also reset per page or all).
+- **Help panel** (`src/components/help/help-panel.tsx`): the top bar's Help (or `?` when not
+  typing) opens a side dialog for the current page: topics, its tour, documentation links.
+- **Inline explanations:** `ui/tooltip.tsx` (hover/focus, `aria-describedby`, Escape) for the
+  topology toggles, `ui/info-hint.tsx` ("?" disclosure) beside complex controls.
 - **Preferences** (`src/lib/preferences.ts`, localStorage): experiment defaults (mode, duration,
-  affected replicas) that only pre-fill the builder, and whether the guide was dismissed. They
+  affected replicas) that only pre-fill the builder, and which page tours were finished or
+  skipped. They
   are never limits: the server's namespace policy decides every run. Malformed storage falls
   back field by field.
 - **Guidance text** (`src/lib/guidance.ts`) explains phases and checks; it never decides. The
@@ -44,9 +59,15 @@ npm test             # Vitest, once (CI); npm run test:watch while developing
   radius without judging it, and failed checks get background beside the server's message.
 - **Runtime** (`src/lib/runtime.ts`): only `local` exists; desktop and Cloud are listed as planned
   (Settings). Keep mode-specific assumptions behind this module.
-- **Pages:** Help (live setup checklist, troubleshooting per readiness reason, state glossary),
-  How it works, Support (honest channels, copyable secret-free diagnostics; nothing is sent),
-  About, Settings (defaults, guide, connection, runtime mode, planned platform settings).
+- **Pages:** Help (live setup checklist, page guides, troubleshooting per readiness reason,
+  state glossary), How it works, Support (honest channels, copyable secret-free diagnostics;
+  nothing is sent), About, Settings (environment health, Kubernetes access, data and backups,
+  stack operations, console preferences and tours; explanations only where nothing may be
+  changed from the browser).
+- **Topology** (`src/components/topology`): view state and presentation metadata are pure in
+  `src/lib/topology.ts`; `TopologyGraph` is one renderer of `TopologyRendererProps`
+  (`docs/topology.md`, "Views"). Legend, tooltips, inspector explanations and the List view
+  read the same metadata as the graph.
 
 ## Tests
 
@@ -59,11 +80,14 @@ Tests sit next to the component (`*.test.tsx`) and cover the critical workflows:
 | `components/shell/api-status.test.tsx` | ready, database not ready, API unreachable (network / bare proxy 500), recovery with refetch |
 | `components/history/history-view.test.tsx` | rows from the API, search (debounced), filters, sort, paging, URL state, empty and error states |
 | `components/experiment/room/experiment-room.test.tsx` | every state from VALIDATING to ABORTED, polling stops when terminal, score only when stored, NOT_SCORED, abort (success and refusal) |
-| `components/onboarding/guide.test.tsx` | opens on first visit, step navigation, skip and Escape persist, replay, focus trap, live environment step |
+| `components/tour/tour.test.tsx` | first-visit start per page, focus, Next/Back/dots, Finish/Skip/Escape persisted, arrow keys, missing and responsive-hidden controls, advance only on safe controls, page change, pages without a tour |
+| `lib/help-content.test.ts` | URL → page mapping, tours for the five pages, advance targets are view-only, every target known |
 | `components/settings/preferences-form.test.tsx` | defaults, save, local validation only (no policy limits), reset, tolerant parsing |
 | `components/experiment/builder/builder-preferences.test.tsx` | saved defaults pre-fill the builder and are sent unchanged; the server's refusal is shown |
-| `components/shell/top-bar.test.tsx` | phone drawer (focus, Escape, closes on navigation), Guide/Help actions, breadcrumbs incl. 404 |
-| `components/help/help.test.tsx` | live setup checklist, fix links per failure, diagnostics copy (secret-free) |
+| `components/shell/top-bar.test.tsx` | phone drawer (focus, Escape, closes on navigation), page Tour and page-aware Help, breadcrumbs incl. 404 |
+| `components/help/help.test.tsx` | live setup checklist, fix links per failure, diagnostics copy (secret-free), Help panel (`?` not while typing, page content, starts the tour) |
+| `components/topology/topology-view.test.tsx` | filters, inspector and builder hand-off, read-only clusters, List view, unknowns with explanations, tooltips, legend, selection announcement and clearing, filter empty state |
+| `components/settings/settings-sections.test.tsx`, `stack-controls.test.tsx` | Kubernetes access, data and backups per runtime mode, tour progress/reset/replay; pairing steps and operation consequences |
 | `components/experiment/room/phase-guide.test.tsx` | phase explanation for active runs only; check background only for non-passing checks |
 
 How the tests talk to the "backend":

@@ -1,11 +1,15 @@
-import { screen, within } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { act, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, test, vi } from "vitest";
+
+import { endTour, useActiveTour } from "@/components/tour/tour-state";
 
 import { mockApi, proxyDown } from "@/test/api";
 import { dashboard, environment, ready, services } from "@/test/fixtures";
+import { setUrl } from "@/test/navigation";
 import { renderWithApi } from "@/test/render";
 
 import { Diagnostics } from "./diagnostics";
+import { HelpButton } from "./help-panel";
 import { SetupChecklist } from "./setup-checklist";
 
 describe("Setup checklist", () => {
@@ -48,3 +52,44 @@ describe("Diagnostics", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Copied");
   });
 });
+
+describe("Help panel", () => {
+  afterEach(() => act(() => endTour()));
+
+  test("? opens help for the current page, but not while typing", async () => {
+    setUrl("/applications/7d2f");
+    const { user } = renderWithApi(
+      <>
+        <input aria-label="Search" />
+        <HelpButton />
+      </>,
+    );
+    await user.type(screen.getByLabelText("Search"), "?");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(document.body);
+    await user.keyboard("?");
+    const panel = within(screen.getByRole("dialog", { name: "Application topology" }));
+    expect(panel.getByText("Lines are relationships, not traffic")).toBeInTheDocument();
+    expect(panel.getByRole("link", { name: /Topology contract/ })).toHaveAttribute("href", expect.stringContaining("docs/topology.md"));
+  });
+
+  test("starts the page's tour and closes", async () => {
+    setUrl("/settings");
+    const { user } = renderWithApi(
+      <>
+        <HelpButton />
+        <TourProbe />
+      </>,
+    );
+    await user.click(screen.getByRole("button", { name: "Help" }));
+    await user.click(screen.getByRole("button", { name: "Take the tour" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("tour settings")).toBeInTheDocument();
+  });
+});
+
+function TourProbe() {
+  const tour = useActiveTour();
+  return <p>tour {tour ? tour.page : "closed"}</p>;
+}

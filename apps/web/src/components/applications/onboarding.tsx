@@ -10,6 +10,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
+import { InfoHint } from "@/components/ui/info-hint";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { Stepper } from "@/components/ui/stepper";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
@@ -109,7 +110,16 @@ function ClusterStep({ selected, onNext }: { selected: ClusterRef | null; onNext
   return (
     <Card>
       <CardHeader
-        title="Choose a cluster"
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            Choose a cluster
+            <InfoHint label="supported clusters">
+              Only contexts the engine was started with: its execution cluster (<code>KUBE_CONTEXT</code>) and clusters
+              granted read-only access with <code>ar cluster import</code>. The engine only lists and reads there; it
+              cannot read Secrets or ConfigMaps.
+            </InfoHint>
+          </span>
+        }
         description="Only contexts the engine was configured with are offered; they cannot be added from the browser."
       />
       {isPending ? (
@@ -175,7 +185,17 @@ function NamespaceStep({
   return (
     <Card>
       <CardHeader
-        title="Choose the application's namespaces"
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            Choose the application&apos;s namespaces
+            <InfoHint label="namespace access">
+              <strong className="text-fg">readable</strong>: the engine can list it; the count is its Deployments and
+              StatefulSets. <strong className="text-fg">forbidden</strong>: its identity may not read it (on a discovery
+              cluster, <code>ar cluster import --namespace</code> grants more). <strong className="text-fg">error</strong>: the
+              read failed. System namespaces are never offered.
+            </InfoHint>
+          </span>
+        }
         description={`In ${contextLabel(cluster.context)}. Workload counts come from the engine's own read access.`}
       />
       {isPending ? (
@@ -391,7 +411,8 @@ export function WorkloadTable({ topology }: { topology: Topology }) {
         </TBody>
       </Table>
       <p className="border-t border-line px-4 py-2 text-2xs text-faint">
-        Pods: ready / owned · Services: those whose selector matches the workload&apos;s Pods ·{" "}
+        Pods: ready / owned · Services: those whose selector matches the workload&apos;s Pods · New experiment: only on
+        the execution cluster, and safety validation still decides · read-only: a discovery cluster ·{" "}
         {topology.unknowns.length} items could not be verified (listed in the topology).
       </p>
     </>

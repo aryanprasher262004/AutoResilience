@@ -18,9 +18,21 @@ import {
   savePairing,
   summarizeStatus,
 } from "@/lib/manager";
+import { TOUR_TARGET } from "@/lib/help-content";
 
 const AR = "python3 tools/ar/ar.py";
 const POLL_MS = 1000;
+
+/**
+ * Consequences of each operation the manager offers, in plain words. The manager's own
+ * plan (shown in the confirmation) stays authoritative; an operation not listed here is
+ * still shown with that plan only.
+ */
+export const OPERATION_NOTES: Record<string, string> = {
+  start: "Starts a stopped kind node and the database, engine and console containers. Safe to repeat; nothing is deleted.",
+  stop: "Stops the containers and keeps all data; the cluster keeps running. This console stops responding until the stack is started again from a terminal (ar start).",
+  backup: "Writes a new database dump to ~/.autoresilience/backups. The running stack is not changed.",
+};
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -87,8 +99,9 @@ export function StackControls() {
   };
 
   return (
-    <Card>
+    <Card data-tour={TOUR_TARGET.settingsManager}>
       <CardHeader
+        level={3}
         title="Stack controls"
         description="Start, stop or back up the local stack through the loopback service manager (ar manager)."
         actions={
@@ -110,10 +123,17 @@ export function StackControls() {
       <CardBody className="grid gap-3 text-xs text-muted [&_code]:font-mono [&_code]:text-fg">
         {!pairing ? (
           <>
+            <ol className="grid list-decimal gap-1 pl-5">
+              <li>
+                In a terminal at the repository root, run <code>{AR} manager</code> (local stack only).
+              </li>
+              <li>Copy the pairing token it prints.</li>
+              <li>Paste it below and connect. Every operation then still shows its plan and asks you first.</li>
+            </ol>
             <p>
-              Run <code>{AR} manager</code> in a terminal. It listens on 127.0.0.1 only, accepts requests from this
-              console only and prints a pairing token valid while it runs. Installing, uninstalling, restoring and
-              cluster imports stay terminal-only.
+              The manager listens on 127.0.0.1 only and accepts requests from this console&apos;s address only. The token
+              is valid while that process runs and is kept for this browser tab only; Disconnect forgets it. Installing,
+              upgrading, restoring, uninstalling and cluster imports stay terminal-only.
             </p>
             <form
               className="grid gap-3 sm:grid-cols-[8rem_1fr_auto] sm:items-end"
@@ -165,6 +185,16 @@ export function StackControls() {
                 Re-check
               </Button>
             </div>
+            <dl className="grid gap-1.5" aria-label="What each operation does">
+              {operations.map((op) =>
+                OPERATION_NOTES[op.name] ? (
+                  <div key={op.name} className="sm:grid sm:grid-cols-[11rem_1fr] sm:gap-3">
+                    <dt className="text-fg">{op.title}</dt>
+                    <dd>{OPERATION_NOTES[op.name]}</dd>
+                  </div>
+                ) : null,
+              )}
+            </dl>
           </>
         )}
         {error ? (
@@ -234,6 +264,7 @@ function OperationButton({ pairing, operation, onDone }: { pairing: Pairing; ope
           <h2 id={titleId} className="text-base font-semibold">
             {operation.title}?
           </h2>
+          {OPERATION_NOTES[operation.name] ? <p className="text-muted">{OPERATION_NOTES[operation.name]}</p> : null}
           {plan ? (
             <div>
               <p className="text-muted">The service manager will:</p>

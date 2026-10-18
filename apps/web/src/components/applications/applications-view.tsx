@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { useApplications } from "@/lib/api/queries";
 import { formatRelative } from "@/lib/format";
+import { TOUR_TARGET } from "@/lib/help-content";
 
 import { ClusterRoleBadge, contextLabel } from "./cluster-badge";
 
@@ -18,11 +19,11 @@ export function ApplicationsView() {
   const router = useRouter();
   const { data, isPending, isError, error, refetch } = useApplications();
 
-  if (isPending) return <Card><LoadingState rows={4} label="Loading applications" /></Card>;
-  if (isError) return <Card><ErrorState title="Could not load applications" message={error.message} onRetry={() => refetch()} /></Card>;
+  if (isPending) return <Card data-tour={TOUR_TARGET.applicationsList}><LoadingState rows={4} label="Loading applications" /></Card>;
+  if (isError) return <Card data-tour={TOUR_TARGET.applicationsList}><ErrorState title="Could not load applications" message={error.message} onRetry={() => refetch()} /></Card>;
   if (!data.items.length)
     return (
-      <Card>
+      <Card data-tour={TOUR_TARGET.applicationsList}>
         <EmptyState
           title="No applications onboarded yet"
           description="Onboarding picks a cluster the engine is authorized to read and the namespaces your application runs in, then shows its live topology. Nothing is written to the cluster."
@@ -32,7 +33,7 @@ export function ApplicationsView() {
     );
 
   return (
-    <Card>
+    <Card data-tour={TOUR_TARGET.applicationsList}>
       <Table>
         <THead>
           <tr>

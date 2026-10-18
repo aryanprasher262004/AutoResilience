@@ -25,7 +25,11 @@ Experiments are then started from the existing builder and pass the same safety 
 The application page shows the graph (drag to pan, scroll/pinch to zoom, click or focus +
 Enter to select), kind and edge filters, a namespace filter, search, an equivalent List
 view, the inspector (status, containers, relationships with provenance, unknowns, events,
-labels) and the *Not verified* list. **Forget application** removes only the record.
+labels) and the *Not verified* list. **Forget application** removes only the record. The
+**Legend** explains kinds, health colours, line styles and marks; every kind and relationship
+toggle has a tooltip; selecting a resource keeps its relationships and owner chain bright.
+Each page has a short tour on the first visit (replay: **Tour** in the top bar), and **Help**
+(or `?`) explains the current page.
 
 ## Granting read-only access to another cluster (local stack)
 

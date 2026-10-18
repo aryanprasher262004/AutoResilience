@@ -1,7 +1,7 @@
 import { act, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 
-import { closeGuide, useGuideOpen } from "@/components/onboarding/guide-state";
+import { endTour, useActiveTour } from "@/components/tour/tour-state";
 import { mockApi } from "@/test/api";
 import { ready } from "@/test/fixtures";
 import { setUrl } from "@/test/navigation";
@@ -9,11 +9,12 @@ import { renderWithApi } from "@/test/render";
 
 import { TopBar } from "./top-bar";
 
-function GuideProbe() {
-  return <p>guide {useGuideOpen() ? "open" : "closed"}</p>;
+function TourProbe() {
+  const tour = useActiveTour();
+  return <p>tour {tour ? `${tour.page} step ${tour.step}` : "closed"}</p>;
 }
 
-afterEach(() => act(() => closeGuide()));
+afterEach(() => act(() => endTour()));
 
 describe("Top bar", () => {
   test("phones get the full navigation in a drawer that Escape closes", async () => {
@@ -46,19 +47,34 @@ describe("Top bar", () => {
     expect(screen.queryByRole("dialog", { name: "Navigation" })).not.toBeInTheDocument();
   });
 
-  test("Guide replays the getting-started guide; Help links to the help page", async () => {
-    setUrl("/services");
+  test("Tour starts the current page's tour; Help opens that page's help", async () => {
+    setUrl("/applications");
     const { user } = renderWithApi(
       <>
         <TopBar />
-        <GuideProbe />
+        <TourProbe />
       </>,
     );
-    expect(screen.getByText("guide closed")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Guide" }));
-    expect(screen.getByText("guide open")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Help" })).toHaveAttribute("href", "/help");
-    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Services");
+    expect(screen.getByText("tour closed")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tour of this page" }));
+    expect(screen.getByText("tour applications step 0")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Help" }));
+    const panel = screen.getByRole("dialog", { name: "Applications" });
+    expect(panel).toHaveTextContent("Experiment eligibility");
+    expect(within(panel).getByRole("link", { name: /Onboarding runbook/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("docs/onboarding.md"),
+    );
+    expect(within(panel).getByRole("link", { name: "All page guides" })).toHaveAttribute("href", "/help#page-applications");
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Applications");
+  });
+
+  test("pages without a tour offer only Help", () => {
+    setUrl("/services");
+    renderWithApi(<TopBar />);
+    expect(screen.queryByRole("button", { name: "Tour of this page" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
   });
 });
 

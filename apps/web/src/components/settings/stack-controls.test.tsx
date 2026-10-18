@@ -59,10 +59,29 @@ describe("StackControls", () => {
 
     const dialog = within(screen.getByRole("dialog", { hidden: true }));
     expect(await dialog.findByText(/pg_dump of the stack database/)).toBeInTheDocument();
+    expect(dialog.getByText(/The running stack is not changed/)).toBeInTheDocument(); // consequence, beside the plan
     expect(api.requests("POST", "/v1/operations/backup")).toHaveLength(0);
     await user.click(dialog.getByRole("button", { name: "Confirm and run", hidden: true }));
     await waitFor(() => expect(dialog.getByText("succeeded")).toBeInTheDocument(), { timeout: 4000 });
     expect(api.requests("POST", "/v1/operations/backup")[0].body).toEqual({ confirmation: "c-1" });
+  });
+
+  it("explains pairing and what each offered operation does", async () => {
+    sessionStorage.setItem("autoresilience.manager", JSON.stringify({ port: 8765, token: "t" }));
+    mockApi()
+      .on("GET", "/v1/status", STATUS)
+      .on("GET", "/v1/operations", { items: [...OPS.items, { name: "stop", title: "Stop the stack", plan: [] }, { name: "later", title: "Later op", plan: [] }] });
+    renderWithApi(<StackControls />);
+    const notes = within(await screen.findByLabelText("What each operation does"));
+    expect(notes.getByText(/keeps all data.*stops responding until the stack is started again/)).toBeInTheDocument();
+    expect(notes.queryByText("Later op")).not.toBeInTheDocument(); // no invented explanation for an unknown operation
+    expect(screen.getByRole("button", { name: "Later op" })).toBeInTheDocument();
+  });
+
+  it("tells you how to pair before connecting", () => {
+    renderWithApi(<StackControls />);
+    expect(screen.getByText(/Copy the pairing token it prints/)).toBeInTheDocument();
+    expect(screen.getByText(/kept for this browser tab only/)).toBeInTheDocument();
   });
 
   it("explains how to start the manager when nothing answers", async () => {

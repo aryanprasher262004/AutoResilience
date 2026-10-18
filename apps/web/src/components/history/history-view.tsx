@@ -16,6 +16,7 @@ import type { ExperimentState, FaultType, HistoryQuery } from "@/lib/api/types";
 import { FAULT_TYPES } from "@/lib/experiment-options";
 import { isTerminal } from "@/lib/experiment-state";
 import { formatDateTime, formatRelative, formatSeconds, shortId } from "@/lib/format";
+import { TOUR_TARGET } from "@/lib/help-content";
 
 const PAGE_SIZE = 25;
 
@@ -74,7 +75,7 @@ function Filters({ mode, url }: { mode: Mode; url: ReturnType<typeof useUrlState
 
   const groups = Object.entries(GROUPS).filter(([key]) => mode === "history" || key !== "active");
   return (
-    <div className="flex flex-wrap items-end gap-2 border-b border-line px-4 py-3">
+    <div className="flex flex-wrap items-end gap-2 border-b border-line px-4 py-3" data-tour={mode === "history" ? TOUR_TARGET.experimentsFilters : undefined}>
       <div className="w-full sm:w-64">
         <label htmlFor="history-q" className="sr-only">
           Search
@@ -319,7 +320,7 @@ export function HistoryView({ mode }: { mode: Mode }) {
   return (
     <Card>
       <Filters mode={mode} url={url} />
-      {body}
+      <div data-tour={mode === "history" ? TOUR_TARGET.experimentsList : undefined}>{body}</div>
     </Card>
   );
 }

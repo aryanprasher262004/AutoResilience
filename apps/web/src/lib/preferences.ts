@@ -2,10 +2,11 @@ import { useSyncExternalStore } from "react";
 
 import type { PodDeleteMode } from "./api/types";
 import { POD_DELETE_MODES } from "./experiment-options";
+import { PAGE_HELP, type PageId } from "./help-content";
 
 /**
  * Per-browser console preferences (localStorage). They only pre-fill the experiment
- * builder and remember the guide: every value is still sent to, and decided by, the
+ * builder and remember which page tours were seen: every value is still sent to, and decided by, the
  * server's namespace-bound safety policy. Nothing here can relax a limit.
  */
 export type ExperimentDefaults = {
@@ -14,11 +15,13 @@ export type ExperimentDefaults = {
   mode: PodDeleteMode;
 };
 
+/** A page tour that was finished or skipped; a page without a record shows its tour on the next visit. */
+export type TourRecord = { status: "completed" | "skipped"; at: string };
+
 export type Preferences = {
   version: 1;
   experimentDefaults: ExperimentDefaults;
-  /** When the first-use guide was finished or skipped; null shows it on the next visit. */
-  guideDismissedAt: string | null;
+  tours: Partial<Record<PageId, TourRecord>>;
 };
 
 export const STORAGE_KEY = "autoresilience.console.preferences";
@@ -28,10 +31,23 @@ export const BUILT_IN_DEFAULTS: ExperimentDefaults = { durationSeconds: 60, affe
 export const DEFAULT_PREFERENCES: Preferences = {
   version: 1,
   experimentDefaults: BUILT_IN_DEFAULTS,
-  guideDismissedAt: null,
+  tours: {},
 };
 
 const positiveInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0;
+
+function parseTours(value: unknown): Preferences["tours"] {
+  if (typeof value !== "object" || value === null) return {};
+  const tours: Preferences["tours"] = {};
+  for (const [page, record] of Object.entries(value as Record<string, unknown>)) {
+    if (!(page in PAGE_HELP) || typeof record !== "object" || record === null) continue;
+    const r = record as Record<string, unknown>;
+    if ((r.status === "completed" || r.status === "skipped") && typeof r.at === "string") {
+      tours[page as PageId] = { status: r.status, at: r.at };
+    }
+  }
+  return tours;
+}
 
 /** Anything unreadable or malformed falls back to the built-in values, field by field. */
 export function parsePreferences(raw: string | null): Preferences {
@@ -55,7 +71,7 @@ export function parsePreferences(raw: string | null): Preferences {
       affectedReplicas: positiveInt(e.affectedReplicas) ? e.affectedReplicas : BUILT_IN_DEFAULTS.affectedReplicas,
       mode: (POD_DELETE_MODES as readonly unknown[]).includes(e.mode) ? (e.mode as PodDeleteMode) : BUILT_IN_DEFAULTS.mode,
     },
-    guideDismissedAt: typeof d.guideDismissedAt === "string" ? d.guideDismissedAt : null,
+    tours: parseTours(d.tours),
   };
 }
 
@@ -96,6 +112,20 @@ function subscribe(listener: () => void) {
     listeners.delete(listener);
     window.removeEventListener("storage", onStorage);
   };
+}
+
+export function recordTour(page: PageId, status: TourRecord["status"]): void {
+  updatePreferences((p) => ({ ...p, tours: { ...p.tours, [page]: { status, at: new Date().toISOString() } } }));
+}
+
+/** Forget one page's tour (or all): it opens again on the next visit. */
+export function resetTours(page?: PageId): void {
+  updatePreferences((p) => {
+    if (!page) return { ...p, tours: {} };
+    const tours = { ...p.tours };
+    delete tours[page];
+    return { ...p, tours };
+  });
 }
 
 export function usePreferences(): Preferences {

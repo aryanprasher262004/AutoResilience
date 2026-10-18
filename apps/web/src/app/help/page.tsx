@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { OpenGuideButton } from "@/components/help/open-guide-button";
+import { PageGuides, TourLink } from "@/components/help/page-guides";
 import { SetupChecklist } from "@/components/help/setup-checklist";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -94,6 +94,8 @@ const DOCS: [string, string][] = [
   ["Resilience Score v3", "docs/scoring/resilience-score-v3.md"],
   ["Prometheus queries", "monitoring/prometheus/queries.md"],
   ["Recorded experiments", "docs/recordings.md"],
+  ["Onboarding applications", "docs/onboarding.md"],
+  ["Topology contract", "docs/topology.md"],
 ];
 
 export default function HelpPage() {
@@ -101,8 +103,8 @@ export default function HelpPage() {
     <>
       <PageHeader
         title="Help"
-        description="Get set up, fix common problems and look up what each state means."
-        actions={<OpenGuideButton />}
+        description="Get set up, learn each page, fix common problems and look up what each state means. Press ? on any page for its help."
+        actions={<TourLink page="overview" label="Take the Overview tour" />}
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="grid min-w-0 gap-4">
@@ -111,7 +113,14 @@ export default function HelpPage() {
             <SetupChecklist />
           </Card>
 
-          <Card>
+          <section aria-labelledby="page-guides-title" className="grid gap-3">
+            <h2 id="page-guides-title" className="text-sm font-semibold text-fg">
+              Page guides
+            </h2>
+            <PageGuides />
+          </section>
+
+          <Card id="troubleshooting" className="scroll-mt-20">
             <CardHeader title="Troubleshooting" />
             <div className="divide-y divide-line">
               {TROUBLESHOOTING.map((item) => (
@@ -161,8 +170,9 @@ export default function HelpPage() {
           <Card>
             <CardHeader title="Keyboard" />
             <CardBody className="text-xs leading-relaxed text-muted">
-              Every control is reachable with Tab; “Skip to content” is the first stop on each page. In the guide and
-              dialogs, Escape closes and focus returns to where you were.
+              Every control is reachable with Tab; “Skip to content” is the first stop on each page. Press ? for the
+              current page&apos;s help. In tours, ← and → move between steps; in tours and dialogs, Escape closes and
+              focus returns to where you were.
             </CardBody>
           </Card>
         </aside>

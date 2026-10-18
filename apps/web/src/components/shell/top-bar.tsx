@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { BrandMark, ChevronRightIcon, CloseIcon, CompassIcon, HelpIcon, MenuIcon } from "@/components/icons";
-import { openGuide } from "@/components/onboarding/guide-state";
+import { HelpButton } from "@/components/help/help-panel";
+import { BrandMark, ChevronRightIcon, CloseIcon, CompassIcon, MenuIcon } from "@/components/icons";
+import { startTour } from "@/components/tour/tour-state";
 import { shortId } from "@/lib/format";
+import { PAGE_HELP, pageFor } from "@/lib/help-content";
 
 import { ApiStatus } from "./api-status";
 import { NavLinks, isKnownRoute } from "./nav";
@@ -27,10 +29,11 @@ const LABELS: Record<string, string> = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Breadcrumbs derived from the URL (ids are shortened, never looked up), plus actions. */
+/** Breadcrumbs derived from the URL (ids are shortened, never looked up), plus the page's tour and help. */
 export function TopBar() {
   const pathname = usePathname();
   const known = isKnownRoute(pathname);
+  const page = pageFor(pathname);
   const segments = known ? pathname.split("/").filter(Boolean) : [];
   const crumbs = [
     { href: "/", label: "Overview" },
@@ -68,21 +71,18 @@ export function TopBar() {
         })}
       </nav>
       <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          onClick={() => openGuide()}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-fg"
-        >
-          <CompassIcon className="size-4" />
-          <span className="sr-only sm:not-sr-only">Guide</span>
-        </button>
-        <Link
-          href="/help"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-fg"
-        >
-          <HelpIcon className="size-4" />
-          <span className="sr-only sm:not-sr-only">Help</span>
-        </Link>
+        {PAGE_HELP[page].tour ? (
+          <button
+            type="button"
+            onClick={() => startTour(page)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-fg"
+          >
+            <CompassIcon className="size-4" />
+            <span className="sr-only sm:not-sr-only">Tour</span>
+            <span className="sr-only"> of this page</span>
+          </button>
+        ) : null}
+        <HelpButton />
       </div>
     </header>
   );
