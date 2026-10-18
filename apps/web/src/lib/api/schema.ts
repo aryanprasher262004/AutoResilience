@@ -24,6 +24,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Environment
+         * @description Always 200; each check says whether that dependency answered.
+         *
+         *     Probes are read-only (list workloads, Prometheus build info) and bounded by the
+         *     configured request timeouts.
+         */
+        get: operations["get_environment_environment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/experiments": {
         parameters: {
             query?: never;
@@ -426,6 +449,38 @@ export interface components {
             median: number | null;
             /** Minimum */
             minimum: number | null;
+        };
+        /**
+         * Environment
+         * @description What this API process is connected to, as observed by the API itself.
+         */
+        Environment: {
+            /** Checks */
+            checks: components["schemas"]["EnvironmentCheck"][];
+            /** Kube Context */
+            kube_context: string | null;
+            /** Prometheus Url */
+            prometheus_url: string;
+            /**
+             * Runtime Mode
+             * @enum {string}
+             */
+            runtime_mode: "development" | "local-stack";
+        };
+        /** EnvironmentCheck */
+        EnvironmentCheck: {
+            /** Detail */
+            detail: string;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "database" | "kubernetes" | "prometheus";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pass" | "fail";
         };
         /** ExperimentCreate */
         ExperimentCreate: {
@@ -969,6 +1024,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardSummary"];
+                };
+            };
+        };
+    };
+    get_environment_environment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Environment"];
                 };
             };
         };

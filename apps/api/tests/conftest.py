@@ -255,6 +255,11 @@ class FakePrometheus:
         # Client outage counters/gauges (see outage_counters()).
         self.client_outage: list[Series] = []
 
+    def build_info(self) -> str:
+        if self.error is not None:
+            raise PrometheusError(self.error)
+        return "3.0.0"
+
     def query_value(self, promql: str, at: datetime) -> float | None:
         self.queries.append((promql, at))
         if self.error is not None:

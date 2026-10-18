@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
+from app.api.routes.environment import router as environment_router
 from app.api.routes.experiments import (
     get_chaos_provider,
     get_kubernetes_adapter,
@@ -16,7 +17,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.ready import router as ready_router
 from app.api.routes.reports import router as history_router
 from app.api.routes.targets import router as services_router
-from app.core.config import get_settings
+from app.core.config import check_runtime, get_settings
 from app.db.session import SessionLocal
 from app.domain.safety_policy import policy_for_namespace
 from app.services.orchestration.orchestrator import (
@@ -50,6 +51,7 @@ def build_reconciler() -> Reconciler:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    check_runtime(get_settings())
     stop = threading.Event()
     thread = None
     if get_settings().orchestrator_enabled:
@@ -71,6 +73,7 @@ register_error_handlers(app)
 
 app.include_router(health_router)
 app.include_router(ready_router)
+app.include_router(environment_router)
 # Before experiments_router: /experiments/history must not match /{experiment_id}.
 app.include_router(history_router)
 app.include_router(experiments_router)

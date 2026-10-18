@@ -1,4 +1,4 @@
-"""Read-only Prometheus HTTP API client (GET /api/v1/query only)."""
+"""Read-only Prometheus HTTP API client (GET /api/v1/query and status/buildinfo only)."""
 
 import math
 from dataclasses import dataclass
@@ -87,6 +87,20 @@ class PrometheusClient:
             )
         result: dict[str, Any] = data
         return result
+
+    def build_info(self) -> str:
+        """The server's version (GET /api/v1/status/buildinfo): a reachability probe."""
+        try:
+            response = self._http.get("/api/v1/status/buildinfo")
+        except httpx.HTTPError as exc:
+            raise PrometheusError(f"Prometheus unreachable: {exc!r}") from exc
+        body = _json(response)
+        if response.status_code != 200 or body.get("status") != "success":
+            raise PrometheusError(
+                f"Prometheus status failed ({response.status_code}): "
+                f"{body.get('error') or response.reason_phrase}"
+            )
+        return str((body.get("data") or {}).get("version") or "unknown")
 
     def query_value(self, promql: str, at: datetime) -> float | None:
         """Single-value query: None if empty, error if it unexpectedly returns several."""

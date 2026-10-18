@@ -355,6 +355,81 @@
         "title": "Distribution",
         "type": "object"
       },
+      "Environment": {
+        "description": "What this API process is connected to, as observed by the API itself.",
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "kube_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kube Context"
+          },
+          "prometheus_url": {
+            "title": "Prometheus Url",
+            "type": "string"
+          },
+          "runtime_mode": {
+            "enum": [
+              "development",
+              "local-stack"
+            ],
+            "title": "Runtime Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runtime_mode",
+          "kube_context",
+          "prometheus_url",
+          "checks"
+        ],
+        "title": "Environment",
+        "type": "object"
+      },
+      "EnvironmentCheck": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "enum": [
+              "database",
+              "kubernetes",
+              "prometheus"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "detail"
+        ],
+        "title": "EnvironmentCheck",
+        "type": "object"
+      },
       "ExperimentCreate": {
         "properties": {
           "affected_replicas": {
@@ -1895,6 +1970,28 @@
         "summary": "Get Dashboard Summary",
         "tags": [
           "history"
+        ]
+      }
+    },
+    "/environment": {
+      "get": {
+        "description": "Always 200; each check says whether that dependency answered.\n\nProbes are read-only (list workloads, Prometheus build info) and bounded by the\nconfigured request timeouts.",
+        "operationId": "get_environment_environment_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Environment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Environment",
+        "tags": [
+          "health"
         ]
       }
     },

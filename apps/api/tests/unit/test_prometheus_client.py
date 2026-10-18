@@ -127,3 +127,28 @@ def test_query_raw_returns_scraped_samples() -> None:
 def test_query_raw_rejects_vector() -> None:
     with pytest.raises(PrometheusError, match="Expected matrix result"):
         client_for(lambda _: vector(({}, "1"))).query_raw("x", AT)
+
+
+def test_build_info_is_a_read_only_status_probe() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            200, json={"status": "success", "data": {"version": "3.5.0"}}
+        )
+
+    assert client_for(handler).build_info() == "3.5.0"
+    assert [(r.method, r.url.path) for r in seen] == [
+        ("GET", "/api/v1/status/buildinfo")
+    ]
+
+
+def test_build_info_errors_raise_prometheus_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    with pytest.raises(PrometheusError, match="unreachable"):
+        client_for(handler).build_info()
+    with pytest.raises(PrometheusError, match="503"):
+        client_for(lambda r: httpx.Response(503, json={"status": "error"})).build_info()

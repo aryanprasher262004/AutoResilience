@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,6 +9,9 @@ class Settings(BaseSettings):
 
     app_name: str = "AutoResilience API"
     environment: str = "development"
+    # "local-stack": the containerised stack managed by tools/ar (compose.yaml);
+    # "development": host processes. See check_runtime().
+    runtime_mode: Literal["development", "local-stack"] = "development"
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/autoresilience"
     )
@@ -33,9 +37,25 @@ class Settings(BaseSettings):
     # How long a finished run's ChaosEngine may still be running before cleanup.
     cleanup_grace_seconds: float = 120.0
     frontend_origin: str = "http://localhost:3000"
-    # kubeconfig context for the target cluster; None uses the current context.
+    # kubeconfig context for the target cluster; None uses the current context
+    # (development only: the local stack refuses to start without it).
     kube_context: str | None = None
     kube_request_timeout_seconds: float = 5.0
+
+
+class ConfigurationError(Exception):
+    """The settings are unsafe or incomplete for the selected runtime mode."""
+
+
+def check_runtime(settings: Settings) -> None:
+    """Refuse configurations a packaged stack must never run with."""
+    if settings.runtime_mode == "local-stack" and not settings.kube_context:
+        # The current-context fallback could silently target the wrong cluster.
+        raise ConfigurationError(
+            "RUNTIME_MODE=local-stack requires an explicit KUBE_CONTEXT "
+            "(the stack sets kind-autoresilience; run `ar install` to generate "
+            "its kubeconfig)"
+        )
 
 
 @lru_cache
