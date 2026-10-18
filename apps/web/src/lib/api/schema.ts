@@ -4,6 +4,107 @@
  */
 
 export interface paths {
+    "/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Applications */
+        get: operations["get_applications_applications_get"];
+        put?: never;
+        /**
+         * Create Application
+         * @description Record a namespace-scoped view of an authorized cluster.
+         *
+         *     The namespaces must be readable now. Nothing is written to the cluster.
+         */
+        post: operations["create_application_applications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{application_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Application */
+        get: operations["get_application_applications__application_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Application
+         * @description Forget the application. The cluster and experiment history are unchanged.
+         */
+        delete: operations["delete_application_applications__application_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{application_id}/topology": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Application Topology */
+        get: operations["get_application_topology_applications__application_id__topology_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Clusters
+         * @description Contexts this engine was configured to read. No cluster is contacted.
+         */
+        get: operations["get_clusters_clusters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/namespaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Namespaces
+         * @description Namespaces offered for onboarding, with workload counts and access status.
+         */
+        get: operations["get_namespaces_clusters_namespaces_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dashboard/summary": {
         parameters: {
             query?: never;
@@ -349,6 +450,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/topology": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Topology
+         * @description Nodes and edges read from the cluster now (see docs/topology.md).
+         *
+         *     Without `namespace`: every namespace the cluster's access allows.
+         */
+        get: operations["get_topology_topology_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -357,6 +480,45 @@ export interface components {
         AbortRequest: {
             /** Reason */
             reason: string;
+        };
+        /** ApplicationCreate */
+        ApplicationCreate: {
+            /** Context */
+            context?: string | null;
+            /** Name */
+            name: string;
+            /** Namespaces */
+            namespaces: string[];
+        };
+        /** ApplicationList */
+        ApplicationList: {
+            /** Items */
+            items: components["schemas"]["ApplicationRead"][];
+        };
+        /** ApplicationRead */
+        ApplicationRead: {
+            cluster: components["schemas"]["ClusterRef"] | null;
+            /** Context */
+            context: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Namespaces */
+            namespaces: string[];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** BaselineRead */
         BaselineRead: {
@@ -420,6 +582,40 @@ export interface components {
          * @enum {string}
          */
         CheckStatus: "PASSED" | "FAILED" | "ERROR" | "SKIPPED";
+        /** ClusterList */
+        ClusterList: {
+            /** Items */
+            items: components["schemas"]["ClusterRef"][];
+        };
+        /** ClusterRef */
+        ClusterRef: {
+            /** Chaos Permitted */
+            chaos_permitted: boolean;
+            /** Context */
+            context: string | null;
+            /** Namespaces */
+            namespaces: string[] | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "execution" | "discovery";
+        };
+        /** Container */
+        Container: {
+            /** Image */
+            image: string;
+            /** Name */
+            name: string;
+            /** Ready */
+            ready: boolean;
+            /** Reason */
+            reason: string | null;
+            /** Restart Count */
+            restart_count: number;
+            /** State */
+            state: string | null;
+        };
         /** DashboardSummary */
         DashboardSummary: {
             /** By State */
@@ -449,6 +645,29 @@ export interface components {
             median: number | null;
             /** Minimum */
             minimum: number | null;
+        };
+        /**
+         * EdgeAttributes
+         * @description `endpoint` edges only: the endpoint's conditions.
+         */
+        EdgeAttributes: {
+            /** Ready */
+            ready?: boolean | null;
+            /** Serving */
+            serving?: boolean | null;
+            /** Terminating */
+            terminating?: boolean | null;
+        };
+        /** EndpointSliceDetails */
+        EndpointSliceDetails: {
+            /** Address Type */
+            address_type: string | null;
+            /** Endpoints */
+            endpoints: number;
+            /** Ports */
+            ports: components["schemas"]["SlicePort"][];
+            /** Ready */
+            ready: number;
         };
         /**
          * Environment
@@ -680,6 +899,33 @@ export interface components {
          * @enum {string}
          */
         MetricStatus: "OK" | "UNAVAILABLE" | "ERROR";
+        /** NamespaceInfo */
+        NamespaceInfo: {
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "readable" | "forbidden" | "error";
+            /** Detail */
+            detail: string;
+            /** Name */
+            name: string;
+            /** Workloads */
+            workloads: number | null;
+        };
+        /** NamespaceList */
+        NamespaceList: {
+            cluster: components["schemas"]["ClusterRef"];
+            /** Excluded Namespaces */
+            excluded_namespaces: string[];
+            /** Items */
+            items: components["schemas"]["NamespaceInfo"][];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "namespaces" | "workloads" | "configured";
+        };
         /** NamespaceStats */
         NamespaceStats: {
             /** Completed */
@@ -693,6 +939,21 @@ export interface components {
             namespace: string;
             /** Total */
             total: number;
+        };
+        /** NodeDetails */
+        NodeDetails: {
+            /** Architecture */
+            architecture: string | null;
+            /** Kubelet Version */
+            kubelet_version: string | null;
+            /** Os Image */
+            os_image: string | null;
+            /** Ready */
+            ready: string | null;
+            /** Roles */
+            roles: string[];
+            /** Unschedulable */
+            unschedulable: boolean;
         };
         /** ObservationRead */
         ObservationRead: {
@@ -759,6 +1020,32 @@ export interface components {
          * @enum {string}
          */
         PodDeleteMode: "GRACEFUL" | "FORCE";
+        /** PodDetails */
+        PodDetails: {
+            /** Containers */
+            containers: components["schemas"]["Container"][];
+            /** Node Name */
+            node_name: string | null;
+            /** Phase */
+            phase: string;
+            /** Pod Ip */
+            pod_ip: string | null;
+            /** Ready */
+            ready: boolean;
+            /** Restarts */
+            restarts: number;
+            /** Start Time */
+            start_time: string | null;
+            /** Terminating */
+            terminating: boolean;
+        };
+        /** Provenance */
+        Provenance: {
+            /** Detail */
+            detail: string;
+            /** Source */
+            source: string;
+        };
         /** Readiness */
         Readiness: {
             /** Checks */
@@ -785,6 +1072,26 @@ export interface components {
              * @enum {string}
              */
             status: "pass" | "fail";
+        };
+        /**
+         * Replicas
+         * @description Controller status (spec.replicas and status.*), as `kubectl get` shows it.
+         */
+        Replicas: {
+            /** Available */
+            available: number;
+            /** Current */
+            current: number;
+            /** Desired */
+            desired: number;
+            /** Ready */
+            ready: number;
+            /** Revision */
+            revision?: string | null;
+            /** Selector */
+            selector: string | null;
+            /** Updated */
+            updated: number;
         };
         /** ScoreComponentRead */
         ScoreComponentRead: {
@@ -922,12 +1229,36 @@ export interface components {
             /** Score Version */
             score_version: string;
         };
+        /** ServiceDetails */
+        ServiceDetails: {
+            /** Cluster Ip */
+            cluster_ip: string | null;
+            /** Ports */
+            ports: components["schemas"]["ServicePort"][];
+            /** Selector */
+            selector: {
+                [key: string]: string;
+            } | null;
+            /** Type */
+            type: string;
+        };
         /** ServiceList */
         ServiceList: {
             /** Excluded Namespaces */
             excluded_namespaces: string[];
             /** Items */
             items: components["schemas"]["ServiceSummary"][];
+        };
+        /** ServicePort */
+        ServicePort: {
+            /** Name */
+            name: string | null;
+            /** Port */
+            port: number;
+            /** Protocol */
+            protocol: string;
+            /** Target Port */
+            target_port: string | null;
         };
         /** ServiceSummary */
         ServiceSummary: {
@@ -955,6 +1286,152 @@ export interface components {
             namespace: string;
             /** Ready Replicas */
             ready_replicas: number;
+        };
+        /** SlicePort */
+        SlicePort: {
+            /** Name */
+            name: string | null;
+            /** Port */
+            port: number;
+            /** Protocol */
+            protocol: string;
+        };
+        /**
+         * TargetSupport
+         * @description Whether the experiment builder may be offered; validation stays authoritative.
+         */
+        TargetSupport: {
+            /** Reason */
+            reason: string;
+            /** Supported */
+            supported: boolean;
+        };
+        /** Topology */
+        Topology: {
+            /** Application Id */
+            application_id?: string | null;
+            cluster: components["schemas"]["ClusterRef"];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Edges */
+            edges: components["schemas"]["TopologyEdge"][];
+            /** Nodes */
+            nodes: components["schemas"]["TopologyNode"][];
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /**
+             * Schema
+             * @constant
+             */
+            schema: "autoresilience-topology/1";
+            scope: components["schemas"]["TopologyScope"];
+            traffic: components["schemas"]["Traffic"];
+            /** Unknowns */
+            unknowns: components["schemas"]["TopologyUnknown"][];
+        };
+        /** TopologyEdge */
+        TopologyEdge: {
+            attributes: components["schemas"]["EdgeAttributes"];
+            /** Id */
+            id: string;
+            provenance: components["schemas"]["Provenance"];
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "owns" | "selects" | "endpoint" | "slice_for" | "scheduled_on";
+        };
+        /** TopologyEvent */
+        TopologyEvent: {
+            /** Count */
+            count: number;
+            /** Last Seen */
+            last_seen: string | null;
+            /** Message */
+            message: string;
+            /** Reason */
+            reason: string;
+            /** Type */
+            type: string;
+        };
+        /** TopologyNode */
+        TopologyNode: {
+            /** Created At */
+            created_at: string | null;
+            endpoint_slice: components["schemas"]["EndpointSliceDetails"] | null;
+            /** Events */
+            events: components["schemas"]["TopologyEvent"][];
+            experiment_target: components["schemas"]["TargetSupport"] | null;
+            /**
+             * Health
+             * @enum {string}
+             */
+            health: "HEALTHY" | "DEGRADED" | "UNAVAILABLE" | "SCALED_TO_ZERO" | "COMPLETED" | "UNKNOWN";
+            /** Health Reason */
+            health_reason: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "Deployment" | "ReplicaSet" | "StatefulSet" | "Pod" | "Service" | "EndpointSlice" | "Node";
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string | null;
+            node: components["schemas"]["NodeDetails"] | null;
+            pod: components["schemas"]["PodDetails"] | null;
+            replicas: components["schemas"]["Replicas"] | null;
+            service: components["schemas"]["ServiceDetails"] | null;
+            /** Uid */
+            uid: string | null;
+        };
+        /** TopologyScope */
+        TopologyScope: {
+            /** Excluded Namespaces */
+            excluded_namespaces: string[];
+            /** Namespaces */
+            namespaces: string[] | null;
+        };
+        /** TopologyUnknown */
+        TopologyUnknown: {
+            /** Detail */
+            detail: string;
+            /** Namespace */
+            namespace: string | null;
+            /** Resource */
+            resource: string | null;
+            /** Subject */
+            subject: string | null;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "listing_forbidden" | "listing_failed" | "listing_truncated" | "owner_not_observed" | "owner_uid_mismatch" | "node_not_observed" | "service_without_selector" | "endpoint_target_not_observed" | "malformed_object";
+        };
+        /** Traffic */
+        Traffic: {
+            /** Detail */
+            detail: string;
+            /**
+             * Observed
+             * @constant
+             */
+            observed: false;
         };
         /** ValidationCheckRead */
         ValidationCheckRead: {
@@ -1008,6 +1485,202 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_applications_applications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationList"];
+                };
+            };
+        };
+    };
+    create_application_applications_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplicationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_application_applications__application_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_application_applications__application_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_application_topology_applications__application_id__topology_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Topology"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_clusters_clusters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterList"];
+                };
+            };
+        };
+    };
+    get_namespaces_clusters_namespaces_get: {
+        parameters: {
+            query?: {
+                /** @description Omit for the engine's execution cluster */
+                context?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NamespaceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_dashboard_summary_dashboard_summary_get: {
         parameters: {
             query?: never;
@@ -1482,6 +2155,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_topology_topology_get: {
+        parameters: {
+            query?: {
+                /** @description Omit for the engine's execution cluster */
+                context?: string | null;
+                namespace?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Topology"];
                 };
             };
             /** @description Validation Error */

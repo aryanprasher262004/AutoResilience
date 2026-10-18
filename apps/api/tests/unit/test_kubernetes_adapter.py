@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace as NS
 from typing import Any
 from unittest.mock import MagicMock
@@ -254,3 +255,144 @@ def test_list_workloads_unreachable(apis: tuple[MagicMock, MagicMock]) -> None:
 
     with pytest.raises(ClusterUnavailableError, match="403"):
         adapter().list_workloads()
+
+
+# --- topology reads (P6) ------------------------------------------------------------
+
+
+@pytest.fixture
+def all_apis(
+    monkeypatch: pytest.MonkeyPatch, apis: tuple[MagicMock, MagicMock]
+) -> tuple[MagicMock, MagicMock, MagicMock]:
+    discovery = MagicMock()
+    monkeypatch.setattr(
+        kubernetes_adapter.client, "DiscoveryV1Api", lambda _: discovery
+    )
+    apps, core = apis
+    for mock in (apps, core, discovery):
+        mock.configure_mock(
+            **{
+                f"{name}.return_value": raw([])
+                for name in (
+                    "list_namespaced_deployment",
+                    "list_deployment_for_all_namespaces",
+                    "list_namespaced_replica_set",
+                    "list_replica_set_for_all_namespaces",
+                    "list_namespaced_stateful_set",
+                    "list_stateful_set_for_all_namespaces",
+                    "list_namespaced_pod",
+                    "list_pod_for_all_namespaces",
+                    "list_namespaced_service",
+                    "list_service_for_all_namespaces",
+                    "list_namespaced_endpoint_slice",
+                    "list_endpoint_slice_for_all_namespaces",
+                    "list_namespaced_event",
+                    "list_event_for_all_namespaces",
+                    "list_node",
+                )
+            }
+        )
+    return apps, core, discovery
+
+
+def raw(items: list[dict[str, Any]], more: bool = False) -> NS:
+    body = {"items": items, "metadata": {"continue": "abc" if more else ""}}
+    return NS(data=json.dumps(body).encode())
+
+
+def test_snapshot_lists_every_resource_read_only(
+    all_apis: tuple[MagicMock, MagicMock, MagicMock],
+) -> None:
+    apps, core, discovery = all_apis
+    core.list_pod_for_all_namespaces.return_value = raw([{"metadata": {"name": "p"}}])
+    snap = adapter().snapshot(None)
+    assert snap.objects["pods"] == [{"metadata": {"name": "p"}}]
+    assert set(snap.objects) == set(kubernetes_adapter.SNAPSHOT_RESOURCES)
+    assert snap.errors == [] and snap.truncated == []
+    core.list_pod_for_all_namespaces.assert_called_once_with(
+        limit=2000, _request_timeout=5, _preload_content=False
+    )
+    core.list_event_for_all_namespaces.assert_called_once_with(
+        limit=500, _request_timeout=5, _preload_content=False
+    )
+    assert_read_only(apps, core, discovery)
+
+
+def test_snapshot_lists_each_namespace_separately(
+    all_apis: tuple[MagicMock, MagicMock, MagicMock],
+) -> None:
+    apps, core, discovery = all_apis
+    adapter().snapshot(["shop", "payments"])
+    assert [c.args for c in core.list_namespaced_pod.call_args_list] == [
+        ("shop",),
+        ("payments",),
+    ]
+    discovery.list_endpoint_slice_for_all_namespaces.assert_not_called()
+    core.list_pod_for_all_namespaces.assert_not_called()
+    assert_read_only(apps, core, discovery)
+
+
+def test_snapshot_records_refused_listings_and_continues(
+    all_apis: tuple[MagicMock, MagicMock, MagicMock],
+) -> None:
+    _, core, discovery = all_apis
+    core.list_node.side_effect = ApiException(status=403, reason="Forbidden")
+    discovery.list_namespaced_endpoint_slice.side_effect = ApiException(404, "NF")
+    core.list_namespaced_pod.return_value = raw([{"metadata": {}}], more=True)
+    snap = adapter().snapshot(["shop"])
+    assert snap.errors == [
+        kubernetes_adapter.ListingError("endpointslices", "shop", 404, "NF"),
+        kubernetes_adapter.ListingError("nodes", None, 403, "Forbidden"),
+    ]
+    assert snap.truncated == [("pods", "shop")]
+    assert snap.objects["pods"] == [{"metadata": {}}]
+
+
+def test_snapshot_records_unreadable_responses(
+    all_apis: tuple[MagicMock, MagicMock, MagicMock],
+) -> None:
+    _, core, _ = all_apis
+    core.list_namespaced_service.return_value = NS(data=b"<html>proxy</html>")
+    core.list_namespaced_pod.return_value = NS(data=b'{"kind": "Status"}')
+    snap = adapter().snapshot(["shop"])
+    assert [(e.resource, e.status) for e in snap.errors] == [
+        ("pods", None),
+        ("services", None),
+    ]
+
+
+def test_snapshot_unreachable_raises(
+    all_apis: tuple[MagicMock, MagicMock, MagicMock],
+) -> None:
+    apps, _, _ = all_apis
+    apps.list_deployment_for_all_namespaces.side_effect = MaxRetryError(
+        MagicMock(), "https://127.0.0.1:6443"
+    )
+    with pytest.raises(ClusterUnavailableError) as info:
+        adapter().snapshot(None)
+    assert info.value.status is None
+
+
+def test_list_workloads_in_one_namespace(apis: tuple[MagicMock, MagicMock]) -> None:
+    apps, core = apis
+    apps.list_namespaced_deployment.return_value = NS(items=[])
+    apps.list_namespaced_stateful_set.return_value = NS(items=[])
+    assert adapter().list_workloads("shop") == []
+    apps.list_namespaced_deployment.assert_called_once_with("shop", _request_timeout=5)
+    apps.list_deployment_for_all_namespaces.assert_not_called()
+    assert_read_only(apps, core)
+
+
+def test_list_namespaces_and_its_forbidden_status(
+    apis: tuple[MagicMock, MagicMock],
+) -> None:
+    apps, core = apis
+    core.list_namespace.return_value = NS(
+        items=[NS(metadata=NS(name="shop")), NS(metadata=NS(name="default"))]
+    )
+    assert adapter().list_namespaces() == ["default", "shop"]
+    core.list_namespace.side_effect = ApiException(status=403, reason="Forbidden")
+    with pytest.raises(ClusterUnavailableError) as info:
+        adapter().list_namespaces()
+    assert info.value.status == 403
+    assert_read_only(apps, core)

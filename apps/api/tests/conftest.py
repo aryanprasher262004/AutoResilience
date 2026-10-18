@@ -22,6 +22,8 @@ from app.api.routes.experiments import (
     get_prometheus_client,
     get_start_wait,
 )
+from app.api.routes.topology import get_cluster_registry
+from app.core.config import DiscoveryCluster, Settings
 from app.db import models  # noqa: F401  (registers models on Base.metadata)
 from app.db.base import Base
 from app.db.session import get_db
@@ -37,6 +39,7 @@ from app.integrations.chaos_provider import (
     engine_name,
 )
 from app.integrations.kubernetes_adapter import (
+    ClusterSnapshot,
     ClusterUnavailableError,
     WorkloadStatus,
     WorkloadSummary,
@@ -53,6 +56,7 @@ from app.services.orchestration.recovery import (
     OUTAGES,
     RecoveryRule,
 )
+from app.services.topology.clusters import ClusterRegistry
 
 CHECKOUT_PODS = ("checkout-a", "checkout-b", "checkout-c")
 
@@ -73,11 +77,34 @@ class FakeKubernetes:
         self.live_sequence: list[set[str] | Exception] = [set()]
         self.live_calls: list[list[str]] = []
         self.workloads: list[WorkloadSummary] = []
+        # Topology reads: None for `namespaces` simulates a 403 on listing them;
+        # `namespace_errors` maps a namespace to the HTTP status its listing gets.
+        self.namespaces: list[str] | None = []
+        self.namespace_errors: dict[str, int] = {}
+        self.snapshot_result: ClusterSnapshot | None = None
+        self.snapshot_calls: list[list[str] | None] = []
 
-    def list_workloads(self) -> list[WorkloadSummary]:
+    def list_workloads(self, namespace: str | None = None) -> list[WorkloadSummary]:
         if self.error is not None:
             raise ClusterUnavailableError(self.error)
-        return self.workloads
+        if namespace in self.namespace_errors:
+            status = self.namespace_errors[namespace]
+            raise ClusterUnavailableError(f"Kubernetes API error {status}", status)
+        return [w for w in self.workloads if namespace in (None, w.namespace)]
+
+    def list_namespaces(self) -> list[str]:
+        if self.error is not None:
+            raise ClusterUnavailableError(self.error)
+        if self.namespaces is None:
+            raise ClusterUnavailableError("Kubernetes API error 403: Forbidden", 403)
+        return self.namespaces
+
+    def snapshot(self, namespaces: list[str] | None) -> ClusterSnapshot:
+        self.snapshot_calls.append(namespaces)
+        if self.error is not None:
+            raise ClusterUnavailableError(self.error)
+        assert self.snapshot_result is not None, "set snapshot_result"
+        return self.snapshot_result
 
     def get_workload_status(self, target: ExperimentTarget) -> WorkloadStatus | None:
         self.calls.append(target)
@@ -411,6 +438,40 @@ def clock() -> Clock:
     return Clock()
 
 
+EXECUTION_CONTEXT = "kind-autoresilience"
+
+
+class Clusters:
+    """The cluster registry used by API tests: the execution cluster is `kubernetes`;
+    `discover(context, namespaces)` authorizes a read-only context with its own fake."""
+
+    def __init__(self, execution: FakeKubernetes) -> None:
+        self.execution = execution
+        self.discovery: dict[str, tuple[list[str], FakeKubernetes]] = {}
+
+    def discover(self, context: str, namespaces: list[str]) -> FakeKubernetes:
+        fake = FakeKubernetes()
+        self.discovery[context] = (namespaces, fake)
+        return fake
+
+    def registry(self) -> ClusterRegistry:
+        settings = Settings(
+            kube_context=EXECUTION_CONTEXT,
+            discovery_clusters=[
+                DiscoveryCluster(context=c, namespaces=ns)
+                for c, (ns, _) in self.discovery.items()
+            ],
+        )
+        return ClusterRegistry(
+            settings, self.execution, lambda ctx: self.discovery[ctx][1]
+        )
+
+
+@pytest.fixture
+def clusters(kubernetes: FakeKubernetes) -> Clusters:
+    return Clusters(kubernetes)
+
+
 @pytest.fixture
 def client(
     db_session: Session,
@@ -418,6 +479,7 @@ def client(
     prometheus: FakePrometheus,
     chaos: FakeChaos,
     clock: Clock,
+    clusters: Clusters,
 ) -> Iterator[TestClient]:
     app.dependency_overrides[get_db] = lambda: db_session
     app.dependency_overrides[get_kubernetes_adapter] = lambda: kubernetes
@@ -427,6 +489,8 @@ def client(
     app.dependency_overrides[get_start_wait] = lambda: FAST_WAIT
     app.dependency_overrides[get_observation_config] = lambda: OBSERVATION_CONFIG
     app.dependency_overrides[get_now] = clock
+    # Rebuilt per request, so tests may authorize contexts after creating the client.
+    app.dependency_overrides[get_cluster_registry] = clusters.registry
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

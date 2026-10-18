@@ -17,6 +17,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.ready import router as ready_router
 from app.api.routes.reports import router as history_router
 from app.api.routes.targets import router as services_router
+from app.api.routes.topology import router as topology_router
 from app.core.config import check_runtime, get_settings
 from app.db.session import SessionLocal
 from app.domain.safety_policy import policy_for_namespace
@@ -78,3 +79,4 @@ app.include_router(environment_router)
 app.include_router(history_router)
 app.include_router(experiments_router)
 app.include_router(services_router)
+app.include_router(topology_router)

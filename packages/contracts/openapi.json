@@ -16,6 +16,121 @@
         "title": "AbortRequest",
         "type": "object"
       },
+      "ApplicationCreate": {
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "namespaces": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Namespaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "namespaces"
+        ],
+        "title": "ApplicationCreate",
+        "type": "object"
+      },
+      "ApplicationList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ApplicationRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ApplicationList",
+        "type": "object"
+      },
+      "ApplicationRead": {
+        "properties": {
+          "cluster": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClusterRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespaces": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Namespaces",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "context",
+          "namespaces",
+          "cluster",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ApplicationRead",
+        "type": "object"
+      },
       "BaselineRead": {
         "properties": {
           "availability": {
@@ -245,6 +360,123 @@
         "title": "CheckStatus",
         "type": "string"
       },
+      "ClusterList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterRef"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ClusterList",
+        "type": "object"
+      },
+      "ClusterRef": {
+        "properties": {
+          "chaos_permitted": {
+            "title": "Chaos Permitted",
+            "type": "boolean"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "namespaces": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namespaces"
+          },
+          "role": {
+            "enum": [
+              "execution",
+              "discovery"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "context",
+          "role",
+          "chaos_permitted",
+          "namespaces"
+        ],
+        "title": "ClusterRef",
+        "type": "object"
+      },
+      "Container": {
+        "properties": {
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "restart_count": {
+            "title": "Restart Count",
+            "type": "integer"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "name",
+          "image",
+          "ready",
+          "restart_count",
+          "state",
+          "reason"
+        ],
+        "title": "Container",
+        "type": "object"
+      },
       "DashboardSummary": {
         "properties": {
           "by_state": {
@@ -353,6 +585,84 @@
           "maximum"
         ],
         "title": "Distribution",
+        "type": "object"
+      },
+      "EdgeAttributes": {
+        "description": "`endpoint` edges only: the endpoint's conditions.",
+        "properties": {
+          "ready": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready"
+          },
+          "serving": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serving"
+          },
+          "terminating": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminating"
+          }
+        },
+        "title": "EdgeAttributes",
+        "type": "object"
+      },
+      "EndpointSliceDetails": {
+        "properties": {
+          "address_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Type"
+          },
+          "endpoints": {
+            "title": "Endpoints",
+            "type": "integer"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/SlicePort"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "address_type",
+          "endpoints",
+          "ready",
+          "ports"
+        ],
+        "title": "EndpointSliceDetails",
         "type": "object"
       },
       "Environment": {
@@ -998,6 +1308,84 @@
         "title": "MetricStatus",
         "type": "string"
       },
+      "NamespaceInfo": {
+        "properties": {
+          "access": {
+            "enum": [
+              "readable",
+              "forbidden",
+              "error"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "workloads": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workloads"
+          }
+        },
+        "required": [
+          "name",
+          "workloads",
+          "access",
+          "detail"
+        ],
+        "title": "NamespaceInfo",
+        "type": "object"
+      },
+      "NamespaceList": {
+        "properties": {
+          "cluster": {
+            "$ref": "#/components/schemas/ClusterRef"
+          },
+          "excluded_namespaces": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded Namespaces",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NamespaceInfo"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "namespaces",
+              "workloads",
+              "configured"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cluster",
+          "source",
+          "items",
+          "excluded_namespaces"
+        ],
+        "title": "NamespaceList",
+        "type": "object"
+      },
       "NamespaceStats": {
         "properties": {
           "completed": {
@@ -1025,6 +1413,75 @@
           "last_activity"
         ],
         "title": "NamespaceStats",
+        "type": "object"
+      },
+      "NodeDetails": {
+        "properties": {
+          "architecture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Architecture"
+          },
+          "kubelet_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kubelet Version"
+          },
+          "os_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Image"
+          },
+          "ready": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "unschedulable": {
+            "title": "Unschedulable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready",
+          "roles",
+          "unschedulable",
+          "kubelet_version",
+          "os_image",
+          "architecture"
+        ],
+        "title": "NodeDetails",
         "type": "object"
       },
       "ObservationRead": {
@@ -1202,6 +1659,97 @@
         "title": "PodDeleteMode",
         "type": "string"
       },
+      "PodDetails": {
+        "properties": {
+          "containers": {
+            "items": {
+              "$ref": "#/components/schemas/Container"
+            },
+            "title": "Containers",
+            "type": "array"
+          },
+          "node_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Name"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "pod_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pod Ip"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "restarts": {
+            "title": "Restarts",
+            "type": "integer"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "terminating": {
+            "title": "Terminating",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "phase",
+          "ready",
+          "terminating",
+          "restarts",
+          "node_name",
+          "pod_ip",
+          "start_time",
+          "containers"
+        ],
+        "title": "PodDetails",
+        "type": "object"
+      },
+      "Provenance": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "detail"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      },
       "Readiness": {
         "properties": {
           "checks": {
@@ -1270,6 +1818,63 @@
           "detail"
         ],
         "title": "ReadinessCheck",
+        "type": "object"
+      },
+      "Replicas": {
+        "description": "Controller status (spec.replicas and status.*), as `kubectl get` shows it.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "integer"
+          },
+          "current": {
+            "title": "Current",
+            "type": "integer"
+          },
+          "desired": {
+            "title": "Desired",
+            "type": "integer"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "integer"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "selector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selector"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "desired",
+          "current",
+          "ready",
+          "available",
+          "updated",
+          "selector"
+        ],
+        "title": "Replicas",
         "type": "object"
       },
       "ScoreComponentRead": {
@@ -1705,6 +2310,54 @@
         "title": "ServiceDetail",
         "type": "object"
       },
+      "ServiceDetails": {
+        "properties": {
+          "cluster_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Ip"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/ServicePort"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "selector": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selector"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "cluster_ip",
+          "selector",
+          "ports"
+        ],
+        "title": "ServiceDetails",
+        "type": "object"
+      },
       "ServiceList": {
         "properties": {
           "excluded_namespaces": {
@@ -1727,6 +2380,48 @@
           "excluded_namespaces"
         ],
         "title": "ServiceList",
+        "type": "object"
+      },
+      "ServicePort": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "protocol": {
+            "title": "Protocol",
+            "type": "string"
+          },
+          "target_port": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Port"
+          }
+        },
+        "required": [
+          "name",
+          "port",
+          "target_port",
+          "protocol"
+        ],
+        "title": "ServicePort",
         "type": "object"
       },
       "ServiceSummary": {
@@ -1822,6 +2517,499 @@
           "latest_score"
         ],
         "title": "ServiceSummary",
+        "type": "object"
+      },
+      "SlicePort": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "protocol": {
+            "title": "Protocol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "port",
+          "protocol"
+        ],
+        "title": "SlicePort",
+        "type": "object"
+      },
+      "TargetSupport": {
+        "description": "Whether the experiment builder may be offered; validation stays authoritative.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "supported",
+          "reason"
+        ],
+        "title": "TargetSupport",
+        "type": "object"
+      },
+      "Topology": {
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "cluster": {
+            "$ref": "#/components/schemas/ClusterRef"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/TopologyEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/TopologyNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "schema": {
+            "const": "autoresilience-topology/1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/TopologyScope"
+          },
+          "traffic": {
+            "$ref": "#/components/schemas/Traffic"
+          },
+          "unknowns": {
+            "items": {
+              "$ref": "#/components/schemas/TopologyUnknown"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "observed_at",
+          "cluster",
+          "scope",
+          "nodes",
+          "edges",
+          "unknowns",
+          "counts",
+          "traffic"
+        ],
+        "title": "Topology",
+        "type": "object"
+      },
+      "TopologyEdge": {
+        "properties": {
+          "attributes": {
+            "$ref": "#/components/schemas/EdgeAttributes"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "owns",
+              "selects",
+              "endpoint",
+              "slice_for",
+              "scheduled_on"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "source",
+          "target",
+          "provenance",
+          "attributes"
+        ],
+        "title": "TopologyEdge",
+        "type": "object"
+      },
+      "TopologyEvent": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "reason",
+          "message",
+          "count",
+          "last_seen"
+        ],
+        "title": "TopologyEvent",
+        "type": "object"
+      },
+      "TopologyNode": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "endpoint_slice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EndpointSliceDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TopologyEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "experiment_target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetSupport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "health": {
+            "enum": [
+              "HEALTHY",
+              "DEGRADED",
+              "UNAVAILABLE",
+              "SCALED_TO_ZERO",
+              "COMPLETED",
+              "UNKNOWN"
+            ],
+            "title": "Health",
+            "type": "string"
+          },
+          "health_reason": {
+            "title": "Health Reason",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "Deployment",
+              "ReplicaSet",
+              "StatefulSet",
+              "Pod",
+              "Service",
+              "EndpointSlice",
+              "Node"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namespace"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pod": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PodDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replicas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Replicas"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "service": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uid"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "namespace",
+          "name",
+          "uid",
+          "labels",
+          "created_at",
+          "health",
+          "health_reason",
+          "replicas",
+          "pod",
+          "service",
+          "endpoint_slice",
+          "node",
+          "experiment_target",
+          "events"
+        ],
+        "title": "TopologyNode",
+        "type": "object"
+      },
+      "TopologyScope": {
+        "properties": {
+          "excluded_namespaces": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded Namespaces",
+            "type": "array"
+          },
+          "namespaces": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namespaces"
+          }
+        },
+        "required": [
+          "namespaces",
+          "excluded_namespaces"
+        ],
+        "title": "TopologyScope",
+        "type": "object"
+      },
+      "TopologyUnknown": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namespace"
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "type": {
+            "enum": [
+              "listing_forbidden",
+              "listing_failed",
+              "listing_truncated",
+              "owner_not_observed",
+              "owner_uid_mismatch",
+              "node_not_observed",
+              "service_without_selector",
+              "endpoint_target_not_observed",
+              "malformed_object"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "subject",
+          "resource",
+          "namespace",
+          "detail"
+        ],
+        "title": "TopologyUnknown",
+        "type": "object"
+      },
+      "Traffic": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "observed": {
+            "const": false,
+            "title": "Observed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "observed",
+          "detail"
+        ],
+        "title": "Traffic",
         "type": "object"
       },
       "ValidationCheckRead": {
@@ -1951,6 +3139,263 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/applications": {
+      "get": {
+        "operationId": "get_applications_applications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Applications",
+        "tags": [
+          "topology"
+        ]
+      },
+      "post": {
+        "description": "Record a namespace-scoped view of an authorized cluster.\n\nThe namespaces must be readable now. Nothing is written to the cluster.",
+        "operationId": "create_application_applications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Application",
+        "tags": [
+          "topology"
+        ]
+      }
+    },
+    "/applications/{application_id}": {
+      "delete": {
+        "description": "Forget the application. The cluster and experiment history are unchanged.",
+        "operationId": "delete_application_applications__application_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Application",
+        "tags": [
+          "topology"
+        ]
+      },
+      "get": {
+        "operationId": "get_application_applications__application_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Application",
+        "tags": [
+          "topology"
+        ]
+      }
+    },
+    "/applications/{application_id}/topology": {
+      "get": {
+        "operationId": "get_application_topology_applications__application_id__topology_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Topology"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Application Topology",
+        "tags": [
+          "topology"
+        ]
+      }
+    },
+    "/clusters": {
+      "get": {
+        "description": "Contexts this engine was configured to read. No cluster is contacted.",
+        "operationId": "get_clusters_clusters_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Clusters",
+        "tags": [
+          "topology"
+        ]
+      }
+    },
+    "/clusters/namespaces": {
+      "get": {
+        "description": "Namespaces offered for onboarding, with workload counts and access status.",
+        "operationId": "get_namespaces_clusters_namespaces_get",
+        "parameters": [
+          {
+            "description": "Omit for the engine's execution cluster",
+            "in": "query",
+            "name": "context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 253,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Omit for the engine's execution cluster",
+              "title": "Context"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NamespaceList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Namespaces",
+        "tags": [
+          "topology"
+        ]
+      }
+    },
     "/dashboard/summary": {
       "get": {
         "description": "Counts, score/recovery statistics and recent runs from persisted experiments.",
@@ -2727,6 +4172,79 @@
         "summary": "Get Service",
         "tags": [
           "services"
+        ]
+      }
+    },
+    "/topology": {
+      "get": {
+        "description": "Nodes and edges read from the cluster now (see docs/topology.md).\n\nWithout `namespace`: every namespace the cluster's access allows.",
+        "operationId": "get_topology_topology_get",
+        "parameters": [
+          {
+            "description": "Omit for the engine's execution cluster",
+            "in": "query",
+            "name": "context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 253,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Omit for the engine's execution cluster",
+              "title": "Context"
+            }
+          },
+          {
+            "in": "query",
+            "name": "namespace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 50,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Namespace"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Topology"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Topology",
+        "tags": [
+          "topology"
         ]
       }
     }

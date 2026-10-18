@@ -1,7 +1,25 @@
+import re
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.domain.safety_policy import SYSTEM_NAMESPACES
+
+_NAMESPACE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+
+
+class DiscoveryCluster(BaseModel):
+    """A kubeconfig context the operator authorized for read-only discovery.
+
+    The engine only lists resources in `namespaces` there and never runs chaos on it:
+    experiments always target KUBE_CONTEXT. Credentials come from the kubeconfig
+    (in the local stack: a read-only ServiceAccount created by `ar cluster import`).
+    """
+
+    context: str = Field(min_length=1, max_length=253)
+    namespaces: list[str] = Field(min_length=1, max_length=50)
 
 
 class Settings(BaseSettings):
@@ -41,6 +59,10 @@ class Settings(BaseSettings):
     # (development only: the local stack refuses to start without it).
     kube_context: str | None = None
     kube_request_timeout_seconds: float = 5.0
+    # Further contexts for read-only discovery (JSON list of DiscoveryCluster), e.g.
+    # [{"context": "kind-staging", "namespaces": ["shop"]}]. Written by `ar cluster
+    # import` in the local stack; never selectable or extendable through the API.
+    discovery_clusters: list[DiscoveryCluster] = []
 
 
 class ConfigurationError(Exception):
@@ -56,6 +78,23 @@ def check_runtime(settings: Settings) -> None:
             "(the stack sets kind-autoresilience; run `ar install` to generate "
             "its kubeconfig)"
         )
+    seen: set[str] = set()
+    for cluster in settings.discovery_clusters:
+        if cluster.context == settings.kube_context or cluster.context in seen:
+            raise ConfigurationError(
+                f"DISCOVERY_CLUSTERS: context {cluster.context!r} is listed twice "
+                "or is the execution context (KUBE_CONTEXT)"
+            )
+        seen.add(cluster.context)
+        for namespace in cluster.namespaces:
+            if not _NAMESPACE.match(namespace) or len(namespace) > 63:
+                raise ConfigurationError(
+                    f"DISCOVERY_CLUSTERS: {namespace!r} is not a namespace name"
+                )
+            if namespace in SYSTEM_NAMESPACES:
+                raise ConfigurationError(
+                    f"DISCOVERY_CLUSTERS: {namespace!r} is a system namespace"
+                )
 
 
 @lru_cache

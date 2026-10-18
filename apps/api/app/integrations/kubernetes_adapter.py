@@ -3,8 +3,10 @@
 Only get/list calls are made here; nothing in this module may create, patch or delete.
 """
 
-from dataclasses import dataclass
-from datetime import datetime
+import json
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from kubernetes import client, config
@@ -44,6 +46,51 @@ class WorkloadSummary:
 class ClusterUnavailableError(Exception):
     """Kubernetes data could not be obtained (config, network, auth or server error)."""
 
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        # HTTP status from the API server; None when it was not reached at all.
+        self.status = status
+
+
+# Resources a topology snapshot lists, in this order. Namespaced unless noted.
+SNAPSHOT_RESOURCES = (
+    "deployments",
+    "replicasets",
+    "statefulsets",
+    "pods",
+    "services",
+    "endpointslices",
+    "events",
+    "nodes",  # cluster-scoped
+)
+# Per listing; anything beyond is reported as truncated, never silently dropped.
+SNAPSHOT_LIMIT = 2000
+EVENT_LIMIT = 500
+
+
+@dataclass(frozen=True)
+class ListingError:
+    """One resource listing the API server refused or failed (the rest may be fine)."""
+
+    resource: str
+    namespace: str | None
+    status: int | None
+    reason: str
+
+
+@dataclass(frozen=True)
+class ClusterSnapshot:
+    """Raw Kubernetes JSON objects (as `kubectl get -o json` returns them) per resource.
+
+    Only the topology builder reads these, through an explicit field allowlist.
+    """
+
+    observed_at: datetime
+    objects: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    errors: list[ListingError] = field(default_factory=list)
+    # Resources (and namespace, None for all) that had more objects than the limit.
+    truncated: list[tuple[str, str | None]] = field(default_factory=list)
+
 
 class KubernetesAdapter:
     def __init__(self, context: str | None, request_timeout: float) -> None:
@@ -79,25 +126,142 @@ class KubernetesAdapter:
             ready_pod_names=tuple(ready),
         )
 
-    def list_workloads(self) -> list[WorkloadSummary]:
-        """Every Deployment and StatefulSet in the cluster, from controller status."""
+    def list_workloads(self, namespace: str | None = None) -> list[WorkloadSummary]:
+        """Deployments and StatefulSets, from controller status.
+
+        All namespaces by default; with `namespace`, only that one (what a
+        namespace-scoped, read-only identity is allowed to list).
+        """
         apps = client.AppsV1Api(self._client())
-        listings = (
-            (WorkloadKind.DEPLOYMENT, apps.list_deployment_for_all_namespaces),
-            (WorkloadKind.STATEFULSET, apps.list_stateful_set_for_all_namespaces),
-        )
+        if namespace is None:
+            listings: tuple[tuple[WorkloadKind, Callable[..., Any]], ...] = (
+                (WorkloadKind.DEPLOYMENT, apps.list_deployment_for_all_namespaces),
+                (WorkloadKind.STATEFULSET, apps.list_stateful_set_for_all_namespaces),
+            )
+            args: tuple[str, ...] = ()
+        else:
+            listings = (
+                (WorkloadKind.DEPLOYMENT, apps.list_namespaced_deployment),
+                (WorkloadKind.STATEFULSET, apps.list_namespaced_stateful_set),
+            )
+            args = (namespace,)
         try:
             return [
                 _summary(kind, item)
-                for kind, list_all in listings
-                for item in list_all(_request_timeout=self._timeout).items
+                for kind, list_fn in listings
+                for item in list_fn(*args, _request_timeout=self._timeout).items
             ]
         except ApiException as exc:
             raise ClusterUnavailableError(
-                f"Kubernetes API error {exc.status}: {exc.reason}"
+                f"Kubernetes API error {exc.status}: {exc.reason}", exc.status
             ) from exc
         except (ConfigException, HTTPError, OSError) as exc:
             raise ClusterUnavailableError(f"Kubernetes API unreachable: {exc}") from exc
+
+    def list_namespaces(self) -> list[str]:
+        """Names of all namespaces (needs cluster-wide list on namespaces)."""
+        try:
+            items = (
+                client.CoreV1Api(self._client())
+                .list_namespace(_request_timeout=self._timeout)
+                .items
+            )
+        except ApiException as exc:
+            raise ClusterUnavailableError(
+                f"Kubernetes API error {exc.status}: {exc.reason}", exc.status
+            ) from exc
+        except (ConfigException, HTTPError, OSError) as exc:
+            raise ClusterUnavailableError(f"Kubernetes API unreachable: {exc}") from exc
+        return sorted(item.metadata.name for item in items)
+
+    def snapshot(self, namespaces: list[str] | None) -> ClusterSnapshot:
+        """Read-only listing of everything the topology shows.
+
+        `namespaces=None` lists across all namespaces; otherwise each namespace is
+        listed on its own. A refused listing (e.g. 403) is recorded and the others
+        continue; an unreachable API server raises ClusterUnavailableError.
+        """
+        api = self._client()
+        apps, core = client.AppsV1Api(api), client.CoreV1Api(api)
+        discovery = client.DiscoveryV1Api(api)
+        listers: dict[str, tuple[Callable[..., Any], Callable[..., Any]]] = {
+            "deployments": (
+                apps.list_namespaced_deployment,
+                apps.list_deployment_for_all_namespaces,
+            ),
+            "replicasets": (
+                apps.list_namespaced_replica_set,
+                apps.list_replica_set_for_all_namespaces,
+            ),
+            "statefulsets": (
+                apps.list_namespaced_stateful_set,
+                apps.list_stateful_set_for_all_namespaces,
+            ),
+            "pods": (core.list_namespaced_pod, core.list_pod_for_all_namespaces),
+            "services": (
+                core.list_namespaced_service,
+                core.list_service_for_all_namespaces,
+            ),
+            "endpointslices": (
+                discovery.list_namespaced_endpoint_slice,
+                discovery.list_endpoint_slice_for_all_namespaces,
+            ),
+            "events": (core.list_namespaced_event, core.list_event_for_all_namespaces),
+        }
+        snapshot = ClusterSnapshot(observed_at=datetime.now(UTC))
+        for resource in SNAPSHOT_RESOURCES:
+            snapshot.objects[resource] = []
+            limit = EVENT_LIMIT if resource == "events" else SNAPSHOT_LIMIT
+            if resource == "nodes":
+                calls: list[tuple[str | None, Callable[..., Any], tuple[str, ...]]] = [
+                    (None, core.list_node, ())
+                ]
+            elif namespaces is None:
+                calls = [(None, listers[resource][1], ())]
+            else:
+                calls = [(ns, listers[resource][0], (ns,)) for ns in namespaces]
+            for namespace, list_fn, args in calls:
+                self._list_raw(snapshot, resource, namespace, list_fn, args, limit)
+        return snapshot
+
+    def _list_raw(
+        self,
+        snapshot: ClusterSnapshot,
+        resource: str,
+        namespace: str | None,
+        list_fn: Callable[..., Any],
+        args: tuple[str, ...],
+        limit: int,
+    ) -> None:
+        try:
+            response = list_fn(
+                *args,
+                limit=limit,
+                _request_timeout=self._timeout,
+                _preload_content=False,
+            )
+            body = json.loads(response.data)
+        except ApiException as exc:
+            snapshot.errors.append(
+                ListingError(resource, namespace, exc.status, str(exc.reason))
+            )
+            return
+        except (ConfigException, HTTPError, OSError) as exc:
+            raise ClusterUnavailableError(f"Kubernetes API unreachable: {exc}") from exc
+        except ValueError as exc:  # not JSON: record, do not guess
+            snapshot.errors.append(
+                ListingError(resource, namespace, None, f"unreadable response: {exc}")
+            )
+            return
+        items = body.get("items") if isinstance(body, dict) else None
+        if not isinstance(items, list):
+            snapshot.errors.append(
+                ListingError(resource, namespace, None, "response has no item list")
+            )
+            return
+        snapshot.objects[resource].extend(i for i in items if isinstance(i, dict))
+        if (body.get("metadata") or {}).get("continue"):
+            snapshot.truncated.append((resource, namespace))
 
     def live_pod_names(self, namespace: str, names: list[str]) -> set[str]:
         """Which of the named pods still exist and are not terminating."""
