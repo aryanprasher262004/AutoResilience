@@ -40,6 +40,7 @@ Everything below is **Level D**. Nothing here may be described as existing.
 | Multi-replica API | in-process locks | DB row locks (`SELECT … FOR UPDATE SKIP LOCKED`) | `docs/orchestration.md` |
 | Least-privilege API identity | local stack: ServiceAccount, read-only plus own ChaosEngines (P5, `infra/rbac/`); development: developer kubeconfig | the same identity for development runs | E-03 |
 | Chaos on attached clusters | further clusters are read-only discovery (P6, `docs/topology.md`) | a reviewed, opt-in grant of namespaced ChaosEngine rights per attached cluster | D-5 |
+| 3D topology view | 2D React Flow renderer over a renderer contract (`TopologyRendererProps`, P6.1) | lazy-loaded React Three Fiber renderer with orbit/pan/zoom camera and the same selection and legend | D-10, `docs/topology.md` |
 | Application import | onboarding of already-running applications (P6) | manifest/Helm/kustomize and Compose import into owned namespaces | P7 in `docs/product/v0.2-architecture.md` |
 | Authentication | none | user identity and audit trail | E-04 |
 | In-cluster deployment | host processes | Helm chart | `infra/helm` empty |

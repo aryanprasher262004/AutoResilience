@@ -8,6 +8,7 @@ import {
   NODE_WIDTH,
   applyFilter,
   layout,
+  neighbourhood,
   relationsOf,
   workloadRows,
 } from "./topology";
@@ -67,6 +68,18 @@ describe("relations and workloads", () => {
       ["endpoint", "in"],
       ["scheduled_on", "out"],
     ]);
+  });
+
+  it("keeps a selection's direct relations and owner chain bright, nothing else", () => {
+    const t = topology();
+    const deployment = neighbourhood(t.edges, "Deployment:shop/checkout");
+    expect(deployment).toContain("ReplicaSet:shop/checkout-7d9");
+    expect(deployment).toContain("Pod:shop/checkout-7d9-a"); // owned through the ReplicaSet
+    expect(deployment).not.toContain("Service:shop/checkout"); // selects the Pods, not the Deployment
+    const pod = neighbourhood(t.edges, "Pod:shop/checkout-7d9-a");
+    expect(pod).toContain("Deployment:shop/checkout"); // its owner chain
+    expect(pod).toContain("Service:shop/checkout"); // selects it directly
+    expect(pod).not.toContain("Pod:shop/checkout-7d9-b"); // a sibling is not related
   });
 
   it("derives workload rows only from ownership, selectors and events", () => {

@@ -82,6 +82,67 @@ describe("TopologyView", () => {
     expect(screen.getByRole("status")).toHaveTextContent("503 Kubernetes API unreachable");
   });
 
+  it("explains each resource kind and relationship in an accessible tooltip", async () => {
+    const { user } = renderWithApi(<TopologyView topology={topology()} />);
+    const pods = screen.getByRole("button", { name: /^Pods/ });
+    expect(pods).toHaveAccessibleDescription(/A running instance of the workload's containers/);
+    const selects = within(screen.getByRole("group", { name: "Relationship types" })).getByRole("button", { name: "selects" });
+    expect(selects).toHaveAccessibleDescription(/selector matches the Pod's labels.*not traffic/);
+
+    const tooltip = document.getElementById(selects.getAttribute("aria-describedby")!)!;
+    expect(tooltip).toHaveClass("hidden");
+    await user.hover(selects);
+    expect(tooltip).not.toHaveClass("hidden");
+    await user.keyboard("{Escape}");
+    expect(tooltip).toHaveClass("hidden");
+  });
+
+  it("has an expandable legend for kinds, health, relationships and marks", async () => {
+    const { user } = renderWithApi(<TopologyView topology={topology()} />);
+    const summary = screen.getByText("Lines are relationships Kubernetes records, not measured traffic.");
+    const legend = summary.closest("details")!;
+    expect(legend).not.toHaveAttribute("open");
+    await user.click(summary);
+    expect(legend).toHaveAttribute("open");
+    const content = within(legend);
+    for (const heading of ["Resource kinds", "Health (dot colour)", "Relationships (lines)", "Marks and toggles"]) {
+      expect(content.getByRole("heading", { name: heading })).toBeInTheDocument();
+    }
+    expect(content.getByText("runs on")).toBeInTheDocument();
+    expect(content.getByText(/listed below the graph, never drawn as a guess/)).toBeInTheDocument();
+  });
+
+  it("announces the selection, explains the inspector's sections and can clear it", async () => {
+    const { user } = renderWithApi(<TopologyView topology={topology()} />);
+    const inspector = () => within(screen.getByRole("complementary", { name: "Inspector" }));
+    expect(inspector().getByText("Nothing selected")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "node Deployment:shop/checkout" }));
+    expect(screen.getByText(/^Selected Deployment checkout, \d+ relationships?\.$/)).toBeInTheDocument();
+    expect(inspector().getByText(/Read from the controller's ready and desired replicas/)).toBeInTheDocument();
+    expect(inspector().getByText(/Not measured traffic/)).toBeInTheDocument();
+    expect(inspector().getByText(/opens the builder with this workload filled in/)).toBeInTheDocument();
+
+    await user.click(inspector().getByRole("button", { name: "Clear selection" }));
+    expect(inspector().getByText("Nothing selected")).toBeInTheDocument();
+  });
+
+  it("says which filters hide everything", async () => {
+    const { user } = renderWithApi(<TopologyView topology={topology()} />);
+    const kinds = within(screen.getByRole("group", { name: "Resource kinds" }));
+    for (const button of kinds.getAllByRole("button", { pressed: true })) await user.click(button);
+    expect(screen.getByText("No resources match these filters")).toBeInTheDocument();
+    expect(screen.getByText(/resource kinds are hidden/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reset filters" }));
+    expect(screen.getByTestId("graph")).toHaveAttribute("data-nodes", "8");
+  });
+
+  it("explains each unverified item's type", async () => {
+    const { user } = renderWithApi(<TopologyView topology={topology()} />);
+    await user.click(screen.getByText(/Not verified \(2\)/));
+    expect(screen.getByText(/A Service without a selector \(or ExternalName\)/)).toBeInTheDocument();
+  });
+
   it("explains an empty scope", () => {
     renderWithApi(<TopologyView topology={topology(undefined, { nodes: [], edges: [], unknowns: [], counts: {} })} />);
     expect(screen.getByText("No resources in this scope")).toBeInTheDocument();

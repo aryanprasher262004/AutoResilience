@@ -5,36 +5,154 @@
  */
 import type { Tone } from "@/components/ui/badge";
 
-import type { EdgeType, NodeHealth, NodeKind, Topology, TopologyEdge, TopologyNode } from "./api/types";
+import type { EdgeType, NodeHealth, NodeKind, Topology, TopologyEdge, TopologyNode, TopologyUnknown } from "./api/types";
 
-export const KIND_META: Record<NodeKind, { label: string; plural: string; column: number }> = {
-  Service: { label: "Service", plural: "Services", column: 0 },
-  EndpointSlice: { label: "EndpointSlice", plural: "EndpointSlices", column: 1 },
-  Deployment: { label: "Deployment", plural: "Deployments", column: 2 },
-  StatefulSet: { label: "StatefulSet", plural: "StatefulSets", column: 2 },
-  ReplicaSet: { label: "ReplicaSet", plural: "ReplicaSets", column: 3 },
-  Pod: { label: "Pod", plural: "Pods", column: 4 },
-  Node: { label: "Node", plural: "Nodes", column: 5 },
+export const KIND_META: Record<NodeKind, { label: string; plural: string; column: number; description: string }> = {
+  Service: { label: "Service", plural: "Services", column: 0, description: "A stable network name for a set of Pods, chosen by its label selector." },
+  EndpointSlice: {
+    label: "EndpointSlice",
+    plural: "EndpointSlices",
+    column: 1,
+    description: "The Pod addresses a Service currently routes to, with each endpoint's readiness.",
+  },
+  Deployment: { label: "Deployment", plural: "Deployments", column: 2, description: "Keeps a number of identical Pods running through ReplicaSets. Can be an experiment target." },
+  StatefulSet: { label: "StatefulSet", plural: "StatefulSets", column: 2, description: "Pods with stable names and storage, replaced one by one. Can be an experiment target." },
+  ReplicaSet: { label: "ReplicaSet", plural: "ReplicaSets", column: 3, description: "One revision of a Deployment; it creates that revision's Pods." },
+  Pod: { label: "Pod", plural: "Pods", column: 4, description: "A running instance of the workload's containers. pod-delete removes these." },
+  Node: { label: "Node", plural: "Nodes", column: 5, description: "A cluster machine the Pods are scheduled on (shown only if the engine may read Nodes)." },
 };
 export const KINDS = Object.keys(KIND_META) as NodeKind[];
 
-export const EDGE_META: Record<EdgeType, { label: string; description: string }> = {
-  owns: { label: "owns", description: "Controller owner reference (metadata.ownerReferences, UID verified)" },
-  selects: { label: "selects", description: "Service selector matches the Pod's labels" },
-  endpoint: { label: "endpoint", description: "EndpointSlice endpoint targets the Pod (targetRef, UID verified)" },
-  slice_for: { label: "slice for", description: "EndpointSlice labelled kubernetes.io/service-name" },
-  scheduled_on: { label: "runs on", description: "Pod spec.nodeName" },
+/** How each kind's health is read (docs/topology.md); nothing is estimated. */
+export const HEALTH_SOURCE: Record<NodeKind, string> = {
+  Deployment: "Read from the controller's ready and desired replicas.",
+  StatefulSet: "Read from the controller's ready and desired replicas.",
+  ReplicaSet: "Read from the controller's ready and desired replicas.",
+  Pod: "Read from the Pod's phase and Ready condition.",
+  Service: "Read from the ready endpoints of its EndpointSlices.",
+  EndpointSlice: "Read from its endpoints' ready condition.",
+  Node: "Read from the Node's Ready condition.",
+};
+
+/**
+ * Relationship types. Every one is read from the Kubernetes API and verified as stated;
+ * none is runtime traffic. `stroke`/`dash` are shared by the graph and its legend.
+ */
+export const EDGE_META: Record<
+  EdgeType,
+  { label: string; description: string; verified: string; stroke: string; dash?: string }
+> = {
+  owns: {
+    label: "owns",
+    description: "Controller owner reference (metadata.ownerReferences, UID verified)",
+    verified: "The owner's UID matches the object that was read.",
+    stroke: "var(--color-line-strong)",
+  },
+  selects: {
+    label: "selects",
+    description: "Service selector matches the Pod's labels",
+    verified: "Every selector label equals the Pod's, in the same namespace.",
+    stroke: "var(--color-accent)",
+    dash: "6 4",
+  },
+  endpoint: {
+    label: "endpoint",
+    description: "EndpointSlice endpoint targets the Pod (targetRef, UID verified)",
+    verified: "The endpoint's targetRef names the Pod's UID. Amber when the endpoint is not ready.",
+    stroke: "var(--color-success)",
+    dash: "2 4",
+  },
+  slice_for: {
+    label: "slice for",
+    description: "EndpointSlice labelled kubernetes.io/service-name",
+    verified: "The named Service was read.",
+    stroke: "var(--color-line-strong)",
+    dash: "2 4",
+  },
+  scheduled_on: {
+    label: "runs on",
+    description: "Pod spec.nodeName",
+    verified: "The named Node was read.",
+    stroke: "var(--color-faint)",
+    dash: "8 6",
+  },
 };
 export const EDGE_TYPES = Object.keys(EDGE_META) as EdgeType[];
 
-export const NODE_HEALTH_META: Record<NodeHealth, { label: string; tone: Tone }> = {
-  HEALTHY: { label: "Healthy", tone: "success" },
-  DEGRADED: { label: "Degraded", tone: "warning" },
-  UNAVAILABLE: { label: "Unavailable", tone: "danger" },
-  SCALED_TO_ZERO: { label: "Scaled to zero", tone: "neutral" },
-  COMPLETED: { label: "Completed", tone: "info" },
-  UNKNOWN: { label: "Unknown", tone: "neutral" },
+export const NODE_HEALTH_META: Record<NodeHealth, { label: string; tone: Tone; description: string }> = {
+  HEALTHY: { label: "Healthy", tone: "success", description: "Everything the object reports is ready." },
+  DEGRADED: { label: "Degraded", tone: "warning", description: "Partly ready, for example 1 of 2 replicas." },
+  UNAVAILABLE: { label: "Unavailable", tone: "danger", description: "Nothing ready, or the Pod failed." },
+  SCALED_TO_ZERO: { label: "Scaled to zero", tone: "neutral", description: "Zero replicas desired." },
+  COMPLETED: { label: "Completed", tone: "info", description: "A Pod that ran to completion." },
+  UNKNOWN: { label: "Unknown", tone: "neutral", description: "The status could not be read." },
 };
+
+/** Why something is listed as not verified (docs/topology.md, "Unknowns"). */
+export const UNKNOWN_META: Record<TopologyUnknown["type"], string> = {
+  listing_forbidden: "The engine's identity may not list this resource here (401/403).",
+  listing_failed: "Listing this resource failed for another reason.",
+  listing_truncated: "More objects than one listing returns; the rest are not shown.",
+  owner_not_observed: "Owned by a kind the topology does not list (Job, DaemonSet, custom resource) or by an object that was not found.",
+  owner_uid_mismatch: "The named owner exists but with another UID, so it was recreated; no relationship is drawn.",
+  node_not_observed: "Scheduled on a Node that is absent or not readable.",
+  service_without_selector: "A Service without a selector (or ExternalName): no Pods are linked by selector.",
+  endpoint_target_not_observed: "An endpoint targets a Pod that is gone, out of scope, or not a Pod.",
+  malformed_object: "An object without a name or namespace was skipped.",
+};
+
+/** Health dot colour per badge tone, shared by the graph and the legend. */
+export const TONE_DOT: Record<Tone, string> = {
+  fault: "bg-fault",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
+  info: "bg-info",
+  neutral: "bg-faint",
+};
+
+/**
+ * What a topology renderer receives. The 2D graph implements it; a later 3D renderer
+ * (docs/topology.md, "Views") takes the same props, so filtering, selection, the
+ * inspector and the contract stay shared and renderers only draw.
+ */
+export type TopologyRendererProps = {
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+  selected: string | null;
+  /** Node ids matching the search; others are dimmed. Null: no search. */
+  matches: Set<string> | null;
+  onSelect: (id: string | null) => void;
+};
+
+/**
+ * What stays bright when `id` is selected: itself, everything directly related to it by a
+ * visible edge, and its whole owner chain (a Deployment's ReplicaSets and Pods, a Pod's
+ * owners), so selecting a workload shows the workload.
+ */
+export function neighbourhood(edges: TopologyEdge[], id: string): Set<string> {
+  const ids = new Set([id]);
+  for (const e of edges) {
+    if (e.source === id) ids.add(e.target);
+    if (e.target === id) ids.add(e.source);
+  }
+  const owns = edges.filter((e) => e.type === "owns");
+  for (const [from, to] of [["source", "target"], ["target", "source"]] as const) {
+    const queue = [id];
+    const seen = new Set(queue);
+    while (queue.length) {
+      const current = queue.shift()!;
+      for (const e of owns) {
+        if (e[from] === current && !seen.has(e[to])) {
+          seen.add(e[to]);
+          ids.add(e[to]);
+          queue.push(e[to]);
+        }
+      }
+    }
+  }
+  return ids;
+}
 
 export type TopologyFilter = {
   kinds: NodeKind[];

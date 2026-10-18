@@ -4,16 +4,17 @@ import type { ReactNode } from "react";
 
 import { newExperimentHref, serviceHref } from "@/components/services/health-badge";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import type { Topology, TopologyNode } from "@/lib/api/types";
 import { formatRelative } from "@/lib/format";
-import { EDGE_META, KIND_META, NODE_HEALTH_META, relationsOf, unknownsOf } from "@/lib/topology";
+import { EDGE_META, HEALTH_SOURCE, KIND_META, NODE_HEALTH_META, UNKNOWN_META, relationsOf, unknownsOf } from "@/lib/topology";
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <section className="border-t border-line px-4 py-3">
-      <h3 className="mb-2 text-2xs font-medium tracking-wide text-faint uppercase">{title}</h3>
-      {children}
+      <h3 className="text-2xs font-medium tracking-wide text-faint uppercase">{title}</h3>
+      {hint ? <p className="mt-0.5 text-2xs leading-relaxed text-faint">{hint}</p> : null}
+      <div className="mt-2">{children}</div>
     </section>
   );
 }
@@ -90,10 +91,12 @@ export function Inspector({
   topology,
   node,
   onSelect,
+  onClear,
 }: {
   topology: Topology;
   node: TopologyNode;
   onSelect: (id: string) => void;
+  onClear?: () => void;
 }) {
   const health = NODE_HEALTH_META[node.health];
   const relations = relationsOf(topology, node.id);
@@ -104,7 +107,14 @@ export function Inspector({
   return (
     <div aria-label={`${node.kind} ${node.name}`} className="text-sm">
       <header className="px-4 py-3">
-        <p className="text-2xs tracking-wide text-faint uppercase">{KIND_META[node.kind].label}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-2xs tracking-wide text-faint uppercase">{KIND_META[node.kind].label}</p>
+          {onClear ? (
+            <Button size="sm" variant="ghost" className="-mt-1 -mr-2 h-6 px-2 text-2xs" onClick={onClear}>
+              Clear selection
+            </Button>
+          ) : null}
+        </div>
         <h2 className="mt-0.5 font-mono text-sm font-semibold break-all text-fg">{node.name}</h2>
         <p className="mt-0.5 text-xs text-muted">{node.namespace ? `namespace ${node.namespace}` : "cluster-scoped"}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -113,10 +123,16 @@ export function Inspector({
           </Badge>
           <span className="text-xs text-muted">{node.health_reason || "No status reported"}</span>
         </div>
+        <p className="mt-2 text-2xs leading-relaxed text-faint">
+          {KIND_META[node.kind].description} {HEALTH_SOURCE[node.kind]}
+        </p>
       </header>
 
       {target ? (
-        <Section title="Experiment target">
+        <Section
+          title="Experiment target"
+          hint={target.supported ? "New experiment opens the builder with this workload filled in." : "Experiments run only on the execution cluster."}
+        >
           <p className="text-xs leading-relaxed text-muted">{target.reason}</p>
           {target.supported ? (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -132,7 +148,7 @@ export function Inspector({
       ) : null}
 
       {details(node).length ? (
-        <Section title="Status">
+        <Section title="Status" hint="As the Kubernetes API returned it; nothing is estimated.">
           <Rows rows={details(node)} />
         </Section>
       ) : null}
@@ -155,7 +171,10 @@ export function Inspector({
         </Section>
       ) : null}
 
-      <Section title={`Relationships (${relations.length})`}>
+      <Section
+        title={`Relationships (${relations.length})`}
+        hint="References Kubernetes records, each with where it was read and how it was verified. Not measured traffic."
+      >
         {relations.length ? (
           <ul className="grid gap-2 text-xs">
             {relations.map(({ edge, direction, other }) => (
@@ -185,18 +204,19 @@ export function Inspector({
       </Section>
 
       {unknowns.length ? (
-        <Section title="Unknowns">
+        <Section title="Not verified" hint="Reported instead of guessed.">
           <ul className="grid gap-1.5 text-xs text-muted">
             {unknowns.map((u, i) => (
               <li key={i}>
                 <span className="font-mono text-2xs text-warning">{u.type}</span> {u.detail}
+                <p className="text-2xs text-faint">{UNKNOWN_META[u.type]}</p>
               </li>
             ))}
           </ul>
         </Section>
       ) : null}
 
-      <Section title={`Events (${node.events.length})`}>
+      <Section title={`Events (${node.events.length})`} hint="The newest 10 the cluster still retains for this object.">
         {node.events.length ? (
           <ul className="grid gap-1.5 text-xs">
             {node.events.map((e, i) => (

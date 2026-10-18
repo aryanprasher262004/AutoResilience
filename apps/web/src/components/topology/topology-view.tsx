@@ -9,9 +9,11 @@ import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/states";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { EdgeType, NodeKind, Topology } from "@/lib/api/types";
 import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/format";
+import { TOUR_TARGET } from "@/lib/help-content";
 import {
   DEFAULT_FILTER,
   EDGE_META,
@@ -20,29 +22,32 @@ import {
   KIND_META,
   NODE_HEALTH_META,
   type TopologyFilter,
+  UNKNOWN_META,
   applyFilter,
   matchesSearch,
 } from "@/lib/topology";
 
 import { Inspector } from "./inspector";
+import { TopologyLegend } from "./legend";
 import { TopologyGraph } from "./topology-graph";
 
 function Toggle({
   pressed,
   onClick,
   children,
-  title,
+  hint,
 }: {
   pressed: boolean;
   onClick: () => void;
   children: ReactNode;
-  title?: string;
+  /** Explanation shown on hover and focus, and announced as the toggle's description. */
+  hint?: ReactNode;
 }) {
-  return (
+  const button = (describedBy?: string) => (
     <button
       type="button"
       aria-pressed={pressed}
-      title={title}
+      aria-describedby={describedBy}
       onClick={onClick}
       className={cn(
         "h-7 rounded-md border px-2 text-2xs font-medium transition-colors",
@@ -52,6 +57,7 @@ function Toggle({
       {children}
     </button>
   );
+  return hint ? <Tooltip content={hint}>{button}</Tooltip> : button();
 }
 
 function toggle<T>(list: T[], value: T): T[] {
@@ -91,6 +97,9 @@ export function TopologyView({
   const selected = topology.nodes.find((n) => n.id === selectedId) ?? null;
   const present = new Set(topology.nodes.map((n) => n.kind));
   const listed = matches ? nodes.filter((n) => matches.has(n.id)) : nodes;
+  const hiddenKinds = KINDS.filter((k) => present.has(k) && !filter.kinds.includes(k)).length;
+  const hiddenEdges = EDGE_TYPES.length - filter.edges.length;
+  const relationCount = selected ? topology.edges.filter((e) => e.source === selected.id || e.target === selected.id).length : 0;
 
   return (
     <div className="grid gap-4">
@@ -142,34 +151,47 @@ export function TopologyView({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-4 py-2" role="group" aria-label="Resource kinds">
-          {KINDS.filter((k) => present.has(k)).map((kind: NodeKind) => (
-            <Toggle key={kind} pressed={filter.kinds.includes(kind)} onClick={() => set({ kinds: toggle(filter.kinds, kind) })}>
-              {KIND_META[kind].plural} <span className="text-faint">{topology.counts[kind] ?? 0}</span>
-            </Toggle>
-          ))}
-          {present.has("ReplicaSet") ? (
-            <Toggle
-              pressed={filter.inactiveReplicaSets}
-              onClick={() => set({ inactiveReplicaSets: !filter.inactiveReplicaSets })}
-              title="ReplicaSets scaled to 0 (earlier Deployment revisions)"
-            >
-              Inactive ReplicaSets
-            </Toggle>
-          ) : null}
-          <span aria-hidden className="mx-1 h-4 w-px bg-line" />
-          <span className="text-2xs text-faint">Edges</span>
-          {EDGE_TYPES.map((type: EdgeType) => (
-            <Toggle
-              key={type}
-              pressed={filter.edges.includes(type)}
-              onClick={() => set({ edges: toggle(filter.edges, type) })}
-              title={EDGE_META[type].description}
-            >
-              {EDGE_META[type].label}
-            </Toggle>
-          ))}
-          <div className="ml-auto flex gap-1" role="group" aria-label="View">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 py-2">
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Resource kinds" data-tour={TOUR_TARGET.topologyKinds}>
+            <span className="text-2xs text-faint">Show</span>
+            {KINDS.filter((k) => present.has(k)).map((kind: NodeKind) => (
+              <Toggle
+                key={kind}
+                pressed={filter.kinds.includes(kind)}
+                onClick={() => set({ kinds: toggle(filter.kinds, kind) })}
+                hint={KIND_META[kind].description}
+              >
+                {KIND_META[kind].plural} <span className="text-faint">{topology.counts[kind] ?? 0}</span>
+              </Toggle>
+            ))}
+            {present.has("ReplicaSet") ? (
+              <Toggle
+                pressed={filter.inactiveReplicaSets}
+                onClick={() => set({ inactiveReplicaSets: !filter.inactiveReplicaSets })}
+                hint="ReplicaSets scaled to 0: earlier Deployment revisions, kept by Kubernetes for rollbacks. Hidden by default."
+              >
+                Inactive ReplicaSets
+              </Toggle>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Relationship types" data-tour={TOUR_TARGET.topologyEdges}>
+            <span className="text-2xs text-faint">Relationships</span>
+            {EDGE_TYPES.map((type: EdgeType) => (
+              <Toggle
+                key={type}
+                pressed={filter.edges.includes(type)}
+                onClick={() => set({ edges: toggle(filter.edges, type) })}
+                hint={
+                  <>
+                    {EDGE_META[type].description}. {EDGE_META[type].verified} A Kubernetes relationship, not traffic.
+                  </>
+                }
+              >
+                {EDGE_META[type].label}
+              </Toggle>
+            ))}
+          </div>
+          <div className="ml-auto flex gap-1" role="group" aria-label="View" data-tour={TOUR_TARGET.topologyView}>
             <Toggle pressed={mode === "graph"} onClick={() => setMode("graph")}>
               Graph
             </Toggle>
@@ -179,6 +201,8 @@ export function TopologyView({
           </div>
         </div>
 
+        <TopologyLegend kinds={[...present]} />
+
         <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0">
             {!nodes.length ? (
@@ -186,8 +210,14 @@ export function TopologyView({
                 title={topology.nodes.length ? "No resources match these filters" : "No resources in this scope"}
                 description={
                   topology.nodes.length
-                    ? undefined
-                    : "The namespaces exist but hold no Deployments, StatefulSets, Pods or Services the engine could read."
+                    ? [
+                        hiddenKinds ? `${hiddenKinds} resource kind${hiddenKinds === 1 ? " is" : "s are"} hidden` : null,
+                        hiddenEdges ? `${hiddenEdges} relationship type${hiddenEdges === 1 ? " is" : "s are"} hidden` : null,
+                        filter.namespace ? `only namespace ${filter.namespace} is shown` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(", ") || "The current filters hide every resource."
+                    : "The namespaces exist but hold no Deployments, StatefulSets, Pods or Services the engine could read. Resources it may not list appear under Not verified."
                 }
                 action={
                   topology.nodes.length ? (
@@ -198,11 +228,11 @@ export function TopologyView({
                 }
               />
             ) : mode === "graph" ? (
-              <div className="h-[60vh] min-h-[360px]" aria-label="Topology graph" role="region">
+              <div className="h-[60vh] min-h-[360px]" aria-label="Topology graph" role="region" data-tour={TOUR_TARGET.topologyGraph}>
                 <TopologyGraph nodes={nodes} edges={edges} selected={selected?.id ?? null} matches={matches} onSelect={setSelectedId} />
               </div>
             ) : (
-              <div className="max-h-[60vh] overflow-auto">
+              <div className="max-h-[60vh] overflow-auto" data-tour={TOUR_TARGET.topologyGraph}>
                 <Table>
                   <THead>
                     <tr>
@@ -235,20 +265,32 @@ export function TopologyView({
               </div>
             )}
           </div>
-          <aside className="min-w-0 border-t border-line lg:max-h-[60vh] lg:overflow-y-auto lg:border-t-0 lg:border-l" aria-label="Inspector">
+          <aside
+            className="min-w-0 border-t border-line lg:max-h-[60vh] lg:overflow-y-auto lg:border-t-0 lg:border-l"
+            aria-label="Inspector"
+            data-tour={TOUR_TARGET.topologyInspector}
+          >
             {selected ? (
-              <Inspector topology={topology} node={selected} onSelect={setSelectedId} />
+              <Inspector topology={topology} node={selected} onSelect={setSelectedId} onClear={() => setSelectedId(null)} />
             ) : (
-              <p className="px-4 py-6 text-xs leading-relaxed text-muted">
-                Select a resource to inspect its status, verified relationships, events and labels. Drag to pan, scroll or
-                pinch to zoom.
-              </p>
+              <div className="grid gap-3 px-4 py-6 text-xs leading-relaxed text-muted">
+                <p className="text-sm text-fg">Nothing selected</p>
+                <ul className="grid list-disc gap-1.5 pl-4">
+                  <li>Click a resource in the graph, or Tab to it and press Enter, to see its status, verified relationships, events and labels.</li>
+                  <li>Drag the canvas to pan; scroll, pinch or use the + and − buttons to zoom.</li>
+                  <li>The List view shows the same resources as a table.</li>
+                  <li>Open the Legend for what colours and line styles mean.</li>
+                </ul>
+              </div>
             )}
           </aside>
         </div>
 
         <p className="border-t border-line px-4 py-2 text-2xs leading-relaxed text-faint">
           {nodes.length} of {topology.nodes.length} resources · {edges.length} relationships · {topology.traffic.detail}
+        </p>
+        <p aria-live="polite" className="sr-only">
+          {selected ? `Selected ${selected.kind} ${selected.name}, ${relationCount} relationship${relationCount === 1 ? "" : "s"}.` : ""}
         </p>
       </Card>
 
@@ -260,7 +302,7 @@ export function TopologyView({
 function Unknowns({ topology, onSelect }: { topology: Topology; onSelect: (id: string) => void }) {
   if (!topology.unknowns.length) return null;
   return (
-    <Card>
+    <Card data-tour={TOUR_TARGET.topologyUnknowns}>
       <details>
         <summary className="cursor-pointer px-4 py-3 text-sm text-fg">
           Not verified ({topology.unknowns.length}){" "}
@@ -273,6 +315,7 @@ function Unknowns({ topology, onSelect }: { topology: Topology; onSelect: (id: s
             <li key={i} className="grid gap-0.5 px-4 py-2 text-xs">
               <p className="font-mono text-2xs text-warning">{u.type}</p>
               <p className="text-muted">{u.detail}</p>
+              <p className="text-2xs text-faint">{UNKNOWN_META[u.type]}</p>
               {u.subject ? (
                 <button type="button" onClick={() => onSelect(u.subject!)} className="justify-self-start font-mono text-2xs text-faint hover:text-accent">
                   {u.subject}

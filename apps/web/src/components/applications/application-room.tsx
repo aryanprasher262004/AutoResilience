@@ -8,11 +8,13 @@ import { TopologyView } from "@/components/topology/topology-view";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card } from "@/components/ui/card";
+import { InfoHint } from "@/components/ui/info-hint";
 import { PageHeader } from "@/components/ui/page-header";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { ApiError, api } from "@/lib/api/client";
 import { queryKeys, useApplication, useApplicationTopology } from "@/lib/api/queries";
 import type { Application } from "@/lib/api/types";
+import { TOUR_TARGET } from "@/lib/help-content";
 
 import { ClusterRoleBadge, contextLabel } from "./cluster-badge";
 
@@ -102,7 +104,16 @@ export function ApplicationRoom({ id }: { id: string }) {
       <PageHeader
         title={a.name}
         description={`Topology of ${a.namespaces.join(", ")} in ${contextLabel(a.context)}, read from the cluster now.`}
-        meta={<ClusterRoleBadge cluster={a.cluster} />}
+        meta={
+          <span className="inline-flex items-center gap-1.5" data-tour={TOUR_TARGET.topologyCluster}>
+            <ClusterRoleBadge cluster={a.cluster} />
+            <InfoHint label="cluster roles">
+              <strong className="text-fg">Execution cluster</strong>: the engine&apos;s <code>KUBE_CONTEXT</code>; experiments may run
+              here after safety validation. <strong className="text-fg">Read-only discovery</strong>: granted with{" "}
+              <code>ar cluster import</code>; topology only, never chaos.
+            </InfoHint>
+          </span>
+        }
         actions={<ForgetControl application={a} />}
       />
       {!a.cluster ? (

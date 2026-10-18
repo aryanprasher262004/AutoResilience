@@ -8,6 +8,7 @@ read, and what an onboarded application is.
 | **Type** | Contract and decisions |
 | **Code** | `apps/api/app/services/topology/` (`graph.py` builder, `clusters.py` access), `apps/api/app/api/routes/topology.py`, `KubernetesAdapter.snapshot()`; console `apps/web/src/lib/topology.ts`, `src/components/{topology,applications}/` |
 | **Runbook** | [onboarding.md](onboarding.md) |
+| **Views** | [§ Views: 2D now, 3D later](#views-2d-now-3d-later) |
 
 ## Clusters the engine may read
 
@@ -133,3 +134,38 @@ A refused listing never fails the whole snapshot; an unreachable API server does
   selection and keyboard focus; the layout is a small deterministic layered layout in
   `src/lib/topology.ts` (namespace groups, kinds as columns, cluster Nodes on the right),
   so no layout library is needed. A List view offers the same nodes as a table.
+
+## Views: 2D now, 3D later
+
+The console separates three layers, so another renderer can be added without touching the
+contract, filtering, selection or the inspector:
+
+| Layer | Owns | Code |
+|---|---|---|
+| Contract | `autoresilience-topology/1` as returned by the API | `schemas/topology.py`, generated `src/lib/api/schema.ts` |
+| View state (pure) | filters, search matches, selection, the selection's neighbourhood (direct relations + owner chain), presentation metadata (kind, health, edge and unknown meanings, line styles) | `src/lib/topology.ts`, `TopologyView` |
+| Renderer | drawing, layout for its own space, camera, pointer and keyboard picking | `TopologyGraph` (2D, React Flow) |
+
+A renderer receives only `TopologyRendererProps` (`nodes`, `edges`, `selected`, `matches`,
+`onSelect`): filtered contract objects, never raw cluster data, and it reports selection by
+node id. It must not add nodes, edges or attributes (no inferred traffic, no decorative
+telemetry); the legend reads the same `EDGE_META`/`NODE_HEALTH_META`, so meaning stays
+identical across views. The List view is the accessible equivalent of every renderer.
+
+**Proposed 3D renderer** (not built; needs D-10 in `docs/product/v0.2-architecture.md`):
+React Three Fiber, lazy-loaded as its own chunk only when the 3D view is chosen, 2D stays
+the default. Requirements:
+
+- **Layout:** deterministic from the snapshot (namespaces as planes or bands, kinds along one
+  axis like the 2D columns); the same snapshot always renders the same scene.
+- **Camera:** orbit, pan and zoom with mouse, touch (one-finger orbit, two-finger pan/pinch)
+  and keyboard (arrow keys orbit, +/− zoom, a "reset view" control); bounded zoom and no
+  camera roll; "fit to selection" and "fit all", like the 2D fit-view.
+- **Selection:** click/tap picking and keyboard traversal of nodes in the List order, with
+  the same `onSelect` contract; the selected node and its neighbourhood stay highlighted,
+  others are dimmed, matching 2D.
+- **Motion and access:** respect `prefers-reduced-motion` (no auto-rotation or animated
+  transitions), canvas `aria-hidden` with the List view and inspector as the accessible
+  path, a WebGL-unavailable fallback to 2D.
+- **Budget:** the 3D chunk never loads for users who stay in 2D; no Three.js in the default
+  console bundle (it stays small for the desktop shell).

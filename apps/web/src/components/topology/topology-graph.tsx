@@ -7,6 +7,7 @@ import {
   Controls,
   type Edge,
   Handle,
+  MarkerType,
   type Node,
   type NodeProps,
   Position,
@@ -15,20 +16,22 @@ import {
 } from "@xyflow/react";
 import { memo, useEffect, useMemo } from "react";
 
-import type { TopologyEdge, TopologyNode } from "@/lib/api/types";
+import type { TopologyNode } from "@/lib/api/types";
 import { cn } from "@/lib/cn";
-import { EDGE_META, KIND_META, NODE_HEALTH_META, NODE_HEIGHT, NODE_WIDTH, layout } from "@/lib/topology";
+import {
+  EDGE_META,
+  KIND_META,
+  NODE_HEALTH_META,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  TONE_DOT,
+  type TopologyRendererProps,
+  layout,
+  neighbourhood,
+} from "@/lib/topology";
 
 type ResourceData = { node: TopologyNode; dimmed: boolean; selected: boolean };
 type GroupData = { label: string };
-
-const TONE_DOT: Record<string, string> = {
-  success: "bg-success",
-  warning: "bg-warning",
-  danger: "bg-danger",
-  info: "bg-info",
-  neutral: "bg-faint",
-};
 
 const ResourceNode = memo(function ResourceNode({ data }: NodeProps<Node<ResourceData>>) {
   const { node, dimmed, selected } = data;
@@ -64,14 +67,6 @@ function GroupNode({ data }: NodeProps<Node<GroupData>>) {
 
 const nodeTypes = { resource: ResourceNode, namespace: GroupNode };
 
-const EDGE_STYLE: Record<TopologyEdge["type"], { stroke: string; dash?: string }> = {
-  owns: { stroke: "var(--color-line-strong)" },
-  selects: { stroke: "var(--color-accent)", dash: "6 4" },
-  endpoint: { stroke: "var(--color-success)", dash: "2 4" },
-  slice_for: { stroke: "var(--color-line-strong)", dash: "2 4" },
-  scheduled_on: { stroke: "var(--color-faint)", dash: "8 6" },
-};
-
 /** Re-fits the viewport when the visible set of nodes changes (filters, new snapshot). */
 function FitOnChange({ signature }: { signature: string }) {
   const { fitView } = useReactFlow();
@@ -83,26 +78,15 @@ function FitOnChange({ signature }: { signature: string }) {
 }
 
 /**
- * The interactive 2D graph: pan (drag the canvas), zoom (wheel, pinch, controls),
+ * The interactive 2D renderer: pan (drag the canvas), zoom (wheel, pinch, controls),
  * select (click or keyboard focus + Enter). Layout is computed, not draggable, so the
- * same snapshot always looks the same.
+ * same snapshot always looks the same. Selecting a resource dims everything not directly
+ * related to it; search dims non-matches.
  */
-export function TopologyGraph({
-  nodes,
-  edges,
-  selected,
-  matches,
-  onSelect,
-}: {
-  nodes: TopologyNode[];
-  edges: TopologyEdge[];
-  selected: string | null;
-  /** Node ids matching the search; others are dimmed. Null: no search. */
-  matches: Set<string> | null;
-  onSelect: (id: string | null) => void;
-}) {
+export function TopologyGraph({ nodes, edges, selected, matches, onSelect }: TopologyRendererProps) {
   const groups = useMemo(() => layout(nodes, edges), [nodes, edges]);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const related = useMemo(() => (selected ? neighbourhood(edges, selected) : null), [edges, selected]);
 
   const flowNodes = useMemo<Node[]>(() => {
     const result: Node[] = [];
@@ -124,7 +108,11 @@ export function TopologyGraph({
           type: "resource",
           parentId: g.id,
           position: { x: m.x, y: m.y },
-          data: { node, dimmed: matches !== null && !matches.has(m.id), selected: m.id === selected },
+          data: {
+            node,
+            dimmed: (matches !== null && !matches.has(m.id)) || (related !== null && !related.has(m.id)),
+            selected: m.id === selected,
+          },
           style: { width: NODE_WIDTH, height: NODE_HEIGHT },
           draggable: false,
           ariaLabel: `${node.kind} ${node.name}${node.namespace ? ` in ${node.namespace}` : ""}, ${NODE_HEALTH_META[node.health].label}`,
@@ -132,26 +120,28 @@ export function TopologyGraph({
       }
     }
     return result;
-  }, [groups, byId, matches, selected]);
+  }, [groups, byId, matches, selected, related]);
 
   const flowEdges = useMemo<Edge[]>(
     () =>
       edges.map((e) => {
-        const style = EDGE_STYLE[e.type];
+        const meta = EDGE_META[e.type];
         const active = selected !== null && (e.source === selected || e.target === selected);
         const notReady = e.type === "endpoint" && e.attributes.ready === false;
+        const stroke = notReady ? "var(--color-warning)" : active ? "var(--color-accent)" : meta.stroke;
         return {
           id: e.id,
           source: e.source,
           target: e.target,
-          label: active ? EDGE_META[e.type].label : undefined,
+          label: active ? meta.label : undefined,
           animated: active,
           focusable: false,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: stroke },
           style: {
-            stroke: notReady ? "var(--color-warning)" : active ? "var(--color-accent)" : style.stroke,
-            strokeDasharray: style.dash,
+            stroke,
+            strokeDasharray: meta.dash,
             strokeWidth: active ? 2 : 1.25,
-            opacity: selected !== null && !active ? 0.35 : 1,
+            opacity: selected !== null && !active ? 0.25 : 1,
           },
           labelStyle: { fill: "var(--color-fg)", fontSize: 10 },
           labelBgStyle: { fill: "var(--color-surface)" },
