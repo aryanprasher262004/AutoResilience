@@ -5,6 +5,7 @@
  */
 import type {
   DashboardSummary,
+  Environment,
   Experiment,
   ExperimentPage,
   ExperimentSummary,
@@ -177,4 +178,16 @@ export const databaseDown = (): Readiness => ({
       detail: "Cannot connect to localhost:5432/autoresilience: connection failed: Connection refused",
     },
   ],
+});
+
+export const environment = (overrides: Partial<Environment> = {}): Environment => ({
+  runtime_mode: "local-stack",
+  kube_context: "kind-autoresilience",
+  prometheus_url: "http://autoresilience-control-plane:30090",
+  checks: [
+    { name: "database", status: "pass", detail: "postgres:5432/autoresilience at revision 08697f19aec0" },
+    { name: "kubernetes", status: "pass", detail: "6 workloads visible via context kind-autoresilience" },
+    { name: "prometheus", status: "pass", detail: "http://autoresilience-control-plane:30090: Prometheus 3.5.0" },
+  ],
+  ...overrides,
 });

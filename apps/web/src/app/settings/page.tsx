@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { GuideControls } from "@/components/settings/guide-controls";
+import { LocalEnvironment, StackCommands } from "@/components/settings/local-environment";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { ApiStatus } from "@/components/shell/api-status";
 import { Badge } from "@/components/ui/badge";
@@ -68,11 +69,15 @@ export default function SettingsPage() {
           </ul>
         </Card>
 
-        <PlannedState milestone="Planned · local stack" title="Cluster, permissions and data">
+        <LocalEnvironment />
+
+        <StackCommands />
+
+        <PlannedState milestone="Planned" title="Managing the stack from the console">
           <p>
-            Choosing the cluster context, reviewing granted permissions, backups and cleanup arrive with the
-            packaged local stack. Until then the cluster is set with <code className="font-mono">KUBE_CONTEXT</code>{" "}
-            when the API starts.
+            Starting and stopping the stack, reviewing the engine&apos;s granted permissions, backups and a cleanup
+            preview need a local service-manager endpoint, which does not exist yet; use the commands above. The
+            cluster context is fixed when the engine starts (<code className="font-mono">KUBE_CONTEXT</code>).
           </p>
           <p>
             Safety policies, timeouts and limits are configured in the engine (code and environment variables) and

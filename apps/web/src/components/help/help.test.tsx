@@ -2,7 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import { mockApi, proxyDown } from "@/test/api";
-import { dashboard, ready, services } from "@/test/fixtures";
+import { dashboard, environment, ready, services } from "@/test/fixtures";
 import { renderWithApi } from "@/test/render";
 
 import { Diagnostics } from "./diagnostics";
@@ -29,13 +29,16 @@ describe("Setup checklist", () => {
 
 describe("Diagnostics", () => {
   test("copies a secret-free summary", async () => {
-    mockApi().on("GET", "/ready", ready());
+    mockApi().on("GET", "/ready", ready()).on("GET", "/environment", environment());
     const { user } = renderWithApi(<Diagnostics upstream="http://localhost:8000" />);
 
     const text = screen.getByLabelText("Diagnostics");
     await vi.waitFor(() => expect(text).toHaveTextContent('"status":"ready"'));
     expect(text).toHaveTextContent("runtime mode: local");
     expect(text).toHaveTextContent("browser endpoint: /api/backend -> http://localhost:8000");
+    expect(text).toHaveTextContent(
+      "GET /environment: local-stack, context kind-autoresilience, database=pass kubernetes=pass prometheus=pass",
+    );
 
     await user.click(screen.getByRole("button", { name: "Copy diagnostics" }));
     const copied = await navigator.clipboard.readText(); // user-event's clipboard

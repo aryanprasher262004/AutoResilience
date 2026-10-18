@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { API_BASE_PATH } from "@/lib/api/client";
-import { useReadiness } from "@/lib/api/queries";
+import { useEnvironment, useReadiness } from "@/lib/api/queries";
 import { useHydrated } from "@/lib/preferences";
 import { CONSOLE_VERSION, RUNTIME_MODE } from "@/lib/runtime";
 
@@ -14,6 +14,7 @@ import { CONSOLE_VERSION, RUNTIME_MODE } from "@/lib/runtime";
  */
 export function Diagnostics({ upstream }: { upstream: string }) {
   const readiness = useReadiness();
+  const environment = useEnvironment();
   // Browser-only facts (user agent, time): rendered after hydration, never on the server.
   const hydrated = useHydrated();
   const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
@@ -23,11 +24,19 @@ export function Diagnostics({ upstream }: { upstream: string }) {
     : readiness.isPending
       ? "checking"
       : `error: ${readiness.error?.message ?? "unknown"}`;
+  // Mode, context name and per-check status only: the details name hosts, never credentials.
+  const env = environment.data
+    ? `${environment.data.runtime_mode}, context ${environment.data.kube_context ?? "current"}, ` +
+      environment.data.checks.map((c) => `${c.name}=${c.status}`).join(" ")
+    : environment.isPending
+      ? "checking"
+      : `error: ${environment.error?.message ?? "unknown"}`;
   const text = [
     `console version: ${CONSOLE_VERSION}`,
     `runtime mode: ${RUNTIME_MODE}`,
     `browser endpoint: ${API_BASE_PATH} -> ${upstream}`,
     `GET /ready: ${ready}`,
+    `GET /environment: ${env}`,
     `user agent: ${typeof navigator === "undefined" ? "unknown" : navigator.userAgent}`,
     `generated: ${generated}`,
   ].join("\n");

@@ -30,6 +30,8 @@ export type ServiceDetail = Schemas["ServiceDetail"];
 export type WorkloadHealth = ServiceDetail["health"];
 export type Readiness = Schemas["Readiness"];
 export type ReadinessReason = NonNullable<Readiness["checks"][number]["reason"]>;
+export type Environment = Schemas["Environment"];
+export type EnvironmentCheck = Schemas["EnvironmentCheck"];
 
 /** Query parameters of GET /experiments/history (mirrors the OpenAPI operation). */
 export type HistoryQuery = {

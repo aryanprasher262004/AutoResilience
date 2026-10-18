@@ -17,9 +17,10 @@ const TROUBLESHOOTING: { id: string; title: string; body: ReactNode }[] = [
     title: "API unreachable",
     body: (
       <>
-        The console cannot reach the engine. Start it from <code>apps/api</code>:{" "}
-        <code>KUBE_CONTEXT=kind-autoresilience uv run fastapi dev app/main.py</code>. The console proxies to the
-        address fixed at build time (Settings → API connection).
+        The console cannot reach the engine. Local stack: <code>python3 tools/ar/ar.py status</code> shows which
+        container is down and <code>python3 tools/ar/ar.py start</code> starts it. Development: start it from{" "}
+        <code>apps/api</code> with <code>KUBE_CONTEXT=kind-autoresilience uv run fastapi dev app/main.py</code>. The
+        console proxies to the address fixed at build time (Settings → API connection).
       </>
     ),
   },
@@ -28,7 +29,8 @@ const TROUBLESHOOTING: { id: string; title: string; body: ReactNode }[] = [
     title: "Database unavailable",
     body: (
       <>
-        PostgreSQL is not reachable. <code>./scripts/dev-db.sh</code> starts it and applies the migrations.
+        PostgreSQL is not reachable. Local stack: <code>python3 tools/ar/ar.py start</code>. Development:{" "}
+        <code>./scripts/dev-db.sh</code> starts it and applies the migrations.
       </>
     ),
   },
@@ -56,7 +58,9 @@ const TROUBLESHOOTING: { id: string; title: string; body: ReactNode }[] = [
     body: (
       <>
         The engine lists Deployments and StatefulSets through <code>KUBE_CONTEXT</code>; system namespaces are never
-        listed. <code>./scripts/dev-cluster.sh</code> creates the local cluster with two sample applications.
+        listed. <code>python3 tools/ar/ar.py install</code> (or <code>./scripts/dev-cluster.sh</code> for development)
+        creates the local cluster with two sample applications. Settings → Local environment shows whether the engine
+        reaches the cluster at all.
       </>
     ),
   },
@@ -84,6 +88,7 @@ const TROUBLESHOOTING: { id: string; title: string; body: ReactNode }[] = [
 
 const DOCS: [string, string][] = [
   ["Setup and usage guide", "README.md"],
+  ["Local stack: install, upgrade, backup", "docs/local-stack.md"],
   ["Safety policy", "chaos/policies/safety-policy.md"],
   ["Orchestration", "docs/orchestration.md"],
   ["Resilience Score v3", "docs/scoring/resilience-score-v3.md"],

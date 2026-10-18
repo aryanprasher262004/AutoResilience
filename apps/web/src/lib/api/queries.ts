@@ -13,6 +13,7 @@ const IDLE_POLL_MS = 15_000;
 
 export const queryKeys = {
   readiness: ["readiness"] as const,
+  environment: ["environment"] as const,
   experiments: ["experiments"] as const,
   experiment: (id: string) => ["experiments", id] as const,
   history: (query: HistoryQuery) => ["experiments", "history", query] as const,
@@ -27,6 +28,16 @@ export function useReadiness() {
     queryKey: queryKeys.readiness,
     queryFn: api.readiness,
     refetchInterval: (q) => (q.state.data?.status === "ready" ? 15_000 : 5_000),
+    retry: false,
+  });
+}
+
+/** The engine's view of its dependencies (GET /environment); probes the cluster, so polled slowly. */
+export function useEnvironment() {
+  return useQuery({
+    queryKey: queryKeys.environment,
+    queryFn: api.environment,
+    refetchInterval: (q) => (q.state.data?.checks.every((c) => c.status === "pass") ? 30_000 : 10_000),
     retry: false,
   });
 }

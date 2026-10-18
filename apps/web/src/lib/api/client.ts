@@ -7,6 +7,7 @@
 import type {
   AbortRequest,
   DashboardSummary,
+  Environment,
   Experiment,
   ExperimentCreate,
   ExperimentPage,
@@ -138,6 +139,8 @@ export const api = {
       throw error;
     }
   },
+  /** What the engine is connected to (database, cluster, Prometheus); always 200 when it answers. */
+  environment: () => request<Environment>("/environment"),
   listExperiments: () => request<Experiment[]>("/experiments"),
   history: (query: HistoryQuery) => request<ExperimentPage>(`/experiments/history${toSearch(query)}`),
   dashboard: () => request<DashboardSummary>("/dashboard/summary"),
