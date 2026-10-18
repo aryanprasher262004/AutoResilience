@@ -1,0 +1,75 @@
+# Runtime identity of the containerised engine (compose.yaml `api`), applied by
+# tools/ar. The engine gets a kubeconfig for this ServiceAccount only; the host's
+# kubeconfig is never mounted. Provisioning (kind, helm, sample apps) uses the
+# operator's own credentials on the host and is not available to the engine.
+#
+# Permissions mirror the engine's actual calls (apps/api/app/integrations):
+#   cluster-wide, read-only: get/list Deployments, StatefulSets, Pods (discovery,
+#     safety checks, recovery observation);
+#   per chaos namespace (Role below, applied once per CHAOS_NAMESPACES entry):
+#     its own ChaosEngines (create/get/patch/delete), their ChaosResults (get/delete),
+#     and reads of the vetted pod-delete ChaosExperiment and chaos ServiceAccount.
+# No Secrets, no workload writes, no pod deletion (Litmus' runner does that under
+# its own namespaced autoresilience-chaos ServiceAccount, chaos/rbac/).
+# Every object carries both ownership labels; tools/ar deletes only objects with both.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: autoresilience-engine
+  namespace: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+---
+# Long-lived token so the stack recovers after restarts without re-provisioning.
+# Revoked by deleting this Secret (tools/ar uninstall, or kubectl).
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: autoresilience-engine-token
+  namespace: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+  annotations:
+    kubernetes.io/service-account.name: autoresilience-engine
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autoresilience-engine-read
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: autoresilience-engine-read
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: autoresilience-engine-read
+subjects:
+  - kind: ServiceAccount
+    name: autoresilience-engine
+    namespace: autoresilience-system

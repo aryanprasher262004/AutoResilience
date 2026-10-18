@@ -19,6 +19,7 @@ Seven jobs, each a separate check on the pull request:
 | Frontend · tests | a failing Vitest test (`apps/web/src/**/*.test.tsx`, see `apps/web/README.md`) | `npm ci && npm test --workspace web` |
 | Site · lint, typecheck, tests, static export | the same for `apps/site`, plus `scripts/check-static.mjs`: config is static-export only, no server code or network calls in `src/`, no engine address in `out/`, and each page has `lang`, a title, one `h1`, `main`, a skip link and the CSP | `npm ci`, then `lint`, `typecheck`, `test`, `build`, `check` with `--workspace site` |
 | Recorded evidence · schema and recordings | `packages/contracts/recorded-experiment.schema.json` differs from the Pydantic model, or a file in `recordings/` fails validation or its hash ([recordings.md](recordings.md)) | `cd apps/api && uv run python -m app.tools.export_recording schema --check && uv run python -m app.tools.export_recording verify ../../recordings` |
+| Local stack · CLI, compose and images | `tools/ar` lint/type errors or failing unit tests, an invalid `compose.yaml`, or an image that does not build from the lockfiles ([local-stack.md](local-stack.md)) | `cd apps/api && uv run ruff check ../../tools/ar && uv run mypy --config-file ../../tools/ar/pyproject.toml ../../tools/ar`; `cd tools/ar && python3 -m unittest discover -s tests -t .`; `docker compose config -q` and `docker compose build` with `AUTORESILIENCE_DB_PASSWORD` and `AUTORESILIENCE_KUBECONFIG` set to any value |
 | API contract in sync | anything under `packages/contracts/`, `apps/web/src/lib/api/schema.ts` or `apps/site/src/lib/recordings/schema.ts` differs from what the code generates | `./scripts/gen-api-contracts.sh && git diff --exit-code -- packages/contracts apps/web/src/lib/api/schema.ts apps/site/src/lib/recordings/schema.ts` |
 
 Fixing a contract failure: run `scripts/gen-api-contracts.sh` and commit the generated files.
@@ -28,7 +29,9 @@ Fixing a contract failure: run `scripts/gen-api-contracts.sh` and commit the gen
 - **No cluster, Docker Desktop or LitmusChaos.** The API tests run on in-memory SQLite with
   fakes for Kubernetes, Prometheus and Litmus (`apps/api/tests/conftest.py`); the frontend
   tests stub `fetch` with contract-typed responses and need no running API. End-to-end
-  runs against kind stay a local, manual verification.
+  runs against kind stay a local, manual verification (for the local stack: `ar install`
+  then `ar status`, docs/local-stack.md). The local-stack job uses the runner's Docker only
+  to validate `compose.yaml` and build the images; it starts nothing.
 - **One service container.** Only the migration job uses PostgreSQL (`postgres:17-alpine`,
   the image `scripts/dev-db.sh` uses), because Alembic migrations and `alembic check` need a
   real database.

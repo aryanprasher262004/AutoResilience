@@ -3,20 +3,22 @@
 # install Prometheus and LitmusChaos. Requires: docker (running), kind, kubectl, helm.
 # After changing infra/kind/cluster.yaml port mappings, delete the cluster first:
 #   kind delete cluster --name autoresilience
+# The packaged equivalent (with confirmation, ownership tracking and the engine's
+# runtime ServiceAccount) is `python3 tools/ar/ar.py install`; see docs/local-stack.md.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CLUSTER=autoresilience
+# Pinned versions shared with tools/ar.
+# shellcheck source=../infra/versions.env
+source "${ROOT}/infra/versions.env"
+CLUSTER="${CLUSTER_NAME}"
 CONTEXT="kind-${CLUSTER}"
-PROMETHEUS_CHART_VERSION=29.35.0
-LITMUS_CORE_CHART_VERSION=3.31.1
-LITMUS_VERSION=3.31.0
 
 if ! kind get clusters | grep -qx "${CLUSTER}"; then
   kind create cluster --config "${ROOT}/infra/kind/cluster.yaml" --wait 120s
 fi
 
-CHAOS_NAMESPACES=(shop resilience-sandbox)
+read -r -a CHAOS_NAMESPACES <<< "${CHAOS_NAMESPACES}"
 
 kubectl --context "${CONTEXT}" apply -f "${ROOT}/infra/sample-app/shop.yaml"
 kubectl --context "${CONTEXT}" apply -f "${ROOT}/infra/sample-app/sandbox.yaml"
@@ -40,7 +42,7 @@ helm upgrade --install prometheus prometheus-community/prometheus \
 # LitmusChaos: operator + CRDs only. Images are pulled inside the kind node up front
 # so the first fault doesn't wait on a ~400MB go-runner pull (kind load fails on
 # Docker Desktop multi-arch images, hence crictl).
-docker exec "${CLUSTER}-control-plane" crictl pull python:3.12.11-alpine3.22 >/dev/null
+docker exec "${CLUSTER}-control-plane" crictl pull "${LOADGEN_IMAGE}" >/dev/null
 for image in chaos-operator chaos-runner go-runner; do
   docker exec "${CLUSTER}-control-plane" crictl pull \
     "litmuschaos.docker.scarf.sh/litmuschaos/${image}:${LITMUS_VERSION}" >/dev/null

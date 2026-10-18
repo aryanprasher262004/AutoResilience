@@ -1,0 +1,17 @@
+# tools/ar: the local-stack CLI. Standard library only, so it runs with any Python >= 3.11
+# without a virtualenv (`python3 tools/ar/ar.py`). Linted and type-checked in CI with the
+# API's dev tools: `cd apps/api && uv run ruff check ../../tools/ar &&
+# uv run mypy --config-file ../../tools/ar/pyproject.toml ../../tools/ar`.
+[project]
+name = "autoresilience-ar"
+version = "0.2.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

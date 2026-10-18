@@ -27,6 +27,9 @@ alone does not mean experiments, history or services will work.
 `detail` names `host:port/database`, never credentials. Only the database is a readiness
 dependency: Kubernetes and Prometheus are needed by some operations only, and those report
 their errors per request (validation checks become `ERROR`, Services returns 503).
+To see whether the engine reaches the cluster and Prometheus at all, use `GET /environment`
+(always 200, one `pass|fail` per dependency; contract in [local-stack.md](local-stack.md)).
+In the local stack, the `api` container's healthcheck is `/ready`.
 
 ## Runbook: what a failed readiness check means
 

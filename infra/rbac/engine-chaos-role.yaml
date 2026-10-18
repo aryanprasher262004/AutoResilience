@@ -1,0 +1,43 @@
+# Per chaos namespace part of the engine's runtime identity (see engine-rbac.yaml).
+# Written for "shop"; tools/ar applies it to each CHAOS_NAMESPACES entry by
+# substituting the namespace, like chaos/rbac/pod-delete-rbac.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: autoresilience-engine-chaos
+  namespace: shop
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+rules:
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosengines"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosresults"]
+    verbs: ["get", "delete"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosexperiments"]
+    resourceNames: ["pod-delete"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    resourceNames: ["autoresilience-chaos"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: autoresilience-engine-chaos
+  namespace: shop
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: autoresilience-engine-chaos
+subjects:
+  - kind: ServiceAccount
+    name: autoresilience-engine
+    namespace: autoresilience-system

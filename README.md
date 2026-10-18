@@ -51,6 +51,7 @@ Only `pod-delete` is supported. Other fault types are rejected by validation.
 | `chaos/` | LitmusChaos values, the vetted `pod-delete` experiment, RBAC, safety contract |
 | `monitoring/prometheus/` | Prometheus values and the PromQL contract |
 | `scripts/` | `dev-cluster.sh`, `dev-db.sh`, `gen-api-contracts.sh` |
+| `compose.yaml`, `tools/ar/` | Self-hosted local stack (containers) and its `ar` management CLI |
 | `packages/contracts/openapi.json` | Generated API contract (frontend types are generated from it) |
 | `docs/` | Methodology and runbooks (scoring v1–v3, orchestration, readiness, services, history, CI) |
 | `research/` | Evidence audit, extracted experiment data, and the research knowledge base (`research/handoff/`) |
@@ -81,6 +82,18 @@ Ports used on localhost: **3000** (console), **8000** (API), **5432** (PostgreSQ
 git clone https://github.com/aryanprasher262004/AutoResilience.git
 cd AutoResilience
 ```
+
+**Just want to use it?** The local stack runs the API, database and console as containers
+and needs only Docker, kind, kubectl, Helm and Python 3.11+ (no uv or Node):
+
+```bash
+python3 tools/ar/ar.py doctor    # read-only environment check
+python3 tools/ar/ar.py install   # shows its plan and asks first; console on http://127.0.0.1:3000
+```
+
+Then use `ar status`, `start`, `stop`, `backup`, `upgrade` and `uninstall` (which keeps your
+data unless asked). See [docs/local-stack.md](docs/local-stack.md). The rest of this section
+is the development setup with host processes.
 
 ### 2.1 Cluster, monitoring, chaos and sample apps
 
@@ -294,6 +307,9 @@ See `docs/ci.md`.
 
 ## 9. Teardown
 
+Local stack: `python3 tools/ar/ar.py uninstall` (keeps data and the cluster unless you pass
+`--delete-data` / `--delete-cluster`). Development setup:
+
 ```bash
 kind delete cluster --name autoresilience
 docker rm -f autoresilience-postgres
@@ -306,6 +322,7 @@ docker volume rm autoresilience-pgdata        # deletes all experiment history
 |---|---|
 | `docs/scoring/resilience-score-v3.md` (and v1, v2) | Score methodology |
 | `docs/orchestration.md` | Lifecycle orchestration, abort, cleanup |
+| `docs/local-stack.md` | Local stack: install, permissions, upgrade, backup, uninstall, troubleshooting |
 | `docs/readiness.md`, `docs/services.md`, `docs/history-and-reports.md`, `docs/ci.md` | Contracts and runbooks |
 | `chaos/policies/safety-policy.md` | Chaos safety contract |
 | `monitoring/prometheus/queries.md` | PromQL used for baseline and observation |

@@ -1,0 +1,134 @@
+# AutoResilience local stack: PostgreSQL, a one-shot migration, the engine API and the
+# console. Managed by tools/ar (`python3 tools/ar/ar.py install|start|stop|status`),
+# which writes the env file this needs (~/.autoresilience/stack.env) and the engine's
+# scoped kubeconfig. See docs/local-stack.md.
+#
+# Trust boundaries:
+#   - ports are published on 127.0.0.1 only; PostgreSQL is not published at all;
+#   - the engine reaches the kind cluster over the `kind` Docker network with a
+#     ServiceAccount kubeconfig (infra/rbac/engine-rbac.yaml), mounted read-only;
+#     the host kubeconfig and the Docker socket are never mounted;
+#   - data lives in the named volume autoresilience-data; `docker compose down`
+#     (without -v) and `ar uninstall` keep it unless explicitly asked.
+name: autoresilience
+
+x-engine: &engine
+  image: autoresilience/api:local
+  build:
+    context: apps/api
+  user: "${AUTORESILIENCE_UID:-10001}:${AUTORESILIENCE_GID:-10001}"
+  environment:
+    RUNTIME_MODE: local-stack
+    DATABASE_URL: postgresql+psycopg://autoresilience:${AUTORESILIENCE_DB_PASSWORD:?run `ar install` to create ~/.autoresilience/stack.env}@postgres:5432/autoresilience
+    KUBECONFIG: /run/autoresilience/kubeconfig
+    KUBE_CONTEXT: kind-autoresilience
+    PROMETHEUS_URL: http://autoresilience-control-plane:30090
+    ORCHESTRATOR_ENABLED: "true"
+  volumes:
+    - type: bind
+      source: ${AUTORESILIENCE_KUBECONFIG:?run `ar install` to generate the engine kubeconfig}
+      target: /run/autoresilience/kubeconfig
+      read_only: true
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  postgres:
+    image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    environment:
+      POSTGRES_USER: autoresilience
+      POSTGRES_PASSWORD: ${AUTORESILIENCE_DB_PASSWORD:?run `ar install` to create ~/.autoresilience/stack.env}
+      POSTGRES_DB: autoresilience
+    volumes:
+      - autoresilience-data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "autoresilience", "-d", "autoresilience", "-q"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # Brings the schema to the API's Alembic head before the API starts (also on upgrade).
+  migrate:
+    <<: *engine
+    command: ["alembic", "upgrade", "head"]
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *engine
+    networks: [internal, kind]
+    ports:
+      - "127.0.0.1:${AUTORESILIENCE_API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # /ready: process up AND database reachable at the expected migration head.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    image: autoresilience/web:local
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        AUTORESILIENCE_API_URL: http://api:8000
+    networks: [internal]
+    ports:
+      - "127.0.0.1:${AUTORESILIENCE_WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/backend/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/apps/web/.next/cache:uid=1000,gid=1000
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+networks:
+  internal: {}
+  # Created by kind; joining it lets the engine reach the cluster and Prometheus by
+  # the control-plane container name.
+  kind:
+    name: kind
+    external: true
+
+volumes:
+  autoresilience-data:
+    name: autoresilience-data

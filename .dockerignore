@@ -1,0 +1,12 @@
+# Build context of apps/web/Dockerfile (the repository root): only what the console
+# image needs. apps/api builds from its own directory (apps/api/.dockerignore).
+*
+!package.json
+!package-lock.json
+!apps/web
+!apps/site/package.json
+!packages/ui
+**/node_modules
+**/.next
+**/*.tsbuildinfo
+**/.env*

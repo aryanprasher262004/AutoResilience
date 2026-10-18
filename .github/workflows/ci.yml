@@ -1,5 +1,6 @@
 # Validation only (no deployment). Every job mirrors a local command; see docs/ci.md.
-# Needs no kind cluster, Docker Desktop or LitmusChaos: the API tests use in-memory
+# Needs no kind cluster, Docker Desktop or LitmusChaos (the local-stack job only builds
+# images and validates compose.yaml with the runner's Docker): the API tests use in-memory
 # SQLite and fakes for Kubernetes, Prometheus and Litmus. Only the migration job needs
 # a real PostgreSQL, provided as a service container.
 name: CI
@@ -150,6 +151,32 @@ jobs:
         run: uv run --frozen python -m app.tools.export_recording schema --check
       - name: Every committed recording validates and its hash matches
         run: uv run --frozen python -m app.tools.export_recording verify ../../recordings
+
+  local-stack:
+    name: Local stack · CLI, compose and images
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - run: uv sync --frozen
+        working-directory: apps/api
+      - name: Lint and type-check tools/ar
+        working-directory: apps/api
+        run: |
+          uv run --frozen ruff check ../../tools/ar
+          uv run --frozen mypy --config-file ../../tools/ar/pyproject.toml ../../tools/ar
+      - name: CLI unit tests (standard library only)
+        working-directory: tools/ar
+        run: python3 -m unittest discover -s tests -t . -v
+      - name: compose.yaml is valid
+        run: AUTORESILIENCE_DB_PASSWORD=ci AUTORESILIENCE_KUBECONFIG=/dev/null docker compose config -q
+      - name: Images build from the lockfiles
+        run: AUTORESILIENCE_DB_PASSWORD=ci AUTORESILIENCE_KUBECONFIG=/dev/null docker compose build
 
   contract:
     name: API contract in sync
