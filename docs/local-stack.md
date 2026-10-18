@@ -124,6 +124,7 @@ Provisioning and runtime are separate identities.
 | Provisioning | `ar`, on the host | the operator's kubeconfig, always `--context kind-autoresilience` after the ownership check | create the cluster, Helm releases, sample apps, RBAC |
 | Runtime | the `api` container | ServiceAccount `autoresilience-system/autoresilience-engine` (`infra/rbac/`), mounted read-only | cluster-wide get/list of Deployments, StatefulSets, ReplicaSets, Pods, Services, EndpointSlices, Events, Nodes and Namespaces; in `shop` and `resilience-sandbox` only: create/get/patch/delete ChaosEngines, get/delete ChaosResults, read the `pod-delete` ChaosExperiment and the `autoresilience-chaos` ServiceAccount |
 | Runtime, imported clusters | the `api` container | ServiceAccount `autoresilience-system/autoresilience-viewer` in each imported cluster (`infra/rbac/viewer-*.yaml`), one kubeconfig context each | get/list of the topology resources in the shared namespaces only (Nodes opt-in); no chaos |
+| Import provisioner (P7) | the `api` container, only for deploying/removing imports | ServiceAccount `autoresilience-system/autoresilience-provisioner` (`infra/rbac/provisioner.yaml`), its own kubeconfig `provisioner.kubeconfig`, mounted read-only | cluster-wide: get/create/patch/delete namespaces, create RoleBindings, bind three named ClusterRoles; a ValidatingAdmissionPolicy rejects any of its writes outside `ar-imp-*` namespaces labelled for imports ([imports.md](imports.md)); no reads elsewhere, no chaos |
 | Console stack controls | `ar manager`, on the host | none of its own: runs the same App methods as the CLI | `start`, `stop`, `backup` only, each after a confirmation |
 
 The engine **cannot** read Secrets or ConfigMaps, change or delete workloads or pods (Litmus' runner
@@ -170,7 +171,13 @@ By default `uninstall`:
   `app.kubernetes.io/managed-by=autoresilience` and `autoresilience.io/owner=local-manager`;
 - revokes the read-only access of every imported cluster (`ar cluster remove`'s rule; an
   unreachable one is reported with what remains there);
-- deletes `engine.kubeconfig`, `state.json` and `ar`'s Helm repository cache.
+- deletes `engine.kubeconfig`, `provisioner.kubeconfig`, `state.json` and `ar`'s Helm
+  repository cache; the provisioner's RBAC and admission policy go with the engine's
+  (same two labels).
+
+Imported applications (`ar-imp-*` namespaces) are **not** deleted by `uninstall`: remove
+them in the console first; afterwards only `kubectl delete namespace -l
+autoresilience.io/owner=import` removes them.
 
 It keeps the data volume, `stack.env`, backups and the cluster. A later `install` reuses
 the data.
@@ -187,6 +194,7 @@ Deletions are opt-in. `--yes` alone never deletes data or the cluster.
 |---|---|---|
 | Engine RBAC, namespace `autoresilience-system` | removed by `uninstall` (both ownership labels) | removed by `uninstall` |
 | Sample apps, Helm releases `prometheus` and `litmus`, chaos templates/RBAC | go with `--delete-cluster` | **kept**: they may predate `ar` (e.g. `dev-cluster.sh`), so `ar` does not remove them |
+| Imported applications (`ar-imp-*`) | removed per import from the console (ownership-checked); `uninstall` keeps them | same |
 | Imported clusters | viewer objects (three labels) removed by `cluster remove` / `uninstall`; nothing else there is touched | same |
 
 If the kind node is stopped during `uninstall`, the engine's ServiceAccount cannot be

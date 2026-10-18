@@ -1,0 +1,175 @@
+# ResilienceMart as Kubernetes manifests: the same four services as compose.yaml,
+# within the supported import subset (Deployments, Services; one container each;
+# no Secrets, ConfigMaps, host access or extra privileges). See README.md.
+#
+# Import: Applications -> Import -> Kubernetes manifests. The import replaces the
+# namespace with its own (ar-imp-<name>) and adds ownership labels.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront
+  labels: {app.kubernetes.io/name: storefront, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app.kubernetes.io/name: storefront}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: storefront, app.kubernetes.io/part-of: resiliencemart}
+    spec:
+      containers:
+        - name: storefront
+          image: ghcr.io/stefanprodan/podinfo:6.7.1@sha256:862ca45e61b32392f7941a1bdfdbe5ff8b6899070135f1bdca1c287d0057fc94
+          args: ["--port=9898", "--ui-message=ResilienceMart storefront", "--backend-url=http://catalog:9898/echo", "--backend-url=http://checkout:9898/echo"]
+          ports: [{name: http, containerPort: 9898}]
+          readinessProbe:
+            exec:
+              command: [podcli, check, http, "localhost:9898/readyz"]
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront
+  labels: {app.kubernetes.io/name: storefront, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  selector: {app.kubernetes.io/name: storefront}
+  ports: [{name: http, port: 9898, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+  labels: {app.kubernetes.io/name: catalog, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app.kubernetes.io/name: catalog}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: catalog, app.kubernetes.io/part-of: resiliencemart}
+    spec:
+      containers:
+        - name: catalog
+          image: ghcr.io/stefanprodan/podinfo:6.7.1@sha256:862ca45e61b32392f7941a1bdfdbe5ff8b6899070135f1bdca1c287d0057fc94
+          args: ["--port=9898", "--ui-message=ResilienceMart catalog", "--cache-server=tcp://cache:6379"]
+          ports: [{name: http, containerPort: 9898}]
+          readinessProbe:
+            exec:
+              command: [podcli, check, http, "localhost:9898/readyz"]
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog
+  labels: {app.kubernetes.io/name: catalog, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  selector: {app.kubernetes.io/name: catalog}
+  ports: [{name: http, port: 9898, targetPort: http}]
+---
+# Deliberately slow: a replacement Pod is not ready for 20 seconds.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  labels: {app.kubernetes.io/name: checkout, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app.kubernetes.io/name: checkout}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: checkout, app.kubernetes.io/part-of: resiliencemart}
+    spec:
+      containers:
+        - name: checkout
+          image: ghcr.io/stefanprodan/podinfo:6.7.1@sha256:862ca45e61b32392f7941a1bdfdbe5ff8b6899070135f1bdca1c287d0057fc94
+          args: ["--port=9898", "--ui-message=ResilienceMart checkout"]
+          ports: [{name: http, containerPort: 9898}]
+          readinessProbe:
+            exec:
+              command: [podcli, check, http, "localhost:9898/readyz"]
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout
+  labels: {app.kubernetes.io/name: checkout, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  selector: {app.kubernetes.io/name: checkout}
+  ports: [{name: http, port: 9898, targetPort: http}]
+---
+# Single replica: safety validation refuses pod-delete here (nothing would be left serving).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cache
+  labels: {app.kubernetes.io/name: cache, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: cache}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: cache, app.kubernetes.io/part-of: resiliencemart}
+    spec:
+      containers:
+        - name: cache
+          image: redis:7.4.1-alpine@sha256:c1e88455c85225310bbea54816e9c3f4b5295815e6dbf80c34d40afc6df28275
+          args: ["redis-server", "--save", "", "--appendonly", "no"]
+          ports: [{name: redis, containerPort: 6379}]
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 5
+            timeoutSeconds: 2
+          resources:
+            requests: {cpu: 20m, memory: 16Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          volumeMounts: [{name: data, mountPath: /data}]
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache
+  labels: {app.kubernetes.io/name: cache, app.kubernetes.io/part-of: resiliencemart}
+spec:
+  selector: {app.kubernetes.io/name: cache}
+  ports: [{name: redis, port: 6379, targetPort: redis}]

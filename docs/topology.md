@@ -113,6 +113,26 @@ and the engine never infers it (`traffic.observed` is always `false`).
 
 A refused listing never fails the whole snapshot; an unreachable API server does (503).
 
+## Imported applications (P7, additive)
+
+Applications created by an import ([imports.md](imports.md)) use the same contract; two
+optional fields were added, so P6 clients that ignore unknown fields are unaffected and
+`schema` stays `autoresilience-topology/1`:
+
+- `nodes[].origin`: `{import_id, import_name, role: "application" | "load-generator",
+  workload}` on objects whose ownership label `autoresilience.io/import-id` matches an
+  import recorded in the database for that namespace (labels alone are never trusted).
+- `imported` (application views only): `{import_id, name, status, source, namespace,
+  declared, planned}`. `declared` lists relationships the source file states (Compose
+  `depends_on`) as node-id pairs with `verified: false`; they are **not** in `edges` and
+  never evidence of traffic. `planned` lists the plan's Deployments, StatefulSets and
+  Services with `observed` (present in this snapshot or not).
+
+Three sources stay distinct: **observed** (`edges`, from the Kubernetes API),
+**declared** (`imported.declared`, from the file) and **planned** (`imported.planned`,
+from the reviewed plan). `experiment_target` in an `ar-imp-*` namespace follows the
+import's state (only a `READY` import's own workloads; never the load generator).
+
 ## Decisions
 
 - **Snapshot on request, no cache.** Each request lists live state with bounded timeouts;

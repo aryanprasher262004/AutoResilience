@@ -104,3 +104,11 @@ orchestrator only after re-reading the engine and verifying the `managed-by` and
 
 No *automatic* abort on live safety signals during `OBSERVING`
 (`services/safety/live_monitor.py`); aborting is an explicit operator action.
+
+## Other cluster writers
+
+The import provisioner (P7, `apps/api/app/integrations/app_provisioner.py`) also writes
+to the cluster, with its own identity and only inside `ar-imp-*` namespaces
+([docs/imports.md](../../docs/imports.md)). It prepares the same vetted `pod-delete`
+ChaosExperiment and `autoresilience-chaos` ServiceAccount there, but cannot create
+ChaosEngines; every experiment on an imported workload goes through the checks above.

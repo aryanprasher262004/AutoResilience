@@ -1,0 +1,21 @@
+# What an import refuses (P7). Import this file to see the security review block it:
+# every service below breaks a rule, with the reason and a fix in the findings.
+# Never run this file with Docker: it mounts the Docker socket and host paths.
+services:
+  admin:
+    image: alpine:3.20
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/src
+    network_mode: host
+  builder:
+    build: ./src
+  worker:
+    image: ghcr.io/example/worker:${WORKER_TAG}
+    env_file: .env
+    cap_add: [NET_ADMIN]
+    secrets: [db_password]
+secrets:
+  db_password:
+    file: ./db_password.txt

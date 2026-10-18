@@ -1,0 +1,82 @@
+# ResilienceMart: a small storefront for testing AutoResilience imports (P7).
+# A compatibility fixture, not production software: no credentials, no host
+# mounts, no privileges, nothing published beyond what `docker compose up` needs.
+#
+#   storefront  podinfo UI + API, 3 replicas         healthy, replicated
+#   catalog     podinfo API using the cache, 2 replicas
+#   checkout    podinfo API, 2 replicas, slow to become ready (20 s)   fragile recovery
+#   cache       Redis, 1 replica                                       single point of failure
+#
+# Run locally:   docker compose -f examples/resiliencemart/compose.yaml up
+#                open http://127.0.0.1:8080 (replicas also on 8081, 8082)
+# Import:        Applications -> Import -> Docker Compose (see README.md)
+name: resiliencemart
+
+services:
+  storefront:
+    image: ghcr.io/stefanprodan/podinfo:6.7.1@sha256:862ca45e61b32392f7941a1bdfdbe5ff8b6899070135f1bdca1c287d0057fc94
+    command: ["./podinfo", "--port=9898", "--ui-message=ResilienceMart storefront", "--backend-url=http://catalog:9898/echo", "--backend-url=http://checkout:9898/echo"]
+    ports:
+      # One host port per replica, loopback only (Docker). An import publishes none.
+      - "127.0.0.1:8080-8082:9898"
+    deploy:
+      replicas: 3
+      resources:
+        limits: {cpus: "0.2", memory: 64M}
+    healthcheck:
+      test: ["CMD", "podcli", "check", "http", "localhost:9898/readyz"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    depends_on: [catalog, checkout]
+
+  catalog:
+    image: ghcr.io/stefanprodan/podinfo:6.7.1@sha256:862ca45e61b32392f7941a1bdfdbe5ff8b6899070135f1bdca1c287d0057fc94
+    command: ["./podinfo", "--port=9898", "--ui-message=ResilienceMart catalog", "--cache-server=tcp://cache:6379"]
+    expose: ["9898"]
+    deploy:
+      replicas: 2
+      resources:
+        limits: {cpus: "0.2", memory: 64M}
+    healthcheck:
+      test: ["CMD", "podcli", "check", "http", "localhost:9898/readyz"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    depends_on:
+      cache:
+        condition: service_started
+
+  checkout:
+    image: ghcr.io/stefanprodan/podinfo:6.7.1@sha256:862ca45e61b32392f7941a1bdfdbe5ff8b6899070135f1bdca1c287d0057fc94
+    command: ["./podinfo", "--port=9898", "--ui-message=ResilienceMart checkout"]
+    expose: ["9898"]
+    deploy:
+      replicas: 2
+      resources:
+        limits: {cpus: "0.2", memory: 64M}
+    # Deliberately slow: a replacement Pod is not ready for 20 seconds.
+    healthcheck:
+      test: ["CMD", "podcli", "check", "http", "localhost:9898/readyz"]
+      start_period: 20s
+      interval: 5s
+      timeout: 2s
+      retries: 3
+
+  cache:
+    image: redis:7.4.1-alpine@sha256:c1e88455c85225310bbea54816e9c3f4b5295815e6dbf80c34d40afc6df28275
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    expose: ["6379"]
+    deploy:
+      resources:
+        limits: {cpus: "0.2", memory: 64M}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    volumes:
+      - cache-data:/data
+
+volumes:
+  cache-data: {}

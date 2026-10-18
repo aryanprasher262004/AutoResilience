@@ -9,6 +9,10 @@ Onboarding is read-only: it picks a cluster the engine is already authorized to 
 namespaces the application runs in, and shows its workloads, readiness and topology.
 Experiments are then started from the existing builder and pass the same safety checks.
 
+To deploy an application that is not running yet (Compose file, manifests or an image)
+as an isolated test deployment, use **Applications → Import application** instead:
+[imports.md](imports.md).
+
 ## In the console
 
 **Applications → Onboard application**:
