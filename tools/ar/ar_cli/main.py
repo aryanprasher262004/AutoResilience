@@ -2,6 +2,8 @@
 
     python3 tools/ar/ar.py doctor | install | start | stop | status | diagnostics
                            backup | restore FILE | upgrade | uninstall
+                           cluster contexts | cluster import | cluster remove
+                           manager
 
 Anything that provisions or deletes resources prints exactly what it will do and asks
 first (`--yes` answers the plan's question, never the opt-in deletions of data or the
@@ -9,8 +11,11 @@ cluster, which need their own flags). See docs/local-stack.md.
 """
 
 import argparse
+import dataclasses
+import io
 import json
 import platform
+import shutil
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
@@ -18,8 +23,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
 
-from . import checks, cluster, stack
+from . import checks, cluster, imports, stack
 from .checks import Finding
+from .manager import MANAGER_PORT, OPERATIONS, Manager, serve
 from .paths import (
     DATA_VOLUME,
     DEFAULT_API_PORT,
@@ -131,6 +137,30 @@ class App:
         if not self.paths.kubeconfig.exists():
             raise Abort(f"{self.paths.kubeconfig} is missing; run `ar install` to regenerate the engine's access")
 
+    @staticmethod
+    def imported(state: State) -> list[imports.ImportRecord]:
+        return [imports.ImportRecord.from_dict(raw) for raw in state.imported_clusters]
+
+    def write_stack_env(self, state: State) -> None:
+        """stack.env, with DISCOVERY_CLUSTERS for imports the engine has a kubeconfig entry for."""
+        granted = cluster.kubeconfig_entries(self.paths.kubeconfig)
+        records = [r for r in self.imported(state) if r.context in granted]
+        stack.write_stack_env(self.paths, state, imports.discovery_setting(records))
+
+    def refresh_engine(self, state: State, add: Sequence[cluster.KubeconfigEntry] = ()) -> None:
+        """Rewrite the engine's kubeconfig and env for the recorded imports; restart it if running."""
+        changed = cluster.write_engine_kubeconfig(
+            self.runner, self.paths, self.versions, [r.context for r in self.imported(state)], add
+        )
+        self.write_stack_env(state)
+        api = stack.services(self.runner, self.paths).get("api")
+        if api is not None and api.state == "running":
+            self.console.step(
+                "Restarting the engine with its new cluster access" if changed else "Restarting the engine"
+            )
+            stack.recreate_engine(self.runner, self.paths)
+            stack.wait_ready(self.api_url(state))
+
     # --- commands ------------------------------------------------------------------
 
     def doctor(self, as_json: bool) -> int:
@@ -179,11 +209,13 @@ class App:
         c.say(
             f"  - in context {v.context} only: apply the sample apps (shop, resilience-sandbox), Helm releases prometheus"
         )
-        c.say(
-            f"    ({v.prometheus_chart}) and litmus ({v.litmus_core_chart}), pod-delete templates and chaos RBAC; add Helm repos"
-        )
+        c.say(f"    ({v.prometheus_chart}) and litmus ({v.litmus_core_chart}), pod-delete templates and chaos RBAC")
+        c.say(f"    (Helm repositories are added to {self.paths.helm}, not to your own Helm configuration)")
         c.say(
             f"  - create the engine's ServiceAccount ({ENGINE_NAMESPACE}/autoresilience-engine, read-only + own ChaosEngines)"
+        )
+        c.say(
+            "    (read: workloads, ReplicaSets, Pods, Services, EndpointSlices, Events, Nodes, Namespaces; no Secrets)"
         )
         c.say(f"    and write its kubeconfig to {self.paths.kubeconfig} (0600)")
         c.say(
@@ -218,17 +250,23 @@ class App:
         c.step("Provisioning cluster components")
         cluster.provision(self.runner, self.paths, v, c.step)
         c.step("Granting the engine its runtime access")
-        self._grant_and_verify()
+        changed = self._grant_and_verify(state)
         c.step("Building and starting the stack")
-        stack.write_stack_env(self.paths, state)
+        api_before = stack.services(self.runner, self.paths).get("api")
+        self.write_stack_env(state)
         stack.build(self.runner, self.paths)
         stack.up(self.runner, self.paths)
+        if changed and api_before is not None:
+            # An existing engine container keeps its old kubeconfig (and token) until recreated.
+            stack.recreate_engine(self.runner, self.paths)
         stack.wait_ready(self.api_url(state))
         return self.status(as_json=False)
 
-    def _grant_and_verify(self) -> None:
+    def _grant_and_verify(self, state: State) -> bool:
         cluster.grant_engine_access(self.runner, self.paths, self.versions)
-        cluster.write_engine_kubeconfig(self.runner, self.paths, self.versions)
+        changed = cluster.write_engine_kubeconfig(
+            self.runner, self.paths, self.versions, [r.context for r in self.imported(state)]
+        )
         wrong = [
             (p, actual)
             for p, actual in cluster.check_engine_permissions(self.runner, self.versions)
@@ -241,6 +279,7 @@ class App:
         if wrong:
             raise Abort("The engine's permissions differ from infra/rbac/; not starting the stack")
         self.console.say("  engine permissions verified (read-only + own ChaosEngines; no secrets, no workload writes)")
+        return changed
 
     def start(self) -> int:
         state = self.require_state()
@@ -255,7 +294,7 @@ class App:
             cluster.start_node(self.runner, self.versions)
         cluster.wait_api_server(self.runner, self.versions)
         self.console.step("Starting the stack")
-        stack.write_stack_env(self.paths, state)
+        self.write_stack_env(state)
         stack.up(self.runner, self.paths)
         stack.wait_ready(self.api_url(state))
         return self.status(as_json=False)
@@ -430,12 +469,108 @@ class App:
             raise Declined("Nothing was changed")
         if stack.services(self.runner, self.paths).get("postgres", None) is not None:
             c.say(f"Backup written: {stack.backup(self.runner, self.paths)}")
-        stack.write_stack_env(self.paths, state)
+        self.write_stack_env(state)
         stack.build(self.runner, self.paths)
         stack.up(self.runner, self.paths)
         stack.wait_ready(self.api_url(state))
         c.say("Cluster components are not changed by upgrade; rerun `ar install` to update them.")
         return self.status(as_json=False)
+
+    # --- imported clusters (read-only discovery) ---------------------------------------
+
+    def cluster_contexts(self) -> int:
+        state = self.state()
+        recorded = {r.context: r for r in self.imported(state)} if state else {}
+        contexts = imports.list_contexts(self.runner)
+        if not contexts:
+            self.console.say("No contexts in your kubeconfig (kubectl config get-contexts).")
+            return EXIT_FAILED
+        for name in contexts:
+            if name == self.versions.context:
+                note = "the stack's cluster (experiments run here)"
+            elif name in recorded:
+                note = f"imported, read-only: {', '.join(recorded[name].namespaces)}"
+            else:
+                note = ""
+            self.console.say(f"  {name:<40} {note}".rstrip())
+        return EXIT_OK
+
+    def cluster_import(self, context: str, namespaces: list[str], include_nodes: bool) -> int:
+        c = self.console
+        state = self.require_state()
+        self.ensure_engine_kubeconfig()
+        c.step(f"Checking context {context} (read-only)")
+        try:
+            plan = imports.plan(self.runner, self.versions, context, namespaces, include_nodes)
+        except imports.ImportRefused as exc:
+            raise Abort(str(exc)) from exc
+        c.say("This will:")
+        for line in imports.describe(plan):
+            c.say(f"  {line}")
+        c.say("  The engine can then show this cluster's topology. It cannot run experiments there.")
+        if not c.confirm("Grant read-only access?"):
+            raise Declined("Nothing was changed")
+        c.step(f"Creating the read-only identity in {context}")
+        imports.apply(self.runner, self.paths, plan)
+        record = imports.record(plan)
+        others = [r for r in self.imported(state) if r.context != context]
+        previous = next((r for r in self.imported(state) if r.context == context), None)
+        if previous is not None:  # keep cleanup information about earlier grants
+            record = dataclasses.replace(
+                record,
+                namespaces=sorted({*record.namespaces, *previous.namespaces}),
+                created_namespace=previous.created_namespace or record.created_namespace,
+            )
+        state.imported_clusters = [r.to_dict() for r in [*others, record]]
+        save(self.paths.state, state)  # recorded first, so `ar cluster remove` can clean up
+        wrong = [(p, a) for p, a in imports.check_permissions(self.runner, plan) if a != p.expected]
+        for p, actual in wrong:
+            c.say(
+                f"  unexpected: viewer {'can' if actual else 'cannot'} {p.verb} {p.resource} in {p.namespace or 'all namespaces'}"
+            )
+        if wrong:
+            raise Abort(
+                f"The viewer's permissions in {context} differ from infra/rbac/viewer-*.yaml (existing RBAC there?); "
+                f"the engine was not given access. Review, then `ar cluster remove --context {context}`."
+            )
+        c.say("  viewer permissions verified (get/list in the shared namespaces only; no secrets, no writes)")
+        entry = imports.kubeconfig_entry(plan, imports.read_token(self.runner, context))
+        self.refresh_engine(state, [entry])
+        c.say(f"Imported {context}. In the console: Applications → Onboard application → {context}.")
+        return EXIT_OK
+
+    def cluster_remove(self, context: str, forget: bool) -> int:
+        c = self.console
+        state = self.require_state()
+        record = next((r for r in self.imported(state) if r.context == context), None)
+        if record is None:
+            raise Abort(f"{context} is not an imported cluster (see `ar cluster contexts`)")
+        c.say("This will:")
+        c.say(f"  - in {context}: delete the objects labelled {imports.VIEWER_SELECTOR}")
+        c.say(
+            f"    (Roles in {', '.join(record.namespaces)}, the viewer ServiceAccount and token"
+            + (f", namespace {imports.VIEWER_NAMESPACE}" if record.created_namespace else "")
+            + ")"
+        )
+        c.say("  - remove the context from the engine's kubeconfig and restart the engine")
+        c.say("  Applications onboarded from it stay listed as no longer authorized; experiment history is unchanged.")
+        if not c.confirm("Remove?"):
+            raise Declined("Nothing was changed")
+        try:
+            imports.revoke(self.runner, record)
+        except (cluster.OwnershipError, CommandError) as exc:
+            if not forget:
+                raise Abort(
+                    f"{exc}. Nothing was changed locally; rerun with --forget to drop the engine's access "
+                    "anyway and leave the objects in that cluster"
+                ) from exc
+            c.say(f"  not revoked ({exc}); objects labelled {imports.VIEWER_SELECTOR} remain in {context}")
+        state.imported_clusters = [r.to_dict() for r in self.imported(state) if r.context != context]
+        save(self.paths.state, state)
+        if self.paths.kubeconfig.exists():
+            self.refresh_engine(state)
+        c.say(f"Removed {context}.")
+        return EXIT_OK
 
     def uninstall(self, delete_data: bool, delete_cluster: bool) -> int:
         c = self.console
@@ -449,6 +584,8 @@ class App:
         c.say(
             f"Kept unless you opt in below: the Docker volume {DATA_VOLUME} (experiment history; backed up first if deleted),"
         )
+        for r in self.imported(state):
+            c.say(f"  - revoke read-only discovery access in imported context {r.context} ({', '.join(r.namespaces)})")
         c.say(f"backups in {self.paths.backups} (always kept),")
         c.say(
             f"and the kind cluster '{v.cluster_name}'"
@@ -475,7 +612,19 @@ class App:
         if status.running and not drop_cluster:
             c.step("Revoking the engine's cluster access")
             cluster.revoke_engine_access(self.runner, v)
+        elif not drop_cluster:
+            c.say(
+                f"The kind node is not running, so the engine's ServiceAccount in '{v.cluster_name}' was not revoked;"
+                f" start the node and delete objects labelled {OWNER_SELECTOR} (or run `ar install` then `ar uninstall`)."
+            )
+        for r in self.imported(state):
+            c.step(f"Revoking discovery access in {r.context}")
+            try:
+                imports.revoke(self.runner, r)
+            except (cluster.OwnershipError, CommandError) as exc:
+                c.say(f"  not revoked ({exc}); objects labelled {imports.VIEWER_SELECTOR} remain in {r.context}")
         self.paths.kubeconfig.unlink(missing_ok=True)
+        shutil.rmtree(self.paths.helm, ignore_errors=True)  # this tool's Helm repo cache
         if drop_data:
             c.step(f"Deleting volume {DATA_VOLUME}")
             self.runner.run(["docker", "volume", "rm", DATA_VOLUME], check=False)
@@ -486,6 +635,35 @@ class App:
         self.paths.state.unlink(missing_ok=True)
         c.say("Uninstalled." + ("" if drop_data else f" Data kept in volume {DATA_VOLUME}; `ar install` reuses it."))
         return EXIT_OK
+
+
+def run_manager(app: App, port: int) -> int:
+    """Serve the loopback service manager until Ctrl-C (see manager.py)."""
+    state = app.require_state()
+    origins = {f"http://127.0.0.1:{state.web_port}", f"http://localhost:{state.web_port}"}
+
+    def factory(runner: Runner, out: io.StringIO) -> App:
+        return App(runner, app.paths, Console(out, io.StringIO(), assume_yes=True))
+
+    manager = Manager(factory, app.collect_status, origins, port)
+    try:
+        server = serve(manager, port)
+    except OSError as exc:
+        raise Abort(f"Cannot listen on 127.0.0.1:{port} ({exc}); choose another with --port") from exc
+    c = app.console
+    c.say(f"AutoResilience service manager on http://127.0.0.1:{port} (loopback only)")
+    c.say(f"Accepts requests from the console at {', '.join(sorted(origins))}")
+    c.say("Operations: " + ", ".join(OPERATIONS) + " (each needs a confirmation in the console)")
+    c.say("")
+    c.say(f"Pairing token (paste into Settings → Stack controls): {manager.token}")
+    c.say("It is valid until this process stops. Press Ctrl-C to stop the manager.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        c.say("Manager stopped.")
+    finally:
+        server.server_close()
+    return EXIT_OK
 
 
 def parser() -> argparse.ArgumentParser:
@@ -515,6 +693,18 @@ def parser() -> argparse.ArgumentParser:
     uninstall.add_argument(
         "--delete-cluster", action="store_true", help="also delete the cluster, if this tool created it"
     )
+    clusters = sub.add_parser("cluster", help="read-only discovery access to further clusters")
+    csub = clusters.add_subparsers(dest="cluster_command", required=True)
+    csub.add_parser("contexts", help="list your kubeconfig contexts and what was imported (read-only)")
+    imp = csub.add_parser("import", help="grant the engine read-only access to namespaces of a context")
+    imp.add_argument("--context", required=True, help="kubeconfig context (never the current one implicitly)")
+    imp.add_argument("--namespace", action="append", required=True, help="namespace to share; repeat for more")
+    imp.add_argument("--include-nodes", action="store_true", help="also allow reading Nodes (cluster-scoped)")
+    rm = csub.add_parser("remove", help="revoke an import and remove it from the engine")
+    rm.add_argument("--context", required=True)
+    rm.add_argument("--forget", action="store_true", help="drop it locally even if the cluster is unreachable")
+    manager = sub.add_parser("manager", help="loopback service manager for the console's stack controls")
+    manager.add_argument("--port", type=int, default=None, help=f"loopback port (default {MANAGER_PORT})")
     return p
 
 
@@ -551,7 +741,15 @@ def main(
             "restore": lambda: app.restore(args.file),
             "upgrade": app.upgrade,
             "uninstall": lambda: app.uninstall(args.delete_data, args.delete_cluster),
+            "manager": lambda: run_manager(app, _port(args.port, MANAGER_PORT)),
         }
+        if args.command == "cluster":
+            cluster_commands: dict[str, Callable[[], int]] = {
+                "contexts": app.cluster_contexts,
+                "import": lambda: app.cluster_import(args.context, list(args.namespace or []), args.include_nodes),
+                "remove": lambda: app.cluster_remove(args.context, args.forget),
+            }
+            return cluster_commands[args.cluster_command]()
         return commands[args.command]()
     except Declined as exc:
         console.say(f"Cancelled: {exc}")

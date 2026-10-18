@@ -40,6 +40,11 @@ class Paths:
         return self.home / "backups"
 
     @property
+    def helm(self) -> Path:
+        """Helm repository config and cache used by `ar`, kept apart from the user's own."""
+        return self.home / "helm"
+
+    @property
     def compose_file(self) -> Path:
         return self.root / "compose.yaml"
 

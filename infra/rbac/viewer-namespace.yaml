@@ -1,0 +1,11 @@
+# Namespace for the read-only discovery identity in an imported cluster
+# (`ar cluster import`). Applied only when the namespace does not exist yet, so the
+# tool never labels (and later deletes) a namespace it did not create.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+    autoresilience.io/access: read-only-discovery

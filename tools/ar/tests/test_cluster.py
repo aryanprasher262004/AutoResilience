@@ -149,3 +149,17 @@ class NamespaceWaitTests(unittest.TestCase):
         runner.on(*CONTEXT, "get", "namespace", answer=lambda argv, _: phases.pop(0))
         cluster.wait_namespace_gone_or_active(runner, VERSIONS, sleep=lambda _: None)
         self.assertEqual(phases, [])
+
+
+class HelmIsolationTests(unittest.TestCase):
+    def test_helm_never_touches_the_users_repository_config(self) -> None:
+        runner = owned_runner()
+        with tempfile.TemporaryDirectory() as tmp:
+            p = paths(Path(tmp))
+            cluster.provision(runner, p, VERSIONS, lambda _: None)
+            helm_calls = [c for c in runner.calls if c[0] == "helm"]
+            self.assertEqual(len(runner.helm_envs), len(helm_calls))
+            for env in runner.helm_envs:
+                assert isinstance(env, dict)
+                self.assertTrue(Path(env["HELM_REPOSITORY_CONFIG"]).is_relative_to(p.home))
+                self.assertTrue(Path(env["HELM_REPOSITORY_CACHE"]).is_relative_to(p.home))

@@ -1,0 +1,33 @@
+# Read-only discovery identity for an imported cluster (`ar cluster import`). The
+# engine gets a kubeconfig with this ServiceAccount's token for that context only.
+#
+# It is granted nothing by itself: viewer-role.yaml adds get/list of the topology
+# resources per imported namespace, viewer-nodes.yaml (opt-in) adds get/list of Nodes.
+# Never: Secrets, ConfigMaps, writes of any kind, ChaosEngines. Chaos execution is not
+# available on imported clusters.
+#
+# All objects carry the three labels; `ar cluster remove` deletes only objects with all three.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: autoresilience-viewer
+  namespace: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+    autoresilience.io/access: read-only-discovery
+---
+# Long-lived token, like the engine's (infra/rbac/engine-rbac.yaml); revoked by
+# deleting it (`ar cluster remove`).
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: autoresilience-viewer-token
+  namespace: autoresilience-system
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+    autoresilience.io/access: read-only-discovery
+  annotations:
+    kubernetes.io/service-account.name: autoresilience-viewer

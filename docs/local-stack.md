@@ -11,6 +11,7 @@ pick other stack ports.
 |---|---|
 | **Type** | Runbook, plus the contract and decisions behind it |
 | **Code** | `compose.yaml`, `apps/api/Dockerfile`, `apps/web/Dockerfile`, `tools/ar/`, `infra/rbac/`, `infra/versions.env` |
+| **Related** | [onboarding.md](onboarding.md) (read-only access to further clusters), [topology.md](topology.md) |
 
 ## Requirements
 
@@ -54,10 +55,15 @@ for scripts. Then it:
    values, and the pinned versions in `infra/versions.env`, which the script also sources.
    The steps are: the sample apps, the Prometheus and litmus-core Helm releases, the
    pre-pulled chaos images, and the vetted pod-delete ChaosExperiment with its namespaced
-   ServiceAccount in each chaos namespace.
+   ServiceAccount in each chaos namespace. Helm runs with its repository list and cache in
+   `~/.autoresilience/helm` (`HELM_REPOSITORY_CONFIG`/`HELM_REPOSITORY_CACHE`), so your own
+   Helm repositories are not changed.
 3. **Grants the engine its runtime identity** (see [Permissions](#permissions)). It writes a
    ServiceAccount kubeconfig to `~/.autoresilience/engine.kubeconfig` (0600). It then checks
    the actual permissions with `kubectl auth can-i --as`, and refuses to start if they differ.
+   If the kubeconfig changed while the engine was running (a re-grant after a revoked
+   token), the engine container is recreated: it reads the file only at start, and the
+   bind mount pins the file it was created with.
 4. **Builds and starts the stack.** It generates a database password into
    `~/.autoresilience/stack.env` (0600) and runs `docker compose up --wait`. It then waits
    until `/ready` answers 200.
@@ -84,6 +90,8 @@ the engine reaches its database, the cluster and Prometheus, with the fix for ea
 | `ar restore FILE` | Asks first. Backs up the current data, stops the engine and console, runs `pg_restore --clean --single-transaction`, then starts them again. Only files with the pg_dump custom-format header are accepted. |
 | `ar upgrade` | Asks first. Backs up, rebuilds the images from this checkout, restarts. The `migrate` service applies new migrations before the API starts. |
 | `ar uninstall` | See [Uninstall](#uninstall). |
+| `ar cluster contexts \| import \| remove` | Read-only discovery access to another context's namespaces ([onboarding.md](onboarding.md)). |
+| `ar manager [--port N]` | The loopback service manager behind **Settings → Stack controls** ([below](#console-stack-controls-ar-manager)). |
 
 Exit codes: 0 success, 1 failure (the message says what to do), 3 declined or not confirmed.
 
@@ -114,9 +122,11 @@ Provisioning and runtime are separate identities.
 | | Who | Credentials | Can |
 |---|---|---|---|
 | Provisioning | `ar`, on the host | the operator's kubeconfig, always `--context kind-autoresilience` after the ownership check | create the cluster, Helm releases, sample apps, RBAC |
-| Runtime | the `api` container | ServiceAccount `autoresilience-system/autoresilience-engine` (`infra/rbac/`), mounted read-only | cluster-wide get/list of Deployments, StatefulSets and Pods; in `shop` and `resilience-sandbox` only: create/get/patch/delete ChaosEngines, get/delete ChaosResults, read the `pod-delete` ChaosExperiment and the `autoresilience-chaos` ServiceAccount |
+| Runtime | the `api` container | ServiceAccount `autoresilience-system/autoresilience-engine` (`infra/rbac/`), mounted read-only | cluster-wide get/list of Deployments, StatefulSets, ReplicaSets, Pods, Services, EndpointSlices, Events, Nodes and Namespaces; in `shop` and `resilience-sandbox` only: create/get/patch/delete ChaosEngines, get/delete ChaosResults, read the `pod-delete` ChaosExperiment and the `autoresilience-chaos` ServiceAccount |
+| Runtime, imported clusters | the `api` container | ServiceAccount `autoresilience-system/autoresilience-viewer` in each imported cluster (`infra/rbac/viewer-*.yaml`), one kubeconfig context each | get/list of the topology resources in the shared namespaces only (Nodes opt-in); no chaos |
+| Console stack controls | `ar manager`, on the host | none of its own: runs the same App methods as the CLI | `start`, `stop`, `backup` only, each after a confirmation |
 
-The engine **cannot** read Secrets, change or delete workloads or pods (Litmus' runner
+The engine **cannot** read Secrets or ConfigMaps, change or delete workloads or pods (Litmus' runner
 deletes pods under its own namespaced `autoresilience-chaos` account), create chaos in other
 namespaces, or change RBAC. `install` verifies this list on every run.
 
@@ -158,7 +168,9 @@ By default `uninstall`:
 - removes the stack's containers, network and locally built images;
 - revokes the engine's access: it deletes only objects carrying both
   `app.kubernetes.io/managed-by=autoresilience` and `autoresilience.io/owner=local-manager`;
-- deletes `engine.kubeconfig` and `state.json`.
+- revokes the read-only access of every imported cluster (`ar cluster remove`'s rule; an
+  unreachable one is reported with what remains there);
+- deletes `engine.kubeconfig`, `state.json` and `ar`'s Helm repository cache.
 
 It keeps the data volume, `stack.env`, backups and the cluster. A later `install` reuses
 the data.
@@ -168,6 +180,18 @@ Deletions are opt-in. `--yes` alone never deletes data or the cluster.
   and refuses if the database is not running.
 - **Cluster:** `--delete-cluster` deletes the cluster only if `ar` created it. An adopted
   cluster is never deleted.
+
+### Cleanup boundaries
+
+| | Created by `ar` in an owned cluster | In an adopted cluster |
+|---|---|---|
+| Engine RBAC, namespace `autoresilience-system` | removed by `uninstall` (both ownership labels) | removed by `uninstall` |
+| Sample apps, Helm releases `prometheus` and `litmus`, chaos templates/RBAC | go with `--delete-cluster` | **kept**: they may predate `ar` (e.g. `dev-cluster.sh`), so `ar` does not remove them |
+| Imported clusters | viewer objects (three labels) removed by `cluster remove` / `uninstall`; nothing else there is touched | same |
+
+If the kind node is stopped during `uninstall`, the engine's ServiceAccount cannot be
+revoked; `uninstall` says so (start the node and rerun `install` + `uninstall`, or delete
+the labelled objects).
 
 ## Troubleshooting
 
@@ -182,6 +206,8 @@ Deletions are opt-in. `--yes` alone never deletes data or the cluster.
 | Console: Cluster (Kubernetes API) **Failing**, 401/403 | The engine's token was revoked. Run `ar install`. |
 | Console: Cluster **Failing**, unreachable | The kind node is stopped. Run `ar start`. |
 | Console: Prometheus **Failing** | Prometheus is restarting inside the cluster. Wait, then run `ar status`. |
+| Settings → Stack controls: "No service manager on 127.0.0.1:8765" | Run `ar manager` in a terminal (or the `--port` you chose). |
+| Stack controls: 401 | The manager restarted and has a new token; paste the new one. |
 | `compose.yaml`: "run `ar install` to create …" | `docker compose` was run without `--env-file ~/.autoresilience/stack.env`. Use `ar`. |
 
 ## Decisions
@@ -198,9 +224,39 @@ Deletions are opt-in. `--yes` alone never deletes data or the cluster.
   (`npm ci`). No registry is involved yet, so there are no published digests to verify.
 - **Long-lived ServiceAccount token** in a Secret. The stack must recover after restarts
   without the operator. Revocation is a single Secret deletion.
-- **No console controls for the stack yet.** The console only shows what the engine
-  observes (`GET /environment`). Starting, stopping, backups and cleanup need a local
-  service-manager endpoint (D-4), and fake buttons are not acceptable.
+- **Console stack controls through a separate loopback manager (D-4).** The engine API
+  gains no stack or provisioning endpoints. `ar manager` is a separate host process the
+  operator starts; see below. Provisioning and deletion (`install`, `upgrade`, `restore`,
+  `uninstall`, `cluster import/remove`) stay terminal-only.
+- **CLI + Compose is the Community distribution (D-9).** A checkout plus `python3
+  tools/ar/ar.py` and `compose.yaml`, images built locally from lockfiles. A single binary,
+  `pipx` package, published images and the Tauri shell are later packaging layers over the
+  same `tools/ar` logic.
+
+## Console stack controls (`ar manager`)
+
+```bash
+ar manager            # prints a pairing token; Ctrl-C stops it
+```
+
+**Settings → Stack controls**: enter the port (default 8765) and the token; the console then
+shows the stack status and offers *Start the stack*, *Stop the stack* and *Back up
+experiment data*. Each first shows the manager's own plan; *Confirm and run* sends the
+plan's single-use confirmation id (valid 2 minutes); output is polled until done.
+
+| Protection | How |
+|---|---|
+| Loopback only | binds `127.0.0.1`; there is no option to bind elsewhere |
+| Authentication | random 32-byte token per run, printed only in the terminal, `Authorization: Bearer`, constant-time comparison; kept in the tab's sessionStorage |
+| Origin | only `http://127.0.0.1:<web port>` and `http://localhost:<web port>`; CORS answered for those only; other origins get 403 |
+| DNS rebinding | `Host` must be `127.0.0.1:<port>` or `localhost:<port>`, else 421 |
+| CSRF | bearer token (no cookies) and `Content-Type: application/json` required for POST (415 otherwise) |
+| Allowlist | `start`, `stop` (stack only, never the kind node), `backup`; anything else is 404 |
+| Confirmation | plan → single-use confirmation bound to that operation; one operation at a time (409) |
+| No escape hatch | operations call the CLI's App methods (fixed argv, no shell); no Docker socket, kubeconfig or command reaches the browser; output is secret-redacted; request logs omit headers |
+
+The browser calls the manager directly: the console container cannot reach the host's
+loopback. Stopping the stack also stops this console; start it again from the terminal.
 
 ## Contract: `GET /environment`
 

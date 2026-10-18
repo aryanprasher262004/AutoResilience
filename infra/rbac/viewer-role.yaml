@@ -1,0 +1,40 @@
+# Per imported namespace (`ar cluster import --namespace`): read-only access to what
+# the topology shows. Written for "shop"; tools/ar re-targets it per namespace, like
+# engine-chaos-role.yaml. Mirrors KubernetesAdapter.snapshot()/list_workloads().
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: autoresilience-viewer
+  namespace: shop
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+    autoresilience.io/access: read-only-discovery
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "events"]
+    verbs: ["get", "list"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: autoresilience-viewer
+  namespace: shop
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+    autoresilience.io/access: read-only-discovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: autoresilience-viewer
+subjects:
+  - kind: ServiceAccount
+    name: autoresilience-viewer
+    namespace: autoresilience-system

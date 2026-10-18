@@ -67,10 +67,14 @@ class Runner:
             raise CommandError(argv, result)
         return result
 
-    def stream(self, argv: Sequence[str], *, timeout: float | None = 1800) -> None:
+    def stream(
+        self, argv: Sequence[str], *, timeout: float | None = 1800, env: Mapping[str, str] | None = None
+    ) -> None:
         """Run with output shown to the user (long steps: builds, helm, kind create)."""
         try:
-            code = subprocess.run(list(argv), timeout=timeout, check=False).returncode
+            code = subprocess.run(
+                list(argv), timeout=timeout, check=False, env=dict(env) if env is not None else None
+            ).returncode
         except FileNotFoundError:
             code = 127
         except subprocess.TimeoutExpired:

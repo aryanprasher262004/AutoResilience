@@ -5,11 +5,12 @@
 #
 # Permissions mirror the engine's actual calls (apps/api/app/integrations):
 #   cluster-wide, read-only: get/list Deployments, StatefulSets, Pods (discovery,
-#     safety checks, recovery observation);
+#     safety checks, recovery observation), and for the topology view (P6)
+#     ReplicaSets, Services, EndpointSlices, Events, Nodes and Namespaces;
 #   per chaos namespace (Role below, applied once per CHAOS_NAMESPACES entry):
 #     its own ChaosEngines (create/get/patch/delete), their ChaosResults (get/delete),
 #     and reads of the vetted pod-delete ChaosExperiment and chaos ServiceAccount.
-# No Secrets, no workload writes, no pod deletion (Litmus' runner does that under
+# No Secrets, no ConfigMaps, no workload writes, no pod deletion (Litmus' runner does that under
 # its own namespaced autoresilience-chaos ServiceAccount, chaos/rbac/).
 # Every object carries both ownership labels; tools/ar deletes only objects with both.
 apiVersion: v1
@@ -52,10 +53,13 @@ metadata:
     autoresilience.io/owner: local-manager
 rules:
   - apiGroups: ["apps"]
-    resources: ["deployments", "statefulsets"]
+    resources: ["deployments", "statefulsets", "replicasets"]
     verbs: ["get", "list"]
   - apiGroups: [""]
-    resources: ["pods"]
+    resources: ["pods", "services", "events", "nodes", "namespaces"]
+    verbs: ["get", "list"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
     verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

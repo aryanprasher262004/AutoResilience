@@ -39,8 +39,11 @@ def compose(paths: Paths, *args: str) -> list[str]:
     ]
 
 
-def write_stack_env(paths: Paths, state: State) -> None:
-    """The env file compose.yaml interpolates. Keeps an existing database password."""
+def write_stack_env(paths: Paths, state: State, discovery: str = "[]") -> None:
+    """The env file compose.yaml interpolates. Keeps an existing database password.
+
+    `discovery` is the engine's DISCOVERY_CLUSTERS (compact JSON, see imports.py).
+    """
     existing = parse_env_file(paths.stack_env.read_text()) if paths.stack_env.exists() else {}
     values = {
         # Generated once; the data volume is initialised with it, so it is never rotated here.
@@ -48,6 +51,7 @@ def write_stack_env(paths: Paths, state: State) -> None:
         "AUTORESILIENCE_KUBECONFIG": str(paths.kubeconfig),
         "AUTORESILIENCE_WEB_PORT": str(state.web_port),
         "AUTORESILIENCE_API_PORT": str(state.api_port),
+        "AUTORESILIENCE_DISCOVERY_CLUSTERS": discovery,
     }
     if hasattr(os, "getuid"):  # run the engine as the host user so the 0600 kubeconfig is readable
         values["AUTORESILIENCE_UID"] = str(os.getuid())
@@ -63,6 +67,15 @@ def build(runner: Runner, paths: Paths) -> None:
 def up(runner: Runner, paths: Paths) -> None:
     # --wait: returns once postgres/api/web are healthy and migrate has exited 0.
     runner.stream(compose(paths, "up", "-d", "--wait", "--wait-timeout", "300"), timeout=600)
+
+
+def recreate_engine(runner: Runner, paths: Paths) -> None:
+    """Restart the API with a fresh container: it reads its kubeconfig only at start, and
+    the bind mount pins the file the container was created with."""
+    runner.stream(
+        compose(paths, "up", "-d", "--wait", "--wait-timeout", "300", "--no-deps", "--force-recreate", "api"),
+        timeout=600,
+    )
 
 
 def stop(runner: Runner, paths: Paths) -> None:

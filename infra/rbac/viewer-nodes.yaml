@@ -1,0 +1,31 @@
+# Opt-in (`ar cluster import --include-nodes`): read Nodes, so Pods can be placed on
+# them in the topology. Cluster-scoped, read-only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autoresilience-viewer-nodes
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+    autoresilience.io/access: read-only-discovery
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: autoresilience-viewer-nodes
+  labels:
+    app.kubernetes.io/managed-by: autoresilience
+    autoresilience.io/owner: local-manager
+    autoresilience.io/access: read-only-discovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: autoresilience-viewer-nodes
+subjects:
+  - kind: ServiceAccount
+    name: autoresilience-viewer
+    namespace: autoresilience-system

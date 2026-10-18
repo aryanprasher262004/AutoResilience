@@ -20,6 +20,8 @@ READ_ONLY = (
     ("docker", "ps"),
     ("docker", "inspect"),
     ("docker", "compose", "version"),
+    ("kubectl", "config", "get-contexts"),
+    ("kubectl", "config", "view"),
 )
 
 
@@ -37,6 +39,8 @@ class FakeRunner(Runner):
         self.calls: list[list[str]] = []
         self.inputs: list[bytes | None] = []
         self.rules: list[tuple[tuple[str, ...], Answer]] = []
+        self.envs: list[object] = []
+        self.helm_envs: list[object] = []
 
     def on(self, *prefix: str, answer: Answer) -> None:
         """Later rules win, so tests can override defaults."""
@@ -61,6 +65,8 @@ class FakeRunner(Runner):
         env: object = None,
     ) -> Result:
         argv = list(argv)
+        if argv[0] == "helm":
+            self.helm_envs.append(env)
         assert all(isinstance(a, str) for a in argv), argv
         self.calls.append(argv)
         self.inputs.append(input)
@@ -69,8 +75,9 @@ class FakeRunner(Runner):
             raise CommandError(argv, result)
         return result
 
-    def stream(self, argv: Sequence[str], *, timeout: float | None = 1800) -> None:
-        self.run(argv)
+    def stream(self, argv: Sequence[str], *, timeout: float | None = 1800, env: object = None) -> None:
+        self.envs.append(env)
+        self.run(argv, env=env)
 
     def writes(self) -> list[list[str]]:
         return [c for c in self.calls if not is_read_only(c)]

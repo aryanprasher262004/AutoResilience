@@ -3,12 +3,17 @@
 A cluster is deleted by `ar uninstall` only when `cluster_created_by_ar` is true, i.e.
 this tool ran `kind create cluster` for it. An adopted cluster (one that already existed,
 e.g. from scripts/dev-cluster.sh) is never deleted.
+
+`imported_clusters` records each read-only discovery import (`ar cluster import`): the
+cluster's fingerprint (kube-system namespace UID, checked before every write) and
+whether this tool created the identity namespace there.
 """
 
 import json
 import os
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
+from typing import Any
 
 SCHEMA = 1
 
@@ -20,6 +25,7 @@ class State:
     installed_at: str | None = None
     web_port: int = 3000
     api_port: int = 8000
+    imported_clusters: list[dict[str, Any]] = field(default_factory=list)
     schema: int = SCHEMA
 
 

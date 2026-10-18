@@ -24,6 +24,8 @@ x-engine: &engine
     KUBE_CONTEXT: kind-autoresilience
     PROMETHEUS_URL: http://autoresilience-control-plane:30090
     ORCHESTRATOR_ENABLED: "true"
+    # Read-only discovery contexts in the kubeconfig above (`ar cluster import`).
+    DISCOVERY_CLUSTERS: "${AUTORESILIENCE_DISCOVERY_CLUSTERS:-[]}"
   volumes:
     - type: bind
       source: ${AUTORESILIENCE_KUBECONFIG:?run `ar install` to generate the engine kubeconfig}

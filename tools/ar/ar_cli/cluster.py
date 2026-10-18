@@ -10,11 +10,13 @@ it gets a ServiceAccount kubeconfig (engine_kubeconfig) limited by infra/rbac/.
 import base64
 import hashlib
 import json
+import os
 import re
 import time
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from .paths import (
     ENGINE_NAMESPACE,
@@ -117,10 +119,23 @@ def for_namespace(manifest: str, namespace: str) -> str:
     return re.sub(r"namespace: shop$", f"namespace: {namespace}", manifest, flags=re.MULTILINE)
 
 
+def helm_env(paths: Paths) -> dict[str, str]:
+    """Helm with its repository list and cache under ~/.autoresilience/helm.
+
+    `helm repo add/update` would otherwise rewrite the user's own repositories.yaml.
+    """
+    return {
+        **os.environ,
+        "HELM_REPOSITORY_CONFIG": str(paths.helm / "repositories.yaml"),
+        "HELM_REPOSITORY_CACHE": str(paths.helm / "cache"),
+    }
+
+
 def provision(runner: Runner, paths: Paths, versions: Versions, log: Log) -> None:
     """Sample apps, Prometheus, LitmusChaos and chaos RBAC (idempotent)."""
     verify_owned(runner, versions)
     m = paths.manifest
+    helm = helm_env(paths)
     log("Sample workloads (shop, resilience-sandbox)")
     for manifest in ("infra/sample-app/shop.yaml", "infra/sample-app/sandbox.yaml"):
         runner.run(kubectl(versions, "apply", "-f", str(m(manifest))))
@@ -156,9 +171,10 @@ def provision(runner: Runner, paths: Paths, versions: Versions, log: Log) -> Non
             "prometheus-community",
             "https://prometheus-community.github.io/helm-charts",
             "--force-update",
-        ]
+        ],
+        env=helm,
     )
-    runner.run(["helm", "repo", "update", "prometheus-community"], timeout=300)
+    runner.run(["helm", "repo", "update", "prometheus-community"], timeout=300, env=helm)
     runner.stream(
         [
             "helm",
@@ -178,7 +194,8 @@ def provision(runner: Runner, paths: Paths, versions: Versions, log: Log) -> Non
             "--wait",
             "--timeout",
             "5m",
-        ]
+        ],
+        env=helm,
     )
 
     log(f"LitmusChaos (litmus-core {versions.litmus_core_chart}); pre-pulling images in the node")
@@ -188,8 +205,11 @@ def provision(runner: Runner, paths: Paths, versions: Versions, log: Log) -> Non
     ]
     for image in images:
         runner.run(["docker", "exec", versions.node, "crictl", "pull", image], timeout=900)
-    runner.run(["helm", "repo", "add", "litmuschaos", "https://litmuschaos.github.io/litmus-helm/", "--force-update"])
-    runner.run(["helm", "repo", "update", "litmuschaos"], timeout=300)
+    runner.run(
+        ["helm", "repo", "add", "litmuschaos", "https://litmuschaos.github.io/litmus-helm/", "--force-update"],
+        env=helm,
+    )
+    runner.run(["helm", "repo", "update", "litmuschaos"], timeout=300, env=helm)
     runner.stream(
         [
             "helm",
@@ -209,7 +229,8 @@ def provision(runner: Runner, paths: Paths, versions: Versions, log: Log) -> Non
             "--wait",
             "--timeout",
             "5m",
-        ]
+        ],
+        env=helm,
     )
     rbac = m("chaos/rbac/pod-delete-rbac.yaml").read_text()
     for namespace in versions.chaos_namespaces:
@@ -287,30 +308,80 @@ def read_token(
     raise OwnershipError(f"Secret {ENGINE_NAMESPACE}/{ENGINE_TOKEN_SECRET} has no token yet")
 
 
-def engine_kubeconfig(versions: Versions, token: str, ca_b64: str) -> str:
-    """Kubeconfig for the engine container: in-network server, ServiceAccount token only."""
+@dataclass(frozen=True)
+class KubeconfigEntry:
+    """One context of the engine's kubeconfig: server, CA and a ServiceAccount token."""
+
+    context: str
+    user: str
+    server: str
+    ca_b64: str
+    token: str
+
+
+def engine_kubeconfig(versions: Versions, token: str, ca_b64: str, extra: Sequence[KubeconfigEntry] = ()) -> str:
+    """Kubeconfig for the engine container: ServiceAccount tokens only, no operator credentials.
+
+    The owned cluster (KUBE_CONTEXT) is reached in-network; `extra` are imported clusters
+    (read-only discovery, `ar cluster import`).
+    """
+    owned = KubeconfigEntry(
+        versions.context,
+        ENGINE_SERVICE_ACCOUNT,
+        # The control-plane container on the `kind` Docker network (its cert covers this name).
+        f"https://{versions.node}:6443",
+        ca_b64,
+        token,
+    )
+    entries = [owned, *extra]
     config = {
         "apiVersion": "v1",
         "kind": "Config",
         "clusters": [
-            {
-                "name": versions.context,
-                # The control-plane container on the `kind` Docker network (its cert covers this name).
-                "cluster": {"server": f"https://{versions.node}:6443", "certificate-authority-data": ca_b64},
-            }
+            {"name": e.context, "cluster": {"server": e.server, "certificate-authority-data": e.ca_b64}}
+            for e in entries
         ],
-        "users": [{"name": ENGINE_SERVICE_ACCOUNT, "user": {"token": token}}],
-        "contexts": [
-            {"name": versions.context, "context": {"cluster": versions.context, "user": ENGINE_SERVICE_ACCOUNT}}
-        ],
+        "users": [{"name": e.user, "user": {"token": e.token}} for e in entries],
+        "contexts": [{"name": e.context, "context": {"cluster": e.context, "user": e.user}} for e in entries],
         "current-context": versions.context,
     }
     return json.dumps(config, indent=2) + "\n"  # JSON is valid YAML
 
 
-def write_engine_kubeconfig(runner: Runner, paths: Paths, versions: Versions) -> None:
+def kubeconfig_entries(path: Path) -> dict[str, KubeconfigEntry]:
+    """The entries of an engine kubeconfig written by this tool, by context ({} if absent)."""
+    try:
+        config = json.loads(path.read_text())
+    except FileNotFoundError:
+        return {}
+    clusters = {c["name"]: c["cluster"] for c in config.get("clusters", [])}
+    users = {u["name"]: u["user"] for u in config.get("users", [])}
+    entries = {}
+    for ctx in config.get("contexts", []):
+        name, ref = ctx["name"], ctx["context"]
+        cluster, user = clusters[ref["cluster"]], users[ref["user"]]
+        entries[name] = KubeconfigEntry(
+            name, ref["user"], cluster["server"], cluster["certificate-authority-data"], user["token"]
+        )
+    return entries
+
+
+def write_engine_kubeconfig(
+    runner: Runner, paths: Paths, versions: Versions, imported: Sequence[str] = (), add: Sequence[KubeconfigEntry] = ()
+) -> bool:
+    """(Re)write the engine kubeconfig; True if its content changed.
+
+    Imported contexts listed in `imported` keep their existing entries (their tokens are
+    only obtainable from those clusters); `add` replaces or adds entries.
+    """
     token, ca = read_token(runner, versions)
-    write_private(paths.kubeconfig, engine_kubeconfig(versions, token, ca))
+    existing = kubeconfig_entries(paths.kubeconfig)
+    keep = {name: existing[name] for name in imported if name in existing}
+    keep.update({e.context: e for e in add})
+    content = engine_kubeconfig(versions, token, ca, [keep[name] for name in sorted(keep)])
+    before = paths.kubeconfig.read_text() if paths.kubeconfig.exists() else None
+    write_private(paths.kubeconfig, content)
+    return content != before
 
 
 @dataclass(frozen=True)
@@ -327,14 +398,23 @@ def expected_permissions(versions: Versions) -> list[Permission]:
         Permission("list", "deployments.apps", None, True),
         Permission("list", "statefulsets.apps", None, True),
         Permission("list", "pods", None, True),
+        # Topology view (read-only).
+        Permission("list", "replicasets.apps", None, True),
+        Permission("list", "services", None, True),
+        Permission("list", "endpointslices.discovery.k8s.io", None, True),
+        Permission("list", "events", None, True),
+        Permission("list", "nodes", None, True),
+        Permission("list", "namespaces", None, True),
         Permission("create", "chaosengines.litmuschaos.io", chaos, True),
         Permission("delete", "chaosresults.litmuschaos.io", chaos, True),
-        # Must stay denied: no workload writes, no pod deletion, no secrets, no chaos
-        # outside prepared namespaces, no RBAC changes.
+        # Must stay denied: no workload writes, no pod deletion, no secrets or config
+        # data, no chaos outside prepared namespaces, no RBAC changes.
         Permission("create", "deployments.apps", chaos, False),
         Permission("delete", "pods", chaos, False),
         Permission("get", "secrets", chaos, False),
         Permission("list", "secrets", None, False),
+        Permission("list", "configmaps", None, False),
+        Permission("delete", "services", chaos, False),
         Permission("create", "chaosengines.litmuschaos.io", "default", False),
         Permission("create", "rolebindings.rbac.authorization.k8s.io", chaos, False),
     ]
