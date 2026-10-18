@@ -15,6 +15,7 @@ import { ApiError, api } from "@/lib/api/client";
 import { queryKeys, useApplication, useApplicationTopology } from "@/lib/api/queries";
 import type { Application } from "@/lib/api/types";
 import { TOUR_TARGET } from "@/lib/help-content";
+import { importHref } from "@/lib/imports";
 
 import { ClusterRoleBadge, contextLabel } from "./cluster-badge";
 
@@ -114,7 +115,15 @@ export function ApplicationRoom({ id }: { id: string }) {
             </InfoHint>
           </span>
         }
-        actions={<ForgetControl application={a} />}
+        actions={
+          topology.data?.imported ? (
+            <ButtonLink href={importHref(topology.data.imported.import_id)} variant="ghost">
+              Managed by import {topology.data.imported.name}
+            </ButtonLink>
+          ) : (
+            <ForgetControl application={a} />
+          )
+        }
       />
       {!a.cluster ? (
         <Callout tone="warning" title="This cluster is no longer authorized for the engine" role="status">

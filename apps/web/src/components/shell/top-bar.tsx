@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   services: "Services",
   reports: "Reports",
   settings: "Settings",
+  import: "Import",
   help: "Help",
   "how-it-works": "How it works",
   support: "Support",
@@ -43,6 +44,10 @@ export function TopBar() {
     })),
   ];
   if (!known) crumbs.push({ href: pathname, label: "Not found" });
+  // /applications/imports/<id>: "imports" is not a page of its own.
+  if (segments[0] === "applications" && segments[1] === "imports" && segments.length === 3) {
+    crumbs.splice(2, 2, { href: pathname, label: `Import ${crumbs[3].label}` });
+  }
   // /services/<namespace>/<kind>/<name> is one page: show it as a single "namespace/name" crumb.
   if (segments[0] === "services" && segments.length === 4) {
     crumbs.splice(2, 3, { href: pathname, label: `${crumbs[2].label}/${crumbs[4].label}` });

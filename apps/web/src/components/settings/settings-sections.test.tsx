@@ -5,12 +5,14 @@ import { endTour, useActiveTour } from "@/components/tour/tour-state";
 import { STORAGE_KEY, readPreferences } from "@/lib/preferences";
 import { mockApi } from "@/test/api";
 import { environment } from "@/test/fixtures";
+import { capabilities } from "@/test/import-fixtures";
 import { router, setUrl } from "@/test/navigation";
 import { renderWithApi } from "@/test/render";
 import { DISCOVERY, EXECUTION } from "@/test/topology-fixtures";
 
 import { ClusterAccess } from "./cluster-access";
 import { DataAndBackups } from "./data-backups";
+import { ImportSettings } from "./import-settings";
 import { TourControls } from "./tour-controls";
 
 beforeEach(() => localStorage.clear());
@@ -79,5 +81,16 @@ describe("Guided tours", () => {
 
     await user.click(screen.getByRole("button", { name: "Reset all" }));
     expect(readPreferences().tours).toEqual({});
+  });
+});
+
+describe("Application imports", () => {
+  test("says whether imports can be deployed and how to enable it, with no controls", async () => {
+    mockApi().on("GET", "/imports/capabilities", capabilities(false));
+    renderWithApi(<ImportSettings />);
+    expect(await screen.findByText("Review only")).toBeInTheDocument();
+    expect(screen.getByText(/imports can be reviewed and saved, not deployed/)).toBeInTheDocument();
+    expect(screen.getByText(/an admission policy rejects any write by the provisioner/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

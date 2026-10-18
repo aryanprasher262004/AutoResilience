@@ -49,6 +49,11 @@ const ResourceNode = memo(function ResourceNode({ data }: NodeProps<Node<Resourc
       <div className="flex items-center gap-1.5 text-2xs text-faint">
         <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[health.tone])} />
         <span>{KIND_META[node.kind].label}</span>
+        {node.origin ? (
+          <span className={cn("text-info", !node.experiment_target?.supported && "ml-auto")}>
+            {node.origin.role === "load-generator" ? "load gen" : "imported"}
+          </span>
+        ) : null}
         {node.experiment_target?.supported ? <span className="ml-auto text-accent">target</span> : null}
       </div>
       <div className="truncate font-mono text-xs text-fg">{node.name}</div>

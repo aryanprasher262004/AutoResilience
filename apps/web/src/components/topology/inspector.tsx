@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import type { Topology, TopologyNode } from "@/lib/api/types";
 import { formatRelative } from "@/lib/format";
+import { importHref } from "@/lib/imports";
 import { EDGE_META, HEALTH_SOURCE, KIND_META, NODE_HEALTH_META, UNKNOWN_META, relationsOf, unknownsOf } from "@/lib/topology";
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
@@ -103,6 +104,7 @@ export function Inspector({
   const unknowns = unknownsOf(topology, node.id);
   const target = node.experiment_target;
   const workload = { namespace: node.namespace ?? "", kind: node.kind, name: node.name };
+  const declared = (topology.imported?.declared ?? []).filter((d) => d.source === node.id || d.target === node.id);
 
   return (
     <div aria-label={`${node.kind} ${node.name}`} className="text-sm">
@@ -131,7 +133,7 @@ export function Inspector({
       {target ? (
         <Section
           title="Experiment target"
-          hint={target.supported ? "New experiment opens the builder with this workload filled in." : "Experiments run only on the execution cluster."}
+          hint={target.supported ? "New experiment opens the builder with this workload filled in." : "Not offered for this resource, for the reason below."}
         >
           <p className="text-xs leading-relaxed text-muted">{target.reason}</p>
           {target.supported ? (
@@ -144,6 +146,50 @@ export function Inspector({
               </ButtonLink>
             </div>
           ) : null}
+        </Section>
+      ) : null}
+
+      {node.origin ? (
+        <Section
+          title="Imported"
+          hint="Created by an import from its reviewed plan; recognised by the import's ownership labels."
+        >
+          <p className="text-xs leading-relaxed text-muted">
+            {node.origin.role === "load-generator"
+              ? "AutoResilience's load generator for this import: it sends requests only to the endpoints approved in the plan. Not part of the application, never an experiment target."
+              : `Part of the imported application${node.origin.workload ? ` (${node.origin.workload})` : ""}.`}{" "}
+            <ButtonLink href={importHref(node.origin.import_id)} size="sm" variant="ghost" className="h-6 px-1.5 text-2xs">
+              Import {node.origin.import_name}
+            </ButtonLink>
+          </p>
+        </Section>
+      ) : null}
+
+      {declared.length ? (
+        <Section
+          title={`Declared in the source file (${declared.length})`}
+          hint="Written in the imported file (Compose depends_on). Not verified by Kubernetes, not drawn as a relationship, not evidence of traffic."
+        >
+          <ul className="grid gap-1 text-xs">
+            {declared.map((d) => {
+              const outgoing = d.source === node.id;
+              const otherId = outgoing ? d.target : d.source;
+              const other = topology.nodes.find((n) => n.id === otherId);
+              return (
+                <li key={`${d.source}-${d.target}`}>
+                  <span className="text-muted">{outgoing ? "depends on" : "is a dependency of"}</span>{" "}
+                  {other ? (
+                    <button type="button" onClick={() => onSelect(other.id)} className="font-mono text-fg hover:text-accent">
+                      {other.kind} {other.name}
+                    </button>
+                  ) : (
+                    <span className="font-mono text-faint">{otherId}</span>
+                  )}{" "}
+                  <Badge tone="neutral">not verified</Badge>
+                </li>
+              );
+            })}
+          </ul>
         </Section>
       ) : null}
 

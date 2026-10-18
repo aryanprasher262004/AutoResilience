@@ -46,6 +46,22 @@ export type EdgeType = TopologyEdge["type"];
 export type Application = Schemas["ApplicationRead"];
 export type ApplicationList = Schemas["ApplicationList"];
 export type ApplicationCreate = Schemas["ApplicationCreate"];
+export type NodeOrigin = Schemas["NodeOrigin"];
+export type ImportOverlay = Schemas["ImportOverlay"];
+export type DeclaredEdge = Schemas["DeclaredEdge"];
+export type ImportRequest = Schemas["ImportRequest"];
+export type ImportSourceKind = Schemas["ImportSource"]["kind"];
+export type ImportPreview = Schemas["ImportPreview"];
+export type ImportRead = Schemas["ImportRead"];
+export type ImportList = Schemas["ImportList"];
+export type ImportStatus = ImportRead["status"];
+export type ImportFinding = Schemas["Finding"];
+export type ImportSpec = Schemas["ImportSpec"];
+export type DeploymentPlan = Schemas["DeploymentPlan"];
+export type PlannedObject = Schemas["PlannedObject"];
+export type ImportWorkloadHealth = Schemas["WorkloadHealth"];
+export type TrafficTarget = Schemas["TrafficTarget"];
+export type ImportCapabilities = Schemas["ImportCapabilities"];
 
 /** Query parameters of GET /experiments/history (mirrors the OpenAPI operation). */
 export type HistoryQuery = {

@@ -1,0 +1,1089 @@
+{
+ "preview": {
+  "name": "shop",
+  "source": "compose",
+  "filename": "compose.yaml",
+  "spec": {
+   "source": "compose",
+   "workloads": [
+    {
+     "name": "api",
+     "kind": "Deployment",
+     "image": "ghcr.io/stefanprodan/podinfo:6.7.1",
+     "replicas": 1,
+     "command": null,
+     "args": [
+      "./podinfo",
+      "--port=9898"
+     ],
+     "working_dir": null,
+     "ports": [
+      {
+       "container_port": 9898,
+       "protocol": "TCP",
+       "name": null
+      }
+     ],
+     "readiness": {
+      "type": "exec",
+      "command": [
+       "podcli",
+       "check",
+       "http",
+       "localhost:9898/readyz"
+      ],
+      "path": null,
+      "port": null,
+      "initial_delay_seconds": 0,
+      "period_seconds": 5,
+      "timeout_seconds": 30,
+      "failure_threshold": 3,
+      "generated": false
+     },
+     "liveness": null,
+     "startup": null,
+     "resources": {
+      "cpu_request": "50m",
+      "memory_request": "64Mi",
+      "cpu_limit": "500m",
+      "memory_limit": "256Mi"
+     },
+     "volumes": [],
+     "read_only_root": false,
+     "drop_all_capabilities": false,
+     "run_as_non_root": null,
+     "run_as_user": null,
+     "termination_grace_seconds": null,
+     "labels": {
+      "app.kubernetes.io/name": "api"
+     },
+     "selector": {
+      "app.kubernetes.io/name": "api"
+     },
+     "service_name": null,
+     "env_names": []
+    },
+    {
+     "name": "web",
+     "kind": "Deployment",
+     "image": "nginx:1.27-alpine",
+     "replicas": 2,
+     "command": null,
+     "args": null,
+     "working_dir": null,
+     "ports": [
+      {
+       "container_port": 80,
+       "protocol": "TCP",
+       "name": null
+      }
+     ],
+     "readiness": {
+      "type": "tcp",
+      "command": null,
+      "path": null,
+      "port": 80,
+      "initial_delay_seconds": 0,
+      "period_seconds": 5,
+      "timeout_seconds": 2,
+      "failure_threshold": 3,
+      "generated": true
+     },
+     "liveness": null,
+     "startup": null,
+     "resources": {
+      "cpu_request": "50m",
+      "memory_request": "64Mi",
+      "cpu_limit": "500m",
+      "memory_limit": "256Mi"
+     },
+     "volumes": [],
+     "read_only_root": false,
+     "drop_all_capabilities": false,
+     "run_as_non_root": null,
+     "run_as_user": null,
+     "termination_grace_seconds": null,
+     "labels": {
+      "app.kubernetes.io/name": "web"
+     },
+     "selector": {
+      "app.kubernetes.io/name": "web"
+     },
+     "service_name": null,
+     "env_names": [
+      "DB_PASSWORD",
+      "MODE"
+     ]
+    }
+   ],
+   "services": [
+    {
+     "name": "api",
+     "workload": "api",
+     "headless": false,
+     "ports": [
+      {
+       "name": "tcp-9898",
+       "port": 9898,
+       "target_port": 9898,
+       "protocol": "TCP"
+      }
+     ]
+    },
+    {
+     "name": "web",
+     "workload": "web",
+     "headless": false,
+     "ports": [
+      {
+       "name": "tcp-80",
+       "port": 80,
+       "target_port": 80,
+       "protocol": "TCP"
+      }
+     ]
+    }
+   ],
+   "declared": [
+    {
+     "source": "web",
+     "target": "api",
+     "type": "depends_on",
+     "detail": "services.web.depends_on lists api (start order only; not proof that they talk to each other)"
+    }
+   ],
+   "networks": []
+  },
+  "findings": [
+   {
+    "severity": "warning",
+    "code": "environment_not_copied",
+    "subject": "service web",
+    "path": "services.web.environment",
+    "message": "2 environment variable(s) are not set in the test deployment: DB_PASSWORD, MODE",
+    "hint": "Values are never read, stored or copied (1 look like credentials). If the service needs them to start, give it safe defaults in the image or as command arguments."
+   },
+   {
+    "severity": "info",
+    "code": "generated_health_check",
+    "subject": "service web",
+    "path": "services.web.healthcheck",
+    "message": "No health check declared: readiness is a TCP connection check on port 80 (added by AutoResilience)",
+    "hint": null
+   },
+   {
+    "severity": "info",
+    "code": "host_port_not_published",
+    "subject": "service web",
+    "path": "services.web.ports",
+    "message": "Host ports are not published: the service is reachable only inside the cluster, at <service>:<container port>",
+    "hint": null
+   }
+  ],
+  "deployable": true,
+  "plan": {
+   "namespace": "ar-imp-shop",
+   "objects": [
+    {
+     "api_version": "v1",
+     "kind": "Namespace",
+     "name": "ar-imp-shop",
+     "namespace": null,
+     "purpose": "Dedicated namespace: everything the import creates lives here and is removed with it. Pod Security 'baseline' is enforced.",
+     "group": "isolation",
+     "manifest": {
+      "apiVersion": "v1",
+      "kind": "Namespace",
+      "metadata": {
+       "name": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a",
+        "pod-security.kubernetes.io/enforce": "baseline",
+        "pod-security.kubernetes.io/warn": "restricted",
+        "pod-security.kubernetes.io/audit": "restricted"
+       }
+      }
+     }
+    },
+    {
+     "api_version": "v1",
+     "kind": "ResourceQuota",
+     "name": "autoresilience-quota",
+     "namespace": "ar-imp-shop",
+     "purpose": "Caps the namespace's total CPU, memory and Pods; forbids NodePorts, LoadBalancers and persistent volume claims.",
+     "group": "isolation",
+     "manifest": {
+      "apiVersion": "v1",
+      "kind": "ResourceQuota",
+      "metadata": {
+       "name": "autoresilience-quota",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "spec": {
+       "hard": {
+        "pods": "30",
+        "requests.cpu": "4",
+        "requests.memory": "4Gi",
+        "limits.cpu": "8",
+        "limits.memory": "8Gi",
+        "services": "20",
+        "services.nodeports": "0",
+        "services.loadbalancers": "0",
+        "persistentvolumeclaims": "0"
+       }
+      }
+     }
+    },
+    {
+     "api_version": "v1",
+     "kind": "LimitRange",
+     "name": "autoresilience-limits",
+     "namespace": "ar-imp-shop",
+     "purpose": "Default and maximum CPU/memory per container.",
+     "group": "isolation",
+     "manifest": {
+      "apiVersion": "v1",
+      "kind": "LimitRange",
+      "metadata": {
+       "name": "autoresilience-limits",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "spec": {
+       "limits": [
+        {
+         "type": "Container",
+         "default": {
+          "cpu": "500m",
+          "memory": "256Mi"
+         },
+         "defaultRequest": {
+          "cpu": "50m",
+          "memory": "64Mi"
+         },
+         "max": {
+          "cpu": "1",
+          "memory": "1Gi"
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "api_version": "networking.k8s.io/v1",
+     "kind": "NetworkPolicy",
+     "name": "autoresilience-isolation",
+     "namespace": "ar-imp-shop",
+     "purpose": "Imported Pods accept connections only from this namespace and Prometheus, and may connect only within this namespace and to cluster DNS (enforced if the cluster's network plugin supports NetworkPolicy).",
+     "group": "isolation",
+     "manifest": {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+       "name": "autoresilience-isolation",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "spec": {
+       "podSelector": {
+        "matchExpressions": [
+         {
+          "key": "autoresilience.io/workload",
+          "operator": "Exists"
+         }
+        ]
+       },
+       "policyTypes": [
+        "Ingress",
+        "Egress"
+       ],
+       "ingress": [
+        {
+         "from": [
+          {
+           "podSelector": {}
+          },
+          {
+           "namespaceSelector": {
+            "matchLabels": {
+             "kubernetes.io/metadata.name": "monitoring"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "egress": [
+        {
+         "to": [
+          {
+           "podSelector": {}
+          }
+         ]
+        },
+        {
+         "to": [
+          {
+           "namespaceSelector": {
+            "matchLabels": {
+             "kubernetes.io/metadata.name": "kube-system"
+            }
+           },
+           "podSelector": {
+            "matchLabels": {
+             "k8s-app": "kube-dns"
+            }
+           }
+          }
+         ],
+         "ports": [
+          {
+           "protocol": "UDP",
+           "port": 53
+          },
+          {
+           "protocol": "TCP",
+           "port": 53
+          }
+         ]
+        }
+       ]
+      }
+     }
+    },
+    {
+     "api_version": "litmuschaos.io/v1alpha1",
+     "kind": "ChaosExperiment",
+     "name": "pod-delete",
+     "namespace": "ar-imp-shop",
+     "purpose": "The vetted pod-delete definition (chaos/templates/pod-delete.yaml); it runs only when you start an experiment.",
+     "group": "chaos",
+     "manifest": {
+      "apiVersion": "litmuschaos.io/v1alpha1",
+      "kind": "ChaosExperiment",
+      "metadata": {
+       "name": "pod-delete",
+       "labels": {
+        "name": "pod-delete",
+        "app.kubernetes.io/part-of": "litmus",
+        "litmuschaos.io/version": "3.31.0",
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       },
+       "namespace": "ar-imp-shop"
+      },
+      "description": {
+       "message": "Deletes a pod belonging to a deployment/statefulset/daemonset"
+      },
+      "spec": {
+       "definition": {
+        "scope": "Namespaced",
+        "permissions": [
+         {
+          "apiGroups": [
+           "",
+           "apps",
+           "apps.openshift.io",
+           "argoproj.io",
+           "batch",
+           "litmuschaos.io"
+          ],
+          "resources": [
+           "deployments",
+           "jobs",
+           "pods",
+           "pods/log",
+           "replicationcontrollers",
+           "statefulsets",
+           "daemonsets",
+           "replicasets",
+           "deploymentconfigs",
+           "rollouts",
+           "pods/exec",
+           "events",
+           "chaosengines",
+           "chaosexperiments",
+           "chaosresults"
+          ],
+          "verbs": [
+           "create",
+           "list",
+           "get",
+           "patch",
+           "update",
+           "delete",
+           "deletecollection"
+          ]
+         }
+        ],
+        "image": "litmuschaos.docker.scarf.sh/litmuschaos/go-runner:3.31.0",
+        "imagePullPolicy": "IfNotPresent",
+        "command": [
+         "/bin/bash"
+        ],
+        "args": [
+         "-c",
+         "./experiments -name pod-delete"
+        ],
+        "env": [
+         {
+          "name": "TOTAL_CHAOS_DURATION",
+          "value": "15"
+         },
+         {
+          "name": "RAMP_TIME",
+          "value": ""
+         },
+         {
+          "name": "FORCE",
+          "value": "true"
+         },
+         {
+          "name": "CHAOS_INTERVAL",
+          "value": "5"
+         },
+         {
+          "name": "PODS_AFFECTED_PERC",
+          "value": ""
+         },
+         {
+          "name": "TARGET_PODS",
+          "value": ""
+         },
+         {
+          "name": "SEQUENCE",
+          "value": "parallel"
+         }
+        ],
+        "labels": {
+         "name": "pod-delete",
+         "app.kubernetes.io/part-of": "litmus"
+        }
+       }
+      }
+     }
+    },
+    {
+     "api_version": "v1",
+     "kind": "ServiceAccount",
+     "name": "autoresilience-chaos",
+     "namespace": "ar-imp-shop",
+     "purpose": "Identity of Litmus' pod-delete runner in this namespace.",
+     "group": "chaos",
+     "manifest": {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+       "name": "autoresilience-chaos",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      }
+     }
+    },
+    {
+     "api_version": "rbac.authorization.k8s.io/v1",
+     "kind": "RoleBinding",
+     "name": "autoresilience-chaos",
+     "namespace": "ar-imp-shop",
+     "purpose": "Lets the runner delete Pods in this namespace only (the same rules as chaos/rbac/pod-delete-rbac.yaml).",
+     "group": "chaos",
+     "manifest": {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
+      "metadata": {
+       "name": "autoresilience-chaos",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "roleRef": {
+       "apiGroup": "rbac.authorization.k8s.io",
+       "kind": "ClusterRole",
+       "name": "autoresilience-chaos-runner"
+      },
+      "subjects": [
+       {
+        "kind": "ServiceAccount",
+        "name": "autoresilience-chaos",
+        "namespace": "ar-imp-shop"
+       }
+      ]
+     }
+    },
+    {
+     "api_version": "rbac.authorization.k8s.io/v1",
+     "kind": "RoleBinding",
+     "name": "autoresilience-engine-chaos",
+     "namespace": "ar-imp-shop",
+     "purpose": "Lets the engine create and stop its own ChaosEngines here (local stack identity; the same rules as in the sample namespaces).",
+     "group": "chaos",
+     "manifest": {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
+      "metadata": {
+       "name": "autoresilience-engine-chaos",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "roleRef": {
+       "apiGroup": "rbac.authorization.k8s.io",
+       "kind": "ClusterRole",
+       "name": "autoresilience-engine-chaos"
+      },
+      "subjects": [
+       {
+        "kind": "ServiceAccount",
+        "name": "autoresilience-engine",
+        "namespace": "autoresilience-system"
+       }
+      ]
+     }
+    },
+    {
+     "api_version": "apps/v1",
+     "kind": "Deployment",
+     "name": "api",
+     "namespace": "ar-imp-shop",
+     "purpose": "1 replica(s) of ghcr.io/stefanprodan/podinfo:6.7.1.",
+     "group": "application",
+     "manifest": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+       "name": "api",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/name": "api",
+        "autoresilience.io/workload": "api",
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "spec": {
+       "replicas": 1,
+       "selector": {
+        "matchLabels": {
+         "app.kubernetes.io/name": "api"
+        }
+       },
+       "template": {
+        "metadata": {
+         "labels": {
+          "app.kubernetes.io/name": "api",
+          "autoresilience.io/workload": "api",
+          "app.kubernetes.io/managed-by": "autoresilience",
+          "autoresilience.io/owner": "import",
+          "autoresilience.io/import": "shop",
+          "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+         }
+        },
+        "spec": {
+         "automountServiceAccountToken": false,
+         "enableServiceLinks": false,
+         "securityContext": {
+          "seccompProfile": {
+           "type": "RuntimeDefault"
+          }
+         },
+         "containers": [
+          {
+           "name": "api",
+           "image": "ghcr.io/stefanprodan/podinfo:6.7.1",
+           "imagePullPolicy": "IfNotPresent",
+           "resources": {
+            "requests": {
+             "cpu": "50m",
+             "memory": "64Mi"
+            },
+            "limits": {
+             "cpu": "500m",
+             "memory": "256Mi"
+            }
+           },
+           "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "privileged": false
+           },
+           "args": [
+            "./podinfo",
+            "--port=9898"
+           ],
+           "ports": [
+            {
+             "containerPort": 9898,
+             "protocol": "TCP"
+            }
+           ],
+           "readinessProbe": {
+            "initialDelaySeconds": 0,
+            "periodSeconds": 5,
+            "timeoutSeconds": 30,
+            "failureThreshold": 3,
+            "exec": {
+             "command": [
+              "podcli",
+              "check",
+              "http",
+              "localhost:9898/readyz"
+             ]
+            }
+           }
+          }
+         ]
+        }
+       },
+       "revisionHistoryLimit": 2
+      }
+     }
+    },
+    {
+     "api_version": "apps/v1",
+     "kind": "Deployment",
+     "name": "web",
+     "namespace": "ar-imp-shop",
+     "purpose": "2 replica(s) of nginx:1.27-alpine.",
+     "group": "application",
+     "manifest": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+       "name": "web",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "app.kubernetes.io/name": "web",
+        "autoresilience.io/workload": "web",
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "spec": {
+       "replicas": 2,
+       "selector": {
+        "matchLabels": {
+         "app.kubernetes.io/name": "web"
+        }
+       },
+       "template": {
+        "metadata": {
+         "labels": {
+          "app.kubernetes.io/name": "web",
+          "autoresilience.io/workload": "web",
+          "app.kubernetes.io/managed-by": "autoresilience",
+          "autoresilience.io/owner": "import",
+          "autoresilience.io/import": "shop",
+          "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+         }
+        },
+        "spec": {
+         "automountServiceAccountToken": false,
+         "enableServiceLinks": false,
+         "securityContext": {
+          "seccompProfile": {
+           "type": "RuntimeDefault"
+          }
+         },
+         "containers": [
+          {
+           "name": "web",
+           "image": "nginx:1.27-alpine",
+           "imagePullPolicy": "IfNotPresent",
+           "resources": {
+            "requests": {
+             "cpu": "50m",
+             "memory": "64Mi"
+            },
+            "limits": {
+             "cpu": "500m",
+             "memory": "256Mi"
+            }
+           },
+           "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "privileged": false
+           },
+           "ports": [
+            {
+             "containerPort": 80,
+             "protocol": "TCP"
+            }
+           ],
+           "readinessProbe": {
+            "initialDelaySeconds": 0,
+            "periodSeconds": 5,
+            "timeoutSeconds": 2,
+            "failureThreshold": 3,
+            "tcpSocket": {
+             "port": 80
+            }
+           }
+          }
+         ]
+        }
+       },
+       "revisionHistoryLimit": 2
+      }
+     }
+    },
+    {
+     "api_version": "v1",
+     "kind": "Service",
+     "name": "api",
+     "namespace": "ar-imp-shop",
+     "purpose": "Cluster-internal address for api: api:9898.",
+     "group": "application",
+     "manifest": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+       "name": "api",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "autoresilience.io/workload": "api",
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "spec": {
+       "type": "ClusterIP",
+       "selector": {
+        "app.kubernetes.io/name": "api"
+       },
+       "ports": [
+        {
+         "port": 9898,
+         "targetPort": 9898,
+         "protocol": "TCP",
+         "name": "tcp-9898"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "api_version": "v1",
+     "kind": "Service",
+     "name": "web",
+     "namespace": "ar-imp-shop",
+     "purpose": "Cluster-internal address for web: web:80.",
+     "group": "application",
+     "manifest": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+       "name": "web",
+       "namespace": "ar-imp-shop",
+       "labels": {
+        "autoresilience.io/workload": "web",
+        "app.kubernetes.io/managed-by": "autoresilience",
+        "autoresilience.io/owner": "import",
+        "autoresilience.io/import": "shop",
+        "autoresilience.io/import-id": "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a"
+       }
+      },
+      "spec": {
+       "type": "ClusterIP",
+       "selector": {
+        "app.kubernetes.io/name": "web"
+       },
+       "ports": [
+        {
+         "port": 80,
+         "targetPort": 80,
+         "protocol": "TCP",
+         "name": "tcp-80"
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "digest": "3583dbbaa09a8d5930aa3348a781029cbd6a0612c7bc37110c0d95fa62e36f6c",
+   "actions": [
+    "Create namespace ar-imp-shop on the execution cluster, labelled as owned by this import, with Pod Security 'baseline' enforced",
+    "Create 2 Deployments, 2 Services from the reviewed images",
+    "Add a resource quota, default limits and a network isolation policy",
+    "Bind the provisioner to a writer role inside this namespace only",
+    "Prepare the vetted pod-delete experiment (it never runs by itself)"
+   ],
+   "guarantees": [
+    "Nothing outside ar-imp-shop is created or changed",
+    "No host paths, Docker socket, privileged containers, host namespaces or added capabilities",
+    "No Secrets, ConfigMaps or environment values copied (2 variable(s) stay unset)",
+    "No NodePort or LoadBalancer: reachable only inside the cluster",
+    "Imported Pods get no Kubernetes API token",
+    "No experiment starts: chaos still needs a reviewed, validated experiment"
+   ],
+   "traffic": []
+  }
+ },
+ "blocked": {
+  "name": "unsafe",
+  "source": "compose",
+  "filename": "unsafe-compose.yaml",
+  "spec": {
+   "source": "compose",
+   "workloads": [
+    {
+     "name": "admin",
+     "kind": "Deployment",
+     "image": "alpine:3.20",
+     "replicas": 1,
+     "command": null,
+     "args": null,
+     "working_dir": null,
+     "ports": [],
+     "readiness": null,
+     "liveness": null,
+     "startup": null,
+     "resources": {
+      "cpu_request": "50m",
+      "memory_request": "64Mi",
+      "cpu_limit": "500m",
+      "memory_limit": "256Mi"
+     },
+     "volumes": [],
+     "read_only_root": false,
+     "drop_all_capabilities": false,
+     "run_as_non_root": null,
+     "run_as_user": null,
+     "termination_grace_seconds": null,
+     "labels": {
+      "app.kubernetes.io/name": "admin"
+     },
+     "selector": {
+      "app.kubernetes.io/name": "admin"
+     },
+     "service_name": null,
+     "env_names": []
+    },
+    {
+     "name": "builder",
+     "kind": "Deployment",
+     "image": "",
+     "replicas": 1,
+     "command": null,
+     "args": null,
+     "working_dir": null,
+     "ports": [],
+     "readiness": null,
+     "liveness": null,
+     "startup": null,
+     "resources": {
+      "cpu_request": "50m",
+      "memory_request": "64Mi",
+      "cpu_limit": "500m",
+      "memory_limit": "256Mi"
+     },
+     "volumes": [],
+     "read_only_root": false,
+     "drop_all_capabilities": false,
+     "run_as_non_root": null,
+     "run_as_user": null,
+     "termination_grace_seconds": null,
+     "labels": {
+      "app.kubernetes.io/name": "builder"
+     },
+     "selector": {
+      "app.kubernetes.io/name": "builder"
+     },
+     "service_name": null,
+     "env_names": []
+    },
+    {
+     "name": "worker",
+     "kind": "Deployment",
+     "image": "",
+     "replicas": 1,
+     "command": null,
+     "args": null,
+     "working_dir": null,
+     "ports": [],
+     "readiness": null,
+     "liveness": null,
+     "startup": null,
+     "resources": {
+      "cpu_request": "50m",
+      "memory_request": "64Mi",
+      "cpu_limit": "500m",
+      "memory_limit": "256Mi"
+     },
+     "volumes": [],
+     "read_only_root": false,
+     "drop_all_capabilities": false,
+     "run_as_non_root": null,
+     "run_as_user": null,
+     "termination_grace_seconds": null,
+     "labels": {
+      "app.kubernetes.io/name": "worker"
+     },
+     "selector": {
+      "app.kubernetes.io/name": "worker"
+     },
+     "service_name": null,
+     "env_names": []
+    }
+   ],
+   "services": [],
+   "declared": [],
+   "networks": []
+  },
+  "findings": [
+   {
+    "severity": "blocking",
+    "code": "unsupported_secrets",
+    "subject": null,
+    "path": "secrets",
+    "message": "Top-level `secrets` reference host files or credentials, which are never read or copied",
+    "hint": "Remove `secrets`; test deployments should not need real credentials."
+   },
+   {
+    "severity": "blocking",
+    "code": "unsupported_network_mode",
+    "subject": "service admin",
+    "path": "services.admin.network_mode",
+    "message": "Host or shared network namespaces are not supported",
+    "hint": "Remove `network_mode`; services share the import's namespace network."
+   },
+   {
+    "severity": "blocking",
+    "code": "unsupported_privileged",
+    "subject": "service admin",
+    "path": "services.admin.privileged",
+    "message": "Privileged containers are never deployed",
+    "hint": "Remove `privileged: true`."
+   },
+   {
+    "severity": "blocking",
+    "code": "docker_socket",
+    "subject": "service admin",
+    "path": "services.admin.volumes[0]",
+    "message": "Mounting the Docker socket would give the container control of the host; it is never allowed",
+    "hint": "Remove it. For scratch data use a named volume (it becomes an empty per-Pod directory)."
+   },
+   {
+    "severity": "blocking",
+    "code": "host_path_volume",
+    "subject": "service admin",
+    "path": "services.admin.volumes[1]",
+    "message": "Host path './' is never mounted: imports never read or expose host files",
+    "hint": "Remove it. For scratch data use a named volume (it becomes an empty per-Pod directory)."
+   },
+   {
+    "severity": "blocking",
+    "code": "unsupported_build",
+    "subject": "service builder",
+    "path": "services.builder.build",
+    "message": "Building images is not supported: source code is never built or run during import",
+    "hint": "Build and push the image yourself, then reference it with `image:`."
+   },
+   {
+    "severity": "blocking",
+    "code": "missing_image",
+    "subject": "service builder",
+    "path": "services.builder.image",
+    "message": "No image is given",
+    "hint": null
+   },
+   {
+    "severity": "blocking",
+    "code": "unsupported_cap_add",
+    "subject": "service worker",
+    "path": "services.worker.cap_add",
+    "message": "Added Linux capabilities are not allowed",
+    "hint": "Remove `cap_add`."
+   },
+   {
+    "severity": "blocking",
+    "code": "unresolved_variable",
+    "subject": "service worker",
+    "path": "services.worker.image",
+    "message": "The image 'ghcr.io/example/worker:${WORKER_TAG}' contains a variable",
+    "hint": "Variables are never resolved (.env files are not read). Write the image reference out in full."
+   },
+   {
+    "severity": "blocking",
+    "code": "unsupported_secrets",
+    "subject": "service worker",
+    "path": "services.worker.secrets",
+    "message": "Secrets are never imported: no credentials are read or copied",
+    "hint": "Remove `secrets`; use non-production test values built into the image."
+   },
+   {
+    "severity": "warning",
+    "code": "env_file_not_read",
+    "subject": "service worker",
+    "path": "services.worker.env_file",
+    "message": "env_file is never read: its variables are not set",
+    "hint": "Imports never open files on your machine; nothing from it is copied."
+   },
+   {
+    "severity": "info",
+    "code": "no_health_check",
+    "subject": "service admin",
+    "path": "services.admin.healthcheck",
+    "message": "No health check and no TCP port: the service counts as ready once its container runs",
+    "hint": null
+   },
+   {
+    "severity": "info",
+    "code": "no_health_check",
+    "subject": "service builder",
+    "path": "services.builder.healthcheck",
+    "message": "No health check and no TCP port: the service counts as ready once its container runs",
+    "hint": null
+   },
+   {
+    "severity": "info",
+    "code": "no_health_check",
+    "subject": "service worker",
+    "path": "services.worker.healthcheck",
+    "message": "No health check and no TCP port: the service counts as ready once its container runs",
+    "hint": null
+   }
+  ],
+  "deployable": false,
+  "plan": null
+ }
+}

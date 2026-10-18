@@ -81,12 +81,15 @@ Tests sit next to the component (`*.test.tsx`) and cover the critical workflows:
 | `components/history/history-view.test.tsx` | rows from the API, search (debounced), filters, sort, paging, URL state, empty and error states |
 | `components/experiment/room/experiment-room.test.tsx` | every state from VALIDATING to ABORTED, polling stops when terminal, score only when stored, NOT_SCORED, abort (success and refusal) |
 | `components/tour/tour.test.tsx` | first-visit start per page, focus, Next/Back/dots, Finish/Skip/Escape persisted, arrow keys, missing and responsive-hidden controls, advance only on safe controls, page change, pages without a tour |
-| `lib/help-content.test.ts` | URL → page mapping, tours for the five pages, advance targets are view-only, every target known |
+| `lib/help-content.test.ts` | URL → page mapping, tours for the main pages and the import flow, advance targets are view-only, every target known |
+| `lib/imports.test.ts` | import-name suggestion, finding grouping and counts |
 | `components/settings/preferences-form.test.tsx` | defaults, save, local validation only (no policy limits), reset, tolerant parsing |
 | `components/experiment/builder/builder-preferences.test.tsx` | saved defaults pre-fill the builder and are sent unchanged; the server's refusal is shown |
 | `components/shell/top-bar.test.tsx` | phone drawer (focus, Escape, closes on navigation), page Tour and page-aware Help, breadcrumbs incl. 404 |
 | `components/help/help.test.tsx` | live setup checklist, fix links per failure, diagnostics copy (secret-free), Help panel (`?` not while typing, page content, starts the tour) |
-| `components/topology/topology-view.test.tsx` | filters, inspector and builder hand-off, read-only clusters, List view, unknowns with explanations, tooltips, legend, selection announcement and clearing, filter empty state |
+| `components/topology/topology-view.test.tsx` | filters, inspector and builder hand-off, read-only clusters, List view, unknowns with explanations, tooltips (portalled), legend, selection announcement and clearing, filter empty state, imported origin and declared relations |
+| `components/ui/tooltip.test.tsx` | collision-aware placement (flip near the top, shift near the right edge, phone/tablet widths), portal out of clipping containers, keyboard focus, Escape, re-measure on scroll |
+| `components/imports/imports.test.tsx` | import wizard (file → review → plan → save, nothing deployed; blocking findings; load targets update the plan; review-only engines; field errors) and import page (approve by digest, progress, failure with recovery, typed-name removal, no provisioner) |
 | `components/settings/settings-sections.test.tsx`, `stack-controls.test.tsx` | Kubernetes access, data and backups per runtime mode, tour progress/reset/replay; pairing steps and operation consequences |
 | `components/experiment/room/phase-guide.test.tsx` | phase explanation for active runs only; check background only for non-passing checks |
 

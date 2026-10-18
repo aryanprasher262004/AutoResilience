@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { isTerminal } from "../experiment-state";
+import { isSettling } from "../imports";
 import { api } from "./client";
 import type { HistoryQuery, WorkloadKind } from "./types";
 
@@ -26,6 +27,9 @@ export const queryKeys = {
   applications: ["applications"] as const,
   application: (id: string) => ["applications", id] as const,
   applicationTopology: (id: string) => ["applications", id, "topology"] as const,
+  imports: ["imports"] as const,
+  importItem: (id: string) => ["imports", id] as const,
+  importCapabilities: ["imports", "capabilities"] as const,
 };
 
 /** Topology is a snapshot of live state; it is re-read on this cadence while shown. */
@@ -136,5 +140,29 @@ export function useApplicationTopology(id: string, enabled = true) {
     refetchInterval: TOPOLOGY_POLL_MS,
     enabled,
     retry: false,
+  });
+}
+
+export function useImports() {
+  return useQuery({ queryKey: queryKeys.imports, queryFn: api.imports, refetchInterval: IDLE_POLL_MS });
+}
+
+export function useImportCapabilities() {
+  return useQuery({ queryKey: queryKeys.importCapabilities, queryFn: api.importCapabilities, retry: false });
+}
+
+/**
+ * An import; while it is deploying or being removed, each poll is one read-only health
+ * check (POST /refresh), which is what moves it on. Otherwise a plain read.
+ */
+export function useImport(id: string) {
+  return useQuery({
+    queryKey: queryKeys.importItem(id),
+    queryFn: async () => {
+      const current = await api.getImport(id);
+      return isSettling(current.status) ? api.refreshImport(id) : current;
+    },
+    refetchInterval: (q) => (q.state.data && isSettling(q.state.data.status) ? ACTIVE_POLL_MS : false),
+    retry: (failures, error) => !("status" in error && error.status === 404) && failures < 2,
   });
 }

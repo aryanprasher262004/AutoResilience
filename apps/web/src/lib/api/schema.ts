@@ -382,6 +382,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Imports */
+        get: operations["list_imports_imports_get"];
+        put?: never;
+        /**
+         * Create Import
+         * @description Save a reviewed import (PLANNED). Nothing is deployed.
+         */
+        post: operations["create_import_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Capabilities
+         * @description What can be imported, and whether deployment is available here.
+         */
+        get: operations["get_capabilities_imports_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Preview
+         * @description Parse, validate and plan; stores nothing and contacts no cluster.
+         */
+        post: operations["post_preview_imports_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{import_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Import */
+        get: operations["get_import_imports__import_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Forget Import
+         * @description Forget a removed (or never deployed) import's record.
+         */
+        delete: operations["forget_import_imports__import_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{import_id}/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deploy Import
+         * @description Apply the reviewed plan (explicit approval: its digest and confirm=true).
+         */
+        post: operations["deploy_import_imports__import_id__deploy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{import_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Import
+         * @description One read-only health check; moves DEPLOYING on, and REMOVING to REMOVED.
+         */
+        post: operations["refresh_import_imports__import_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{import_id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Import
+         * @description Delete the import's namespace after verifying it owns it (typed confirmation).
+         */
+        post: operations["remove_import_imports__import_id__remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ready": {
         parameters: {
             query?: never;
@@ -635,6 +777,110 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * DeclaredEdge
+         * @description A relationship an import's source file states (e.g. Compose depends_on).
+         *
+         *     Not part of `edges`: it is configuration someone wrote, not something the
+         *     Kubernetes API records, and never evidence of traffic.
+         */
+        DeclaredEdge: {
+            /** Detail */
+            detail: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "depends_on" | "network";
+            /**
+             * Verified
+             * @default false
+             * @constant
+             */
+            verified: false;
+        };
+        /**
+         * DeclaredRelation
+         * @description A relationship the input file states. Never verified, never traffic.
+         */
+        DeclaredRelation: {
+            /** Detail */
+            detail: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "depends_on" | "network";
+        };
+        /** DeployRequest */
+        DeployRequest: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: true;
+            /** Plan Digest */
+            plan_digest: string;
+        };
+        /** DeploymentPlan */
+        DeploymentPlan: {
+            /** Actions */
+            actions: string[];
+            /** Digest */
+            digest: string;
+            /** Guarantees */
+            guarantees: string[];
+            /** Namespace */
+            namespace: string;
+            /** Objects */
+            objects: components["schemas"]["PlannedObject"][];
+            /** Traffic */
+            traffic: components["schemas"]["TrafficTarget"][];
+        };
+        /** DeploymentStatus */
+        DeploymentStatus: {
+            /**
+             * Applied
+             * @default []
+             */
+            applied: {
+                [key: string]: string;
+            }[];
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Failing Since */
+            failing_since?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Recovery */
+            recovery?: string | null;
+            /** Removal */
+            removal?: {
+                [key: string]: unknown;
+            } | null;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Workloads
+             * @default []
+             */
+            workloads: components["schemas"]["WorkloadHealth"][];
+        };
         /** Distribution */
         Distribution: {
             /** Count */
@@ -841,10 +1087,196 @@ export interface components {
          * @enum {string}
          */
         FaultType: "pod-delete" | "pod-cpu-hog" | "pod-memory-hog" | "pod-network-latency";
+        /** Finding */
+        Finding: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Message */
+            message: string;
+            /** Path */
+            path?: string | null;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "blocking" | "warning" | "info";
+            /** Subject */
+            subject?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * ImageSource
+         * @description One container image, deployed as a Deployment (+ a Service when `port` is set).
+         */
+        ImageSource: {
+            /** Image */
+            image: string;
+            /** Port */
+            port?: number | null;
+            /**
+             * Replicas
+             * @default 2
+             */
+            replicas: number;
+        };
+        /** ImportCapabilities */
+        ImportCapabilities: {
+            /** Compose Keys */
+            compose_keys: string[];
+            /** Execution Context */
+            execution_context: string | null;
+            /** Manifest Kinds */
+            manifest_kinds: string[];
+            /** Max Bytes */
+            max_bytes: number;
+            /** Max Documents */
+            max_documents: number;
+            /** Max Replicas */
+            max_replicas: number;
+            /** Max Workloads */
+            max_workloads: number;
+            /** Namespace Prefix */
+            namespace_prefix: string;
+            provisioner: components["schemas"]["ProvisionerInfo"];
+        };
+        /** ImportList */
+        ImportList: {
+            /** Items */
+            items: components["schemas"]["ImportRead"][];
+        };
+        /**
+         * ImportOverlay
+         * @description The import behind an application's view: what was planned vs. what exists.
+         */
+        ImportOverlay: {
+            /** Declared */
+            declared: components["schemas"]["DeclaredEdge"][];
+            /**
+             * Import Id
+             * Format: uuid
+             */
+            import_id: string;
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string;
+            /** Planned */
+            planned: components["schemas"]["PlannedResource"][];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "compose" | "manifests" | "image";
+            /** Status */
+            status: string;
+        };
+        /** ImportPreview */
+        ImportPreview: {
+            /** Deployable */
+            deployable: boolean;
+            /** Filename */
+            filename: string | null;
+            /** Findings */
+            findings: components["schemas"]["Finding"][];
+            /** Name */
+            name: string;
+            plan: components["schemas"]["DeploymentPlan"] | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "compose" | "manifests" | "image";
+            spec: components["schemas"]["ImportSpec"] | null;
+        };
+        /** ImportRead */
+        ImportRead: {
+            /** Application Id */
+            application_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            deployment: components["schemas"]["DeploymentStatus"];
+            /** Filename */
+            filename: string | null;
+            /** Findings */
+            findings: components["schemas"]["Finding"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string;
+            plan: components["schemas"]["DeploymentPlan"];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "compose" | "manifests" | "image";
+            spec: components["schemas"]["ImportSpec"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PLANNED" | "DEPLOYING" | "READY" | "FAILED" | "REMOVING" | "REMOVED";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ImportRequest */
+        ImportRequest: {
+            /** Name */
+            name: string;
+            source: components["schemas"]["ImportSource"];
+            /** Traffic */
+            traffic?: components["schemas"]["TrafficTarget"][];
+        };
+        /** ImportSource */
+        ImportSource: {
+            /** Content */
+            content?: string | null;
+            /** Filename */
+            filename?: string | null;
+            image?: components["schemas"]["ImageSource"] | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "compose" | "manifests" | "image";
+        };
+        /** ImportSpec */
+        ImportSpec: {
+            /**
+             * Declared
+             * @default []
+             */
+            declared: components["schemas"]["DeclaredRelation"][];
+            /**
+             * Networks
+             * @default []
+             */
+            networks: string[];
+            /** Services */
+            services: components["schemas"]["ServiceSpec"][];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "compose" | "manifests" | "image";
+            /** Workloads */
+            workloads: components["schemas"]["WorkloadSpec"][];
         };
         /**
          * LatestScore
@@ -955,6 +1387,26 @@ export interface components {
             /** Unschedulable */
             unschedulable: boolean;
         };
+        /**
+         * NodeOrigin
+         * @description Set on objects an import (P7) created, matched by its ownership labels.
+         */
+        NodeOrigin: {
+            /**
+             * Import Id
+             * Format: uuid
+             */
+            import_id: string;
+            /** Import Name */
+            import_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "application" | "load-generator" | "chaos" | "isolation";
+            /** Workload */
+            workload: string | null;
+        };
         /** ObservationRead */
         ObservationRead: {
             /** Evaluations */
@@ -1010,6 +1462,44 @@ export interface components {
             /** Undetermined */
             undetermined: number;
         };
+        /** PlannedObject */
+        PlannedObject: {
+            /** Api Version */
+            api_version: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "application" | "isolation" | "chaos" | "load-generator";
+            /** Kind */
+            kind: string;
+            /** Manifest */
+            manifest: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string | null;
+            /** Purpose */
+            purpose: string;
+        };
+        /** PlannedResource */
+        PlannedResource: {
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "application" | "load-generator" | "chaos" | "isolation";
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Observed */
+            observed: boolean;
+        };
         /**
          * PodDeleteMode
          * @description How pod-delete removes pods (maps to the vetted experiment's FORCE env).
@@ -1039,12 +1529,73 @@ export interface components {
             /** Terminating */
             terminating: boolean;
         };
+        /** PortSpec */
+        PortSpec: {
+            /** Container Port */
+            container_port: number;
+            /** Name */
+            name?: string | null;
+            /**
+             * Protocol
+             * @default TCP
+             * @enum {string}
+             */
+            protocol: "TCP" | "UDP";
+        };
+        /** ProbeSpec */
+        ProbeSpec: {
+            /** Command */
+            command?: string[] | null;
+            /**
+             * Failure Threshold
+             * @default 3
+             */
+            failure_threshold: number;
+            /**
+             * Generated
+             * @default false
+             */
+            generated: boolean;
+            /**
+             * Initial Delay Seconds
+             * @default 0
+             */
+            initial_delay_seconds: number;
+            /** Path */
+            path?: string | null;
+            /**
+             * Period Seconds
+             * @default 10
+             */
+            period_seconds: number;
+            /** Port */
+            port?: number | string | null;
+            /**
+             * Timeout Seconds
+             * @default 1
+             */
+            timeout_seconds: number;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "exec" | "http" | "tcp" | "grpc";
+        };
         /** Provenance */
         Provenance: {
             /** Detail */
             detail: string;
             /** Source */
             source: string;
+        };
+        /** ProvisionerInfo */
+        ProvisionerInfo: {
+            /** Configured */
+            configured: boolean;
+            /** Context */
+            context: string | null;
+            /** Detail */
+            detail: string;
         };
         /** Readiness */
         Readiness: {
@@ -1073,6 +1624,11 @@ export interface components {
              */
             status: "pass" | "fail";
         };
+        /** RemoveRequest */
+        RemoveRequest: {
+            /** Confirm Name */
+            confirm_name: string;
+        };
         /**
          * Replicas
          * @description Controller status (spec.replicas and status.*), as `kubectl get` shows it.
@@ -1092,6 +1648,17 @@ export interface components {
             selector: string | null;
             /** Updated */
             updated: number;
+        };
+        /** Resources */
+        Resources: {
+            /** Cpu Limit */
+            cpu_limit: string;
+            /** Cpu Request */
+            cpu_request: string;
+            /** Memory Limit */
+            memory_limit: string;
+            /** Memory Request */
+            memory_request: string;
         };
         /** ScoreComponentRead */
         ScoreComponentRead: {
@@ -1260,6 +1827,35 @@ export interface components {
             /** Target Port */
             target_port: string | null;
         };
+        /** ServicePortSpec */
+        ServicePortSpec: {
+            /** Name */
+            name?: string | null;
+            /** Port */
+            port: number;
+            /**
+             * Protocol
+             * @default TCP
+             * @enum {string}
+             */
+            protocol: "TCP" | "UDP";
+            /** Target Port */
+            target_port: number | string;
+        };
+        /** ServiceSpec */
+        ServiceSpec: {
+            /**
+             * Headless
+             * @default false
+             */
+            headless: boolean;
+            /** Name */
+            name: string;
+            /** Ports */
+            ports: components["schemas"]["ServicePortSpec"][];
+            /** Workload */
+            workload: string;
+        };
         /** ServiceSummary */
         ServiceSummary: {
             /** Available Replicas */
@@ -1317,6 +1913,7 @@ export interface components {
             };
             /** Edges */
             edges: components["schemas"]["TopologyEdge"][];
+            imported?: components["schemas"]["ImportOverlay"] | null;
             /** Nodes */
             nodes: components["schemas"]["TopologyNode"][];
             /**
@@ -1394,6 +1991,7 @@ export interface components {
             /** Namespace */
             namespace: string | null;
             node: components["schemas"]["NodeDetails"] | null;
+            origin?: components["schemas"]["NodeOrigin"] | null;
             pod: components["schemas"]["PodDetails"] | null;
             replicas: components["schemas"]["Replicas"] | null;
             service: components["schemas"]["ServiceDetails"] | null;
@@ -1432,6 +2030,21 @@ export interface components {
              * @constant
              */
             observed: false;
+        };
+        /**
+         * TrafficTarget
+         * @description A load-generator endpoint: a Service of this import, one of its ports, a path.
+         */
+        TrafficTarget: {
+            /**
+             * Path
+             * @default /
+             */
+            path: string;
+            /** Port */
+            port: number;
+            /** Service */
+            service: string;
         };
         /** ValidationCheckRead */
         ValidationCheckRead: {
@@ -1472,10 +2085,111 @@ export interface components {
             static_checks: components["schemas"]["ValidationCheckRead"][];
         };
         /**
+         * VolumeSpec
+         * @description Always an emptyDir: nothing on the host, data lost when the Pod goes.
+         */
+        VolumeSpec: {
+            /**
+             * Memory
+             * @default false
+             */
+            memory: boolean;
+            /** Mount Path */
+            mount_path: string;
+            /** Name */
+            name: string;
+            /**
+             * Read Only
+             * @default false
+             */
+            read_only: boolean;
+        };
+        /** WorkloadHealth */
+        WorkloadHealth: {
+            /** Desired */
+            desired: number;
+            /** Detail */
+            detail: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Ready */
+            ready: number;
+            /** State */
+            state: string;
+        };
+        /**
          * WorkloadKind
          * @enum {string}
          */
         WorkloadKind: "Deployment" | "StatefulSet";
+        /** WorkloadSpec */
+        WorkloadSpec: {
+            /** Args */
+            args?: string[] | null;
+            /** Command */
+            command?: string[] | null;
+            /**
+             * Drop All Capabilities
+             * @default false
+             */
+            drop_all_capabilities: boolean;
+            /**
+             * Env Names
+             * @default []
+             */
+            env_names: string[];
+            /** Image */
+            image: string;
+            /**
+             * Kind
+             * @default Deployment
+             * @enum {string}
+             */
+            kind: "Deployment" | "StatefulSet";
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            liveness?: components["schemas"]["ProbeSpec"] | null;
+            /** Name */
+            name: string;
+            /**
+             * Ports
+             * @default []
+             */
+            ports: components["schemas"]["PortSpec"][];
+            /**
+             * Read Only Root
+             * @default false
+             */
+            read_only_root: boolean;
+            readiness?: components["schemas"]["ProbeSpec"] | null;
+            /** Replicas */
+            replicas: number;
+            resources: components["schemas"]["Resources"];
+            /** Run As Non Root */
+            run_as_non_root?: boolean | null;
+            /** Run As User */
+            run_as_user?: number | null;
+            /** Selector */
+            selector: {
+                [key: string]: string;
+            };
+            /** Service Name */
+            service_name?: string | null;
+            startup?: components["schemas"]["ProbeSpec"] | null;
+            /** Termination Grace Seconds */
+            termination_grace_seconds?: number | null;
+            /**
+             * Volumes
+             * @default []
+             */
+            volumes: components["schemas"]["VolumeSpec"][];
+            /** Working Dir */
+            working_dir?: string | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -2082,6 +2796,273 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_imports_imports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportList"];
+                };
+            };
+        };
+    };
+    create_import_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_capabilities_imports_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCapabilities"];
+                };
+            };
+        };
+    };
+    post_preview_imports_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_import_imports__import_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_import_imports__import_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deploy_import_imports__import_id__deploy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeployRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_import_imports__import_id__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_import_imports__import_id__remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

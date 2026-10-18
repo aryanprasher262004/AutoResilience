@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { ClusterAccess } from "@/components/settings/cluster-access";
 import { DataAndBackups } from "@/components/settings/data-backups";
+import { ImportSettings } from "@/components/settings/import-settings";
 import { LocalEnvironment, StackCommands } from "@/components/settings/local-environment";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { StackControls } from "@/components/settings/stack-controls";
@@ -21,7 +22,7 @@ export const metadata: Metadata = { title: "Settings" };
 
 const SECTIONS = [
   { id: "environment", title: "Environment health", description: "How this console reaches the engine, and how the engine reaches its database, cluster and Prometheus." },
-  { id: "kubernetes", title: "Kubernetes access", description: "The clusters the engine may read and the one where experiments may run." },
+  { id: "kubernetes", title: "Kubernetes access", description: "The clusters the engine may read, the one where experiments may run, and whether imported applications can be deployed there." },
   { id: "data", title: "Data and backups", description: "Where experiment history lives, and backing it up or restoring it." },
   { id: "stack", title: "Stack operations", description: "The operations allowed from the browser, and the terminal commands for everything else." },
   { id: "console", title: "Console", description: "Preferences and tours stored in this browser only." },
@@ -104,6 +105,7 @@ export default function SettingsPage() {
 
         <Section id="kubernetes">
           <ClusterAccess />
+          <ImportSettings />
         </Section>
 
         <Section id="data">

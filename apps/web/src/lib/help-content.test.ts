@@ -11,6 +11,8 @@ describe("Help content", () => {
     ["/applications", "applications"],
     ["/applications/new", "onboard"],
     ["/applications/7d2f", "topology"],
+    ["/applications/import", "import"],
+    ["/applications/imports/5b1d", "import-detail"],
     ["/services", "services"],
     ["/services/shop/Deployment/checkout", "service"],
     ["/reports/1", "report"],
@@ -21,8 +23,14 @@ describe("Help content", () => {
     expect(pageFor(path)).toBe(page);
   });
 
-  test("tours exist for the five main pages", () => {
-    expect(TOUR_PAGES).toEqual(["overview", "experiments", "applications", "topology", "settings"]);
+  test("tours exist for the main pages and the import flow", () => {
+    expect(TOUR_PAGES).toEqual(["overview", "experiments", "applications", "import", "import-detail", "topology", "settings"]);
+  });
+
+  test("no import tour step advances or points at a control that changes the cluster", () => {
+    for (const page of ["import", "import-detail"] as const) {
+      for (const step of PAGE_HELP[page].tour!) expect(step.advance, step.title).toBeUndefined();
+    }
   });
 
   test("tours only advance on view-only controls, never on ones that create, run or approve", () => {

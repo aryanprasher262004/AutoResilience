@@ -21,6 +21,14 @@ export const TOUR_TARGET = {
   applicationsOnboard: "applications-onboard",
   applicationsAbout: "applications-about",
   applicationsList: "applications-list",
+  applicationsImport: "applications-import",
+  importSource: "import-source",
+  importFindings: "import-findings",
+  importPlan: "import-plan",
+  importTraffic: "import-traffic",
+  importSave: "import-save",
+  importStatus: "import-status",
+  importActions: "import-actions",
   topologyCluster: "topology-cluster",
   topologyGraph: "topology-graph",
   topologyKinds: "topology-kinds",
@@ -35,6 +43,7 @@ export const TOUR_TARGET = {
   settingsData: "settings-data",
   settingsManager: "settings-manager",
   settingsTours: "settings-tours",
+  settingsImports: "settings-imports",
 } as const;
 export type TourTarget = (typeof TOUR_TARGET)[keyof typeof TOUR_TARGET];
 
@@ -78,6 +87,8 @@ export type PageId =
   | "experiment"
   | "applications"
   | "onboard"
+  | "import"
+  | "import-detail"
   | "topology"
   | "services"
   | "service"
@@ -87,6 +98,34 @@ export type PageId =
   | "learn";
 
 const ON_PHONES = "On a phone it is in the menu (top left).";
+
+/** What importing means, shared by the import wizard, an import's page and Help. */
+export const IMPORT_FACTS: Topic[] = [
+  {
+    title: "Import is not onboarding",
+    body: "Onboarding shows what already runs in a cluster and changes nothing. Importing deploys a copy of your application as an isolated test deployment, but only after you review its plan and approve it.",
+  },
+  {
+    title: "Nothing runs on file selection",
+    body: "The file is parsed on the server as data. Nothing is built, executed or pulled until you approve the deployment, and no file it mentions (.env, env_file, build context, bind mounts) is ever read.",
+  },
+  {
+    title: "Isolated and owned",
+    body: "Everything goes into a dedicated `ar-imp-<name>` namespace with Pod Security baseline, a quota, default limits and a network policy that keeps it to itself. Removal deletes only that namespace, after checking it belongs to the import.",
+  },
+  {
+    title: "A separate identity",
+    body: "Deployments use the provisioner identity, which can only write inside import namespaces (an admission policy enforces it). The engine's experiment identity cannot deploy, and the provisioner cannot run chaos.",
+  },
+  {
+    title: "Declared is not observed",
+    body: "Compose `depends_on` and networks are recorded as declared relationships. They are never drawn as Kubernetes relationships and never treated as evidence of traffic.",
+  },
+  {
+    title: "Experiments come after health",
+    body: "Imported workloads become experiment targets once the deployment is healthy. Every experiment is still checked by the same safety validation; a single-replica workload, for example, is refused.",
+  },
+];
 
 /** What onboarding means, shared by the Applications page, the onboarding flow and Help. */
 export const ONBOARDING_FACTS: Topic[] = [
@@ -255,6 +294,84 @@ export const PAGE_HELP: Record<PageId, PageHelp> = {
         title: "Onboard an application",
         body: "Three steps: choose an authorized cluster, the namespaces, then review the discovered workloads and save. Every choice is checked by the server.",
       },
+      {
+        target: TOUR_TARGET.applicationsImport,
+        title: "Or import one",
+        body: "Bring a Compose file, Kubernetes manifests or an image. You review a security report and the exact deployment plan before anything is created, in its own isolated namespace.",
+      },
+    ],
+  },
+  import: {
+    title: "Import an application",
+    summary: "Bring a Compose file, manifests or an image; review the security findings and the deployment plan; save it. Deploying is a separate, explicit step.",
+    href: "/applications/import",
+    topics: [
+      ...IMPORT_FACTS,
+      { title: "Load generator", body: "Optionally choose HTTP endpoints of your Services. A small client then sends requests to them only, so experiments get client-side evidence. Without it, client evidence is reported as unavailable, never as a success." },
+    ],
+    docs: [
+      { label: "Imports: supported inputs and security", path: "docs/imports.md" },
+      { label: "ResilienceMart example", path: "examples/resiliencemart/README.md" },
+    ],
+    tour: [
+      {
+        target: TOUR_TARGET.importSource,
+        title: "Choose what to import",
+        body: "A Compose file, Kubernetes manifests, or a single image. Pick a file or paste it; it is sent to the engine as text and parsed there, never run.",
+      },
+      {
+        target: TOUR_TARGET.importFindings,
+        title: "The security review",
+        body: "Blocking findings must be fixed in the file. Warnings deploy but behave differently from Docker. Notes say how something is translated or ignored.",
+        missing: "The review appears after you check a file.",
+      },
+      {
+        target: TOUR_TARGET.importPlan,
+        title: "The deployment plan",
+        body: "Every object that would be created, grouped by purpose, with what the deployment will and will never do. Its digest is what you approve later.",
+        missing: "The plan appears once the file has no blocking findings.",
+      },
+      {
+        target: TOUR_TARGET.importTraffic,
+        title: "Optional load",
+        body: "Pick HTTP endpoints of your own Services for client-side evidence. Only those endpoints, inside the import's namespace, can be reached.",
+        missing: "Available once the plan has a Service with a TCP port.",
+      },
+      {
+        target: TOUR_TARGET.importSave,
+        title: "Save, then decide",
+        body: "Saving stores the reviewed plan and deploys nothing. Deploying is a separate step on the next page, with its own confirmation.",
+        missing: "Saving is offered once the file has no blocking findings.",
+      },
+    ],
+  },
+  "import-detail": {
+    title: "Imported application",
+    summary: "The reviewed plan of an import, its deployment status and health, and the actions that change the cluster: deploy, retry and remove.",
+    href: null,
+    topics: [
+      ...IMPORT_FACTS,
+      { title: "Approving a deployment", body: "Deploy applies exactly the plan you reviewed (its digest). If anything changed since, the engine refuses and asks you to review again." },
+      { title: "Failures and retries", body: "Image pull errors, crash loops and timeouts are reported with what to do. Nothing retries by itself: retry when you have fixed the cause, or remove the import." },
+      { title: "Removal", body: "Type the import's name to remove it. The engine deletes its namespace only if the namespace and everything managed in it carry this import's ownership labels; otherwise it refuses and changes nothing." },
+    ],
+    docs: [{ label: "Imports runbook", path: "docs/imports.md" }],
+    tour: [
+      {
+        target: TOUR_TARGET.importStatus,
+        title: "Where the import stands",
+        body: "Reviewed, deploying, ready, failed, removing or removed. While deploying, the console checks health every few seconds with read-only access.",
+      },
+      {
+        target: TOUR_TARGET.importActions,
+        title: "Actions that change the cluster",
+        body: "Deploy, retry and remove each open a confirmation that lists what will happen. The tour never presses them.",
+      },
+      {
+        target: TOUR_TARGET.importPlan,
+        title: "The reviewed plan",
+        body: "Exactly what is, or would be, in the cluster, and the guarantees that come with it.",
+      },
     ],
   },
   onboard: {
@@ -406,6 +523,11 @@ export const PAGE_HELP: Record<PageId, PageHelp> = {
         body: "Pair with `ar manager` (it prints a token in your terminal) to start, stop or back up the stack from here. Every operation shows its plan first; the tour never runs one.",
       },
       {
+        target: TOUR_TARGET.settingsImports,
+        title: "Application imports",
+        body: "Whether this engine can deploy imported applications, and the separate identity it would use. Configuring it is terminal-only.",
+      },
+      {
         target: TOUR_TARGET.settingsTours,
         title: "Replay or reset tours",
         body: "Each page's tour is remembered in this browser once finished or skipped. Replay or reset them here.",
@@ -439,6 +561,8 @@ export function pageFor(pathname: string): PageId {
     case "experiments":
       return second === "new" ? "new-experiment" : second ? "experiment" : "experiments";
     case "applications":
+      if (second === "imports") return "import-detail";
+      if (second === "import") return "import";
       return second === "new" ? "onboard" : second ? "topology" : "applications";
     case "services":
       return second ? "service" : "services";

@@ -83,6 +83,8 @@ describe("Breadcrumbs", () => {
     ["/experiments/854cf356-56e1-4ce1-833f-7bcbe3550db8", "854cf356"],
     ["/services/shop/Deployment/checkout", "shop/checkout"],
     ["/how-it-works", "How it works"],
+    ["/applications/import", "Import"],
+    ["/applications/imports/5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a", "Import 5b1d3c2e"],
     ["/no-such-page", "Not found"],
     ["/_not-found", "Not found"],
     ["/settings/extra", "Not found"],

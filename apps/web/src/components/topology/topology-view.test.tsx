@@ -90,11 +90,13 @@ describe("TopologyView", () => {
     expect(selects).toHaveAccessibleDescription(/selector matches the Pod's labels.*not traffic/);
 
     const tooltip = document.getElementById(selects.getAttribute("aria-describedby")!)!;
-    expect(tooltip).toHaveClass("hidden");
+    expect(tooltip).toHaveAttribute("hidden");
+    // Portalled: the graph card's overflow cannot clip it (the `slice for` regression).
+    expect(tooltip.parentElement).toBe(document.body);
     await user.hover(selects);
-    expect(tooltip).not.toHaveClass("hidden");
+    expect(tooltip).not.toHaveAttribute("hidden");
     await user.keyboard("{Escape}");
-    expect(tooltip).toHaveClass("hidden");
+    expect(tooltip).toHaveAttribute("hidden");
   });
 
   it("has an expandable legend for kinds, health, relationships and marks", async () => {
@@ -146,5 +148,46 @@ describe("TopologyView", () => {
   it("explains an empty scope", () => {
     renderWithApi(<TopologyView topology={topology(undefined, { nodes: [], edges: [], unknowns: [], counts: {} })} />);
     expect(screen.getByText("No resources in this scope")).toBeInTheDocument();
+  });
+
+  it("marks imported resources and lists declared (unverified) relations apart from the graph's edges", async () => {
+    const base = topology();
+    const id = "5b1d3c2e-8a4f-4c6e-9d7a-1f2e3d4c5b6a";
+    const nodes = base.nodes.map((n) =>
+      n.id === "Deployment:shop/checkout"
+        ? { ...n, origin: { import_id: id, import_name: "shop", role: "application" as const, workload: "checkout" } }
+        : n,
+    );
+    const imported = {
+      import_id: id,
+      name: "shop",
+      status: "READY",
+      source: "compose" as const,
+      namespace: "shop",
+      declared: [
+        {
+          type: "depends_on" as const,
+          source: "Deployment:shop/checkout",
+          target: "Deployment:shop/frontend",
+          detail: "services.checkout.depends_on lists frontend",
+          verified: false as const,
+        },
+      ],
+      planned: [
+        { id: "Deployment:shop/checkout", kind: "Deployment", name: "checkout", group: "application" as const, observed: true },
+        { id: "Deployment:shop/cache", kind: "Deployment", name: "cache", group: "application" as const, observed: false },
+      ],
+    };
+    const { user } = renderWithApi(<TopologyView topology={{ ...base, nodes, imported }} />);
+    const panel = within(screen.getByRole("heading", { name: "Imported application" }).closest("section")!);
+    expect(panel.getByText("Deployment cache · not observed")).toBeInTheDocument();
+    expect(panel.getByText(/it says nothing about\s+traffic/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "node Deployment:shop/checkout" }));
+    const inspector = within(screen.getByRole("complementary", { name: "Inspector" }));
+    expect(inspector.getByRole("heading", { name: "Imported" })).toBeInTheDocument();
+    expect(inspector.getByRole("link", { name: "Import shop" })).toHaveAttribute("href", `/applications/imports/${id}`);
+    expect(inspector.getByRole("heading", { name: "Declared in the source file (1)" })).toBeInTheDocument();
+    expect(inspector.getByText("not verified")).toBeInTheDocument();
   });
 });

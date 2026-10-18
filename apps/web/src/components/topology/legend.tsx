@@ -74,6 +74,9 @@ export function TopologyLegend({ kinds }: { kinds: NodeKind[] }) {
           </Item>
         </Group>
         <Group title="Marks and toggles">
+          <Item mark={<span className="text-2xs text-info">imported</span>} label="Imported">
+            Created by an import from its reviewed plan. Relationships its file declared (depends_on) are listed, never drawn.
+          </Item>
           <Item mark={<span className="text-2xs text-accent">target</span>} label="Experiment target">
             A Deployment or StatefulSet on the execution cluster. Safety validation still decides every run.
           </Item>

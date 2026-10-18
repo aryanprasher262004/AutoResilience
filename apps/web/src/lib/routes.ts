@@ -4,6 +4,7 @@ const ROUTES = [
   /^\/$/,
   /^\/(experiments|applications|services|reports|settings|help|how-it-works|support|about)$/,
   /^\/applications\/[^/]+$/,
+  /^\/applications\/imports\/[^/]+$/,
   /^\/experiments\/[^/]+$/,
   /^\/reports\/[^/]+$/,
   /^\/services\/[^/]+\/[^/]+\/[^/]+$/,

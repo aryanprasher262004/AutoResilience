@@ -17,6 +17,11 @@ import type {
   ExperimentPage,
   Health,
   HistoryQuery,
+  ImportCapabilities,
+  ImportList,
+  ImportPreview,
+  ImportRead,
+  ImportRequest,
   NamespaceList,
   Readiness,
   Score,
@@ -188,4 +193,20 @@ export const api = {
   /** Forgets the record only; nothing in the cluster changes. */
   deleteApplication: (id: string) =>
     request<undefined>(`/applications/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  // Imports (P7). Only deployImport and removeImport change the cluster.
+  importCapabilities: () => request<ImportCapabilities>("/imports/capabilities"),
+  /** Parse, validate and plan; nothing is stored or deployed. */
+  previewImport: (payload: ImportRequest) => post<ImportPreview>("/imports/preview", payload),
+  /** Save the reviewed import; nothing is deployed. */
+  createImport: (payload: ImportRequest) => post<ImportRead>("/imports", payload),
+  imports: () => request<ImportList>("/imports"),
+  getImport: (id: string) => request<ImportRead>(`/imports/${encodeURIComponent(id)}`),
+  /** Explicit approval of exactly the reviewed plan (its digest). */
+  deployImport: (id: string, planDigest: string) =>
+    post<ImportRead>(`/imports/${encodeURIComponent(id)}/deploy`, { plan_digest: planDigest, confirm: true }),
+  /** One read-only health check. */
+  refreshImport: (id: string) => post<ImportRead>(`/imports/${encodeURIComponent(id)}/refresh`),
+  removeImport: (id: string, confirmName: string) =>
+    post<ImportRead>(`/imports/${encodeURIComponent(id)}/remove`, { confirm_name: confirmName }),
+  forgetImport: (id: string) => request<undefined>(`/imports/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };

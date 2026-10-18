@@ -3,17 +3,18 @@
 import { type ReactNode, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
-import { Card } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/states";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
-import type { EdgeType, NodeKind, Topology } from "@/lib/api/types";
+import type { EdgeType, ImportOverlay, NodeKind, Topology } from "@/lib/api/types";
 import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/format";
 import { TOUR_TARGET } from "@/lib/help-content";
+import { SOURCE_META, importHref } from "@/lib/imports";
 import {
   DEFAULT_FILTER,
   EDGE_META,
@@ -294,8 +295,64 @@ export function TopologyView({
         </p>
       </Card>
 
+      {topology.imported ? <ImportedPanel imported={topology.imported} onSelect={setSelectedId} /> : null}
       <Unknowns topology={topology} onSelect={setSelectedId} />
     </div>
+  );
+}
+
+/** Planned (reviewed) vs observed resources of an imported application, and what its file declared. */
+function ImportedPanel({ imported, onSelect }: { imported: ImportOverlay; onSelect: (id: string) => void }) {
+  const missing = imported.planned.filter((p) => !p.observed);
+  return (
+    <Card>
+      <CardHeader
+        title="Imported application"
+        description={`From ${SOURCE_META[imported.source].label.toLowerCase()} · ${imported.planned.length} planned resources, ${imported.planned.length - missing.length} observed now.`}
+        actions={
+          <ButtonLink href={importHref(imported.import_id)} size="sm">
+            Import {imported.name}
+          </ButtonLink>
+        }
+      />
+      <CardBody className="grid gap-3 text-xs">
+        <div>
+          <h3 className="text-2xs font-medium tracking-wide text-faint uppercase">Planned vs observed</h3>
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {imported.planned.map((p) => (
+              <li key={p.id}>
+                {p.observed ? (
+                  <button type="button" onClick={() => onSelect(p.id)} className="rounded border border-line px-1.5 py-0.5 font-mono text-2xs text-fg hover:border-accent">
+                    {p.kind} {p.name}
+                  </button>
+                ) : (
+                  <span className="rounded border border-dashed border-warning/50 px-1.5 py-0.5 font-mono text-2xs text-warning">
+                    {p.kind} {p.name} · not observed
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+        {imported.declared.length ? (
+          <div>
+            <h3 className="text-2xs font-medium tracking-wide text-faint uppercase">Declared in the source file (not verified)</h3>
+            <ul className="mt-1.5 grid gap-1 text-muted">
+              {imported.declared.map((d) => (
+                <li key={`${d.source}-${d.target}`}>
+                  <span className="font-mono text-fg">{d.source.split("/").at(-1)}</span> depends on{" "}
+                  <span className="font-mono text-fg">{d.target.split("/").at(-1)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-2xs text-faint">
+              Start order the file states. Kubernetes does not record it, so it is not drawn as a line, and it says nothing about
+              traffic.
+            </p>
+          </div>
+        ) : null}
+      </CardBody>
+    </Card>
   );
 }
 
