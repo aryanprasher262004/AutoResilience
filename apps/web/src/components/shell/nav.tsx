@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
 
 import {
+  ApplicationsIcon,
   BookIcon,
   ExperimentsIcon,
   HelpIcon,
@@ -25,6 +26,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/", label: "Overview", icon: OverviewIcon },
       { href: "/experiments", label: "Experiments", icon: ExperimentsIcon },
+      { href: "/applications", label: "Applications", icon: ApplicationsIcon },
       { href: "/services", label: "Services", icon: ServicesIcon },
       { href: "/reports", label: "Reports", icon: ReportsIcon },
     ],
@@ -50,7 +52,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 // "/_not-found": treating every unknown path alike keeps server and browser renders equal.
 const ROUTES = [
   /^\/$/,
-  /^\/(experiments|services|reports|settings|help|how-it-works|support|about)$/,
+  /^\/(experiments|applications|services|reports|settings|help|how-it-works|support|about)$/,
+  /^\/applications\/[^/]+$/,
   /^\/experiments\/[^/]+$/,
   /^\/reports\/[^/]+$/,
   /^\/services\/[^/]+\/[^/]+\/[^/]+$/,

@@ -26,7 +26,7 @@ describe("Top bar", () => {
     await user.click(toggle);
     const drawer = screen.getByRole("dialog", { name: "Navigation" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    for (const label of ["Overview", "Experiments", "Services", "Reports", "How it works", "Help", "Settings", "Support", "About"]) {
+    for (const label of ["Overview", "Experiments", "Applications", "Services", "Reports", "How it works", "Help", "Settings", "Support", "About"]) {
       expect(within(drawer).getByRole("link", { name: label })).toBeInTheDocument();
     }
     expect(within(drawer).getByRole("link", { name: "Experiments" })).toHaveAttribute("aria-current", "page");

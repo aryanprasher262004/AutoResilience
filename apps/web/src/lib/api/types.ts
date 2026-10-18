@@ -32,6 +32,20 @@ export type Readiness = Schemas["Readiness"];
 export type ReadinessReason = NonNullable<Readiness["checks"][number]["reason"]>;
 export type Environment = Schemas["Environment"];
 export type EnvironmentCheck = Schemas["EnvironmentCheck"];
+export type ClusterRef = Schemas["ClusterRef"];
+export type ClusterList = Schemas["ClusterList"];
+export type NamespaceList = Schemas["NamespaceList"];
+export type NamespaceInfo = Schemas["NamespaceInfo"];
+export type Topology = Schemas["Topology"];
+export type TopologyNode = Schemas["TopologyNode"];
+export type TopologyEdge = Schemas["TopologyEdge"];
+export type TopologyUnknown = Schemas["TopologyUnknown"];
+export type NodeKind = TopologyNode["kind"];
+export type NodeHealth = TopologyNode["health"];
+export type EdgeType = TopologyEdge["type"];
+export type Application = Schemas["ApplicationRead"];
+export type ApplicationList = Schemas["ApplicationList"];
+export type ApplicationCreate = Schemas["ApplicationCreate"];
 
 /** Query parameters of GET /experiments/history (mirrors the OpenAPI operation). */
 export type HistoryQuery = {

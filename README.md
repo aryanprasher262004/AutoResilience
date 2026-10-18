@@ -92,7 +92,11 @@ python3 tools/ar/ar.py install   # shows its plan and asks first; console on htt
 ```
 
 Then use `ar status`, `start`, `stop`, `backup`, `upgrade` and `uninstall` (which keeps your
-data unless asked). See [docs/local-stack.md](docs/local-stack.md). The rest of this section
+data unless asked); `ar manager` enables the console's stack controls, and `ar cluster
+import` grants read-only discovery of another cluster's namespaces. In the console,
+**Applications → Onboard application** shows a namespace's live topology and hands
+workloads to the experiment builder. See [docs/local-stack.md](docs/local-stack.md) and
+[docs/onboarding.md](docs/onboarding.md). The rest of this section
 is the development setup with host processes.
 
 ### 2.1 Cluster, monitoring, chaos and sample apps
@@ -323,6 +327,7 @@ docker volume rm autoresilience-pgdata        # deletes all experiment history
 | `docs/scoring/resilience-score-v3.md` (and v1, v2) | Score methodology |
 | `docs/orchestration.md` | Lifecycle orchestration, abort, cleanup |
 | `docs/local-stack.md` | Local stack: install, permissions, upgrade, backup, uninstall, troubleshooting |
+| `docs/topology.md`, `docs/onboarding.md` | Topology contract (`autoresilience-topology/1`), cluster access, application onboarding runbook |
 | `docs/readiness.md`, `docs/services.md`, `docs/history-and-reports.md`, `docs/ci.md` | Contracts and runbooks |
 | `chaos/policies/safety-policy.md` | Chaos safety contract |
 | `monitoring/prometheus/queries.md` | PromQL used for baseline and observation |

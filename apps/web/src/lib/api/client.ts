@@ -6,6 +6,10 @@
  */
 import type {
   AbortRequest,
+  Application,
+  ApplicationCreate,
+  ApplicationList,
+  ClusterList,
   DashboardSummary,
   Environment,
   Experiment,
@@ -13,10 +17,12 @@ import type {
   ExperimentPage,
   Health,
   HistoryQuery,
+  NamespaceList,
   Readiness,
   Score,
   ServiceDetail,
   ServiceList,
+  Topology,
   WorkloadKind,
 } from "./types";
 
@@ -124,6 +130,15 @@ function post<T>(path: string, payload?: unknown): Promise<T> {
   });
 }
 
+/** `?context=…&namespace=…`; an omitted context means the engine's execution cluster. */
+function scopeSearch(context: string | null | undefined, namespaces: string[] = []): string {
+  const params = new URLSearchParams();
+  if (context) params.set("context", context);
+  for (const namespace of namespaces) params.append("namespace", namespace);
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
 function isReadiness(body: unknown): body is Readiness {
   return !!body && typeof body === "object" && "status" in body && "checks" in body;
 }
@@ -161,4 +176,16 @@ export const api = {
   runExperiment: (id: string) => post<Experiment>(`/experiments/${encodeURIComponent(id)}/run`),
   abortExperiment: (id: string, payload: AbortRequest) =>
     post<Experiment>(`/experiments/${encodeURIComponent(id)}/abort`, payload),
+  /** Contexts the engine was configured to read (no cluster is contacted). */
+  clusters: () => request<ClusterList>("/clusters"),
+  namespaces: (context: string | null) => request<NamespaceList>(`/clusters/namespaces${scopeSearch(context)}`),
+  topology: (context: string | null, namespaces: string[]) =>
+    request<Topology>(`/topology${scopeSearch(context, namespaces)}`),
+  applications: () => request<ApplicationList>("/applications"),
+  application: (id: string) => request<Application>(`/applications/${encodeURIComponent(id)}`),
+  applicationTopology: (id: string) => request<Topology>(`/applications/${encodeURIComponent(id)}/topology`),
+  createApplication: (payload: ApplicationCreate) => post<Application>("/applications", payload),
+  /** Forgets the record only; nothing in the cluster changes. */
+  deleteApplication: (id: string) =>
+    request<undefined>(`/applications/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };

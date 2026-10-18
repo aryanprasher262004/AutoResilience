@@ -15,6 +15,7 @@ import { NavLinks, isKnownRoute } from "./nav";
 const LABELS: Record<string, string> = {
   experiments: "Experiments",
   new: "New",
+  applications: "Applications",
   services: "Services",
   reports: "Reports",
   settings: "Settings",

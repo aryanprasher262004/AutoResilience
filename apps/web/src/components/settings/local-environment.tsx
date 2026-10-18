@@ -143,11 +143,13 @@ const COMMANDS: [string, string][] = [
   ["start / stop", "start or stop the stack; containers and data are kept"],
   ["backup / restore FILE", "pg_dump of the experiment database to ~/.autoresilience/backups"],
   ["upgrade", "back up, rebuild from this checkout, migrate, restart"],
+  ["cluster import / remove", "grant or revoke read-only discovery access to another context's namespaces"],
+  ["manager", "loopback service manager for the console's stack controls"],
   ["diagnostics --logs", "secret-free report for a bug report"],
   ["uninstall", "remove the stack; data and the cluster are kept unless you opt in"],
 ];
 
-/** Static reference: the console cannot run these (no service-manager endpoint exists yet). */
+/** Static reference; start, stop and backup are also available through Stack controls (ar manager). */
 export function StackCommands() {
   return (
     <Card>

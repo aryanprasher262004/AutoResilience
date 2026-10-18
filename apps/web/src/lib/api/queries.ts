@@ -20,7 +20,16 @@ export const queryKeys = {
   dashboard: ["dashboard"] as const,
   services: ["services"] as const,
   service: (namespace: string, kind: WorkloadKind, name: string) => ["services", namespace, kind, name] as const,
+  clusters: ["clusters"] as const,
+  namespaces: (context: string | null) => ["clusters", context, "namespaces"] as const,
+  topology: (context: string | null, namespaces: string[]) => ["topology", context, namespaces] as const,
+  applications: ["applications"] as const,
+  application: (id: string) => ["applications", id] as const,
+  applicationTopology: (id: string) => ["applications", id, "topology"] as const,
 };
+
+/** Topology is a snapshot of live state; it is re-read on this cadence while shown. */
+export const TOPOLOGY_POLL_MS = IDLE_POLL_MS;
 
 /** Dependency readiness (GET /ready); re-checked sooner while not ready. */
 export function useReadiness() {
@@ -87,5 +96,45 @@ export function useService(namespace: string, kind: WorkloadKind, name: string) 
       q.state.data?.experiments.some((e) => e.state !== "CREATED" && !isTerminal(e.state))
         ? ACTIVE_POLL_MS
         : IDLE_POLL_MS,
+  });
+}
+
+export function useClusters() {
+  return useQuery({ queryKey: queryKeys.clusters, queryFn: api.clusters });
+}
+
+export function useNamespaces(context: string | null, enabled = true) {
+  return useQuery({ queryKey: queryKeys.namespaces(context), queryFn: () => api.namespaces(context), enabled });
+}
+
+/** Onboarding preview: the topology of namespaces not saved as an application yet. */
+export function useTopologyPreview(context: string | null, namespaces: string[], enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.topology(context, namespaces),
+    queryFn: () => api.topology(context, namespaces),
+    enabled: enabled && namespaces.length > 0,
+  });
+}
+
+export function useApplications() {
+  return useQuery({ queryKey: queryKeys.applications, queryFn: api.applications });
+}
+
+export function useApplication(id: string) {
+  return useQuery({
+    queryKey: queryKeys.application(id),
+    queryFn: () => api.application(id),
+    retry: (failures, error) => !("status" in error && error.status === 404) && failures < 2,
+  });
+}
+
+/** Failed refreshes keep the last snapshot (shown as stale with its observed_at). */
+export function useApplicationTopology(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.applicationTopology(id),
+    queryFn: () => api.applicationTopology(id),
+    refetchInterval: TOPOLOGY_POLL_MS,
+    enabled,
+    retry: false,
   });
 }

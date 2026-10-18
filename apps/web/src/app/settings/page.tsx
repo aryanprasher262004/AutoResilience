@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { GuideControls } from "@/components/settings/guide-controls";
 import { LocalEnvironment, StackCommands } from "@/components/settings/local-environment";
 import { PreferencesForm } from "@/components/settings/preferences-form";
+import { StackControls } from "@/components/settings/stack-controls";
 import { ApiStatus } from "@/components/shell/api-status";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -71,13 +72,16 @@ export default function SettingsPage() {
 
         <LocalEnvironment />
 
+        <StackControls />
+
         <StackCommands />
 
-        <PlannedState milestone="Planned" title="Managing the stack from the console">
+        <PlannedState milestone="Not in the browser" title="What stays out of the console">
           <p>
-            Starting and stopping the stack, reviewing the engine&apos;s granted permissions, backups and a cleanup
-            preview need a local service-manager endpoint, which does not exist yet; use the commands above. The
-            cluster context is fixed when the engine starts (<code className="font-mono">KUBE_CONTEXT</code>).
+            Installing, upgrading, restoring and uninstalling the stack, and granting the engine access to further
+            clusters (<code className="font-mono">ar cluster import</code>), provision or delete resources and run only
+            from a terminal. The engine&apos;s clusters are fixed when it starts (
+            <code className="font-mono">KUBE_CONTEXT</code>, <code className="font-mono">DISCOVERY_CLUSTERS</code>).
           </p>
           <p>
             Safety policies, timeouts and limits are configured in the engine (code and environment variables) and

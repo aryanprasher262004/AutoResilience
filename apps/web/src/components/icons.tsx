@@ -42,6 +42,15 @@ export const ServicesIcon = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const ApplicationsIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <circle cx="5" cy="12" r="2" />
+    <circle cx="19" cy="6" r="2" />
+    <circle cx="19" cy="18" r="2" />
+    <path d="M7 11.2 17 6.8M7 12.8l10 4.4" />
+  </Icon>
+);
+
 export const ReportsIcon = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
     <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" />
