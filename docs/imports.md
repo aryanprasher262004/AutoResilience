@@ -237,3 +237,9 @@ namespace and internet egress blocked), health verified, topology onboarded, pod
 run on storefront (GRACEFUL, 100) and checkout (FORCE, 96.2, slower recovery), the
 single-replica cache refused by validation, the load generator refused as a target,
 removal refused while a foreign ConfigMap was present, then completed.
+
+Manual acceptance (user-run, ResilienceMart guide): Compose import, deployment,
+topology discovery, storefront and checkout experiments, rejection of
+`unsafe-compose.yaml` and the single-replica safety refusal confirmed. The manual
+cleanup steps (guide §6: removal, ownership refusal, forget) are **not yet confirmed**
+in that run.
